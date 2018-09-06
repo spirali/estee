@@ -48,7 +48,7 @@ def random_graph():
         ARC_RED_BLUE: rb
     }
 
-    values = np.array([np.sum(inits[RED][np.unique(arcs[ARC_RED_BLUE])])])
+    values = np.array([np.sum(inits[RED][np.unique(arcs[ARC_RED_BLUE][:,0])])])
     values = values.reshape((-1, 1))
     return GRAPH.make_input_instance(arcs, inits), values
 
