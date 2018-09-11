@@ -44,9 +44,10 @@ class TaskRuntimeInfo:
 
 class Simulator:
 
-    def __init__(self, task_graph, workers, scheduler):
+    def __init__(self, task_graph, workers, scheduler, connector):
         self.workers = workers
         self.task_graph = task_graph
+        self.connector = connector
         self.scheduler = scheduler
         scheduler.simulator = self
         self.new_finished = []
@@ -104,8 +105,11 @@ class Simulator:
         self.unprocessed_tasks = self.task_graph.task_count
 
         env = Environment()
+
+        self.connector.init(env, self.workers)
+
         for worker in self.workers:
-            env.process(worker.run(env, self))
+            env.process(worker.run(env, self, self.connector))
 
         master_process = env.process(self._master_process(env))
         self.scheduler.init(self)

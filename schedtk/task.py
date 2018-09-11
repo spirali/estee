@@ -2,16 +2,18 @@
 
 class Task:
 
-    __slots__ = ("inputs", "consumers", "duration", "name", "id", "info")
+    __slots__ = ("inputs", "consumers", "duration", "size", "name", "id", "info")
 
-    def __init__(self, name=None, duration=1):
+    def __init__(self, name=None, duration=1, size=0):
         self.inputs = []
         self.consumers = set()
 
-        self.duration = duration
         self.name = name
         self.id = None
         self.info = None
+
+        self.duration = duration
+        self.size = size
 
     @property
     def label(self):
