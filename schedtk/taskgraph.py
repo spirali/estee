@@ -12,8 +12,8 @@ class TaskGraph:
     def task_count(self):
         return len(self.tasks)
 
-    def new_task(self, name=None, duration=1):
-        task = Task(name, duration)
+    def new_task(self, name=None, duration=1, size=0):
+        task = Task(name, duration, size)
         task.id = self._id_counter
         self._id_counter += 1
         self.tasks.append(task)

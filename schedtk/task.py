@@ -2,7 +2,7 @@
 
 class Task:
 
-    __slots__ = ("inputs", "consumers", "duration", "size", "name", "id", "info")
+    __slots__ = ("inputs", "consumers", "duration", "size", "name", "id", "info", "s_info")
 
     def __init__(self, name=None, duration=1, size=0):
         self.inputs = []
@@ -11,13 +11,17 @@ class Task:
         self.name = name
         self.id = None
         self.info = None
+        self.s_info = None
 
         self.duration = duration
         self.size = size
 
     @property
     def label(self):
-        return "{} [{}]\n{}".format(self.name, self.id, self.duration)
+        if self.name:
+            return self.name
+        else:
+            return "id={}".format(self.id)
 
     def add_input(self, task):
         assert isinstance(task, Task)
@@ -30,10 +34,14 @@ class Task:
 
     def __repr__(self):
         if self.name:
-            name = " " + self.name
+            name = " '" + self.name + "'"
         else:
             name = ""
-        return "<Task{} id={}>".format(name, self.id)
+        if self.s_info is not None:
+            s_info = " " + repr(self.s_info)
+        else:
+            s_info = ""
+        return "<T{} id={}{}>".format(name, self.id, s_info)
 
     def is_predecessor_of(self, task):
         descendants = set()

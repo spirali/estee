@@ -1,6 +1,7 @@
 
 from enum import Enum
 from simpy import Environment, Event
+from .trace import TaskAssignTraceEvent, build_trace_html
 
 
 class TaskState(Enum):
@@ -44,7 +45,7 @@ class TaskRuntimeInfo:
 
 class Simulator:
 
-    def __init__(self, task_graph, workers, scheduler, connector):
+    def __init__(self, task_graph, workers, scheduler, connector, trace=False):
         self.workers = workers
         self.task_graph = task_graph
         self.connector = connector
@@ -53,6 +54,15 @@ class Simulator:
         self.new_finished = []
         self.new_ready = []
         self.wakeup_event = None
+        self.env = None
+        if trace:
+            self.trace_events = []
+        else:
+            self.trace_events = None
+
+    def add_trace_event(self, trace_event):
+        if self.trace_events is not None:
+            self.trace_events.append(trace_event)
 
     def schedule(self, ready_tasks, finished_tasks):
         for worker, task in self.scheduler.schedule(ready_tasks, finished_tasks):
@@ -62,6 +72,7 @@ class Simulator:
             info.state = TaskState.Assigned
             info.assigned_workers.append(worker)
             worker.assign_task(task)
+            self.add_trace_event(TaskAssignTraceEvent(self.env.now, worker, task))
 
     def _master_process(self, env):
         self.schedule(self.task_graph.source_nodes(), [])
@@ -91,21 +102,30 @@ class Simulator:
                         t_info.unfinished_inputs, t
                     ))
                 assert t_info.unfinished_inputs == 0
-                assert t_info.state == TaskState.Waiting
-                t_info.state = TaskState.Ready
+                if t_info.state == TaskState.Waiting:
+                    t_info.state = TaskState.Ready
                 self.new_ready.append(t)
+
+        for t in task.consumers:
+            for w in t.info.assigned_workers:
+                w.update_task(t)
 
         if not self.wakeup_event.triggered:
             self.wakeup_event.succeed()
 
+    def make_trace_report(self, filename):
+        build_trace_html(self.trace_events, self.workers, filename)
+
     def run(self):
+        assert not self.trace_events
+
         for task in self.task_graph.tasks:
             task.info = TaskRuntimeInfo(task)
 
         self.unprocessed_tasks = self.task_graph.task_count
 
         env = Environment()
-
+        self.env = env
         self.connector.init(env, self.workers)
 
         for worker in self.workers:

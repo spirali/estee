@@ -1,6 +1,7 @@
 
 from .taskgraph import TaskGraph
 
+
 def test_is_descendant():
     graph = TaskGraph()
 
