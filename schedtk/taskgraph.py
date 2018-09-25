@@ -12,6 +12,10 @@ class TaskGraph:
     def task_count(self):
         return len(self.tasks)
 
+    def cleanup(self):
+        for task in self.tasks:
+            task.cleanup()
+
     def new_task(self, name=None, duration=1, size=0):
         task = Task(name, duration, size)
         task.id = self._id_counter
@@ -41,3 +45,6 @@ class TaskGraph:
 
             for t in task.consumers:
                 assert t in self.tasks
+
+    def __repr__(self):
+        return "<TaskGraph #t={}>".format(len(self.tasks))

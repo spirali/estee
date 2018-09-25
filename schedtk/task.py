@@ -23,6 +23,10 @@ class Task:
         else:
             return "id={}".format(self.id)
 
+    def cleanup(self):
+        self.info = None
+        self.s_info = None
+
     def add_input(self, task):
         assert isinstance(task, Task)
         self.inputs.append(task)

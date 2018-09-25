@@ -29,7 +29,7 @@ def random_levels(counts, inputs, task_fn):
         for task in level:
             if inps:
                 if isinstance(inps, tuple):
-                    inps = random.randint(min(len(level), inps[0]),
-                                          min(len(level), inps[1]))
+                    inps = random.randint(min(len(prev), inps[0]),
+                                          min(len(prev), inps[1]))
                 task.add_inputs(random.sample(prev, inps))
         prev = level
