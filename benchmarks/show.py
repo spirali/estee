@@ -4,7 +4,7 @@ import seaborn
 
 
 def main():
-    data = pd.read_pickle("results.xz")
+    data = pd.read_pickle("data.xz")
 
     columns = [c for c in data.columns if c.endswith("_avg")]
 

@@ -3,7 +3,7 @@ from schedtk.taskgraph import TaskGraph
 from schedtk import Worker, Simulator
 from schedtk.connectors import SimpleConnector
 from schedtk.generators import random_levels
-from schedtk.schedulers import RandomAssignScheduler, BlevelGtScheduler, RandomGtScheduler
+from schedtk.schedulers import RandomAssignScheduler, BlevelGtScheduler, RandomGtScheduler, AllOnOneScheduler
 
 import random
 import numpy as np
@@ -49,6 +49,7 @@ schedulers = [
     ("qrandom", RandomGtScheduler, 1000),
     ("blevel1", lambda: BlevelGtScheduler(False), 1),
     ("blevel2", lambda: BlevelGtScheduler(True), 1),
+    ("single", lambda: AllOnOneScheduler, 1),
 ]
 bandwidths = [0.01, 0.1, 1.0, 10.0, 100.0]
 
@@ -71,7 +72,7 @@ def process_graph(graph):
 def main():
     graphs = [make_graph() for _ in range(200)]
 
-    columns = ["task_graph", "bandwidth"]
+    columns = ["task_graph", "workers", "bandwidth"]
     for name, _, _ in schedulers:
         columns.append(name + "_avg")
         columns.append(name + "_std")
@@ -86,7 +87,7 @@ def main():
         graph.cleanup()
         g = [graph]
         for data in r:
-            results.append([g] + data)
+            results.append([g, n_workers] + data)
 
     #for graph in graphs:
     #    results += process_graph(graph)
