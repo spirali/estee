@@ -23,8 +23,7 @@ def benchmark_scheduler(task_graph, scheduler_class, n_workers, bandwidth, count
 
 
 def main():
-    data = pd.read_pickle("data.xz")
-    bandwidths = [0.01, 0.1, 1.0, 10.0, 100.0]
+    data = pd.read_pickle("dataset1.xz")
     count = 1
     scheduler = AllOnOneScheduler
 
@@ -34,14 +33,8 @@ def main():
         r = [graph, row.workers, row.bandwidth]
         r.append(benchmark_scheduler(graph, scheduler, row.workers, row.bandwidth, count))
         results.append(r)
-        graph.clean()
 
     frame = pd.DataFrame(results, columns=["task_graph", "workers", "bandwidth", "avg"])
-
-    #data["single_avg"] = frame["avg"]
-    #data["min"] = data[["min", "single_avg"]].min(axis=1)
-    #data.to_pickle("data.xz")
-
     frame["avg"] /= data["min"]
 
     df = frame.groupby("bandwidth")["avg"].mean()
