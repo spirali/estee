@@ -49,7 +49,7 @@ schedulers = [
     ("qrandom", RandomGtScheduler, 1000),
     ("blevel1", lambda: BlevelGtScheduler(False), 1),
     ("blevel2", lambda: BlevelGtScheduler(True), 1),
-    ("single", lambda: AllOnOneScheduler, 1),
+    ("single", AllOnOneScheduler, 1),
 ]
 bandwidths = [0.01, 0.1, 1.0, 10.0, 100.0]
 
