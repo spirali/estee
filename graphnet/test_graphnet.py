@@ -76,14 +76,15 @@ def build_net():
 def build_training(input, output):
     labels = tf.placeholder(tf.float32, shape=(None, 1), name="labels")
     loss = tf.losses.mean_squared_error(labels, output, scope="loss")
-    trainer = tf.train.AdamOptimizer().minimize(loss, name="c_training")
+    with tf.variable_scope("trainer", reuse=tf.AUTO_REUSE):
+        trainer = tf.train.AdamOptimizer().minimize(loss, name="c_training")
     return trainer, labels, loss
 
 
 def test_train():
     with tf.Session() as session:
         BATCH_SIZE = 120
-        with tf.variable_scope("net"):
+        with tf.variable_scope("net", reuse=tf.AUTO_REUSE):
             input, output = build_net()
         trainer, labels, loss = build_training(input, output)
 
