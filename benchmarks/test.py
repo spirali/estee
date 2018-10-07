@@ -46,11 +46,10 @@ def main():
     frame = pd.DataFrame(results, columns=["task_graph", "workers", "bandwidth", "avg"])
     frame["avg"] /= data["min"]
 
-    df = frame.groupby("bandwidth")["avg"].mean()
 
+    df = frame.groupby("bandwidth")["avg"].mean()
     seaborn.violinplot(y="avg", x="bandwidth", data=frame, palette="Set3")
     plt.show()
-
     print(df)
 
     seaborn.violinplot(y="avg", x="bandwidth", data=frame, palette="Set3")

@@ -36,10 +36,10 @@ class TaskGraph:
         self.tasks.append(task)
         return task
 
-    def source_nodes(self):
+    def source_tasks(self):
         return [t for t in self.tasks if not t.inputs]
 
-    def leaf_nodes(self):
+    def leaf_tasks(self):
         return [t for t in self.tasks if not t.consumers]
 
     @property

@@ -75,7 +75,7 @@ class Simulator:
             self.add_trace_event(TaskAssignTraceEvent(self.env.now, worker, task))
 
     def _master_process(self, env):
-        self.schedule(self.task_graph.source_nodes(), [])
+        self.schedule(self.task_graph.source_tasks(), [])
 
         while self.unprocessed_tasks > 0:
             self.wakeup_event = Event(env)
