@@ -5,7 +5,7 @@ import numpy as np
 
 from schedtk import Worker, Simulator
 from schedtk.connectors import SimpleConnector
-from schedtk.schedulers import AllOnOneScheduler
+from schedtk.schedulers import RandomGtScheduler
 
 
 def run_single_instance(task_graph, n_workers, scheduler, bandwidth):
@@ -25,7 +25,7 @@ def benchmark_scheduler(task_graph, scheduler_class, n_workers, bandwidth, count
 def main():
     data = pd.read_pickle("dataset1.xz")
     count = 1
-    scheduler = AllOnOneScheduler
+    scheduler = RandomGtScheduler
 
     results = []
     for i, row in data.iterrows():
@@ -38,6 +38,10 @@ def main():
     frame["avg"] /= data["min"]
 
     df = frame.groupby("bandwidth")["avg"].mean()
+
+    seaborn.violinplot(y="avg", x="bandwidth", data=frame, palette="Set3")
+    plt.show()
+
     print(df)
 
 
