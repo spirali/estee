@@ -6,6 +6,7 @@ import numpy as np
 from schedtk import Worker, Simulator
 from schedtk.connectors import SimpleConnector
 from schedtk.schedulers import RandomGtScheduler
+import multiprocessing
 
 
 def run_single_instance(task_graph, n_workers, scheduler, bandwidth):
@@ -22,16 +23,24 @@ def benchmark_scheduler(task_graph, scheduler_class, n_workers, bandwidth, count
     return np.average(data)
 
 
-def main():
-    data = pd.read_pickle("dataset1.xz")
+def process(pair):
+    scheduler = AllOnOneScheduler
     count = 1
-    scheduler = RandomGtScheduler
+
+    i, row = pair
+    graph = row.task_graph[0]
+    r = [graph, row.workers, row.bandwidth]
+    r.append(benchmark_scheduler(graph, scheduler, row.workers, row.bandwidth, count))
+    graph.cleanup()
+    return r
+
+def main():
+
+    data = pd.read_pickle("dataset1.xz")
+    pool = multiprocessing.Pool()
 
     results = []
-    for i, row in data.iterrows():
-        graph = row.task_graph[0]
-        r = [graph, row.workers, row.bandwidth]
-        r.append(benchmark_scheduler(graph, scheduler, row.workers, row.bandwidth, count))
+    for r in pool.imap(process, data.iterrows(), 100):
         results.append(r)
 
     frame = pd.DataFrame(results, columns=["task_graph", "workers", "bandwidth", "avg"])
@@ -43,6 +52,9 @@ def main():
     plt.show()
 
     print(df)
+
+    seaborn.violinplot(y="avg", x="bandwidth", data=frame, palette="Set3")
+    plt.show()
 
 
 main()
