@@ -85,7 +85,6 @@ class Simulator:
             self.new_ready = []
 
     def on_task_finished(self, worker, task):
-        #print("TASK FINISHED", task)
         info = task.info
         assert info.state == TaskState.Assigned
         assert worker in info.assigned_workers

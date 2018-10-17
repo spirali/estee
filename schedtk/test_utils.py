@@ -60,12 +60,16 @@ def plan_reverse_cherry1():
     return task_graph
 
 
-def do_sched_test(task_graph, n_workers, scheduler, connector=None, report=None):
+def do_sched_test(task_graph, workers, scheduler, connector=None, report=None):
 
     if connector is None:
         connector = InstantConnector()
 
-    workers = [Worker() for _ in range(n_workers)]
+    if isinstance(workers, int):
+        workers = [Worker() for _ in range(workers)]
+    else:
+        workers = [Worker(cpus=cpus) for cpus in workers]
+
     simulator = Simulator(task_graph, workers, scheduler, connector, trace=bool(report))
     result = simulator.run()
     if report:

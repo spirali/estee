@@ -24,7 +24,7 @@ def benchmark_scheduler(task_graph, scheduler_class, n_workers, bandwidth, count
 
 
 def process(pair):
-    scheduler = AllOnOneScheduler
+    scheduler = RandomGtScheduler
     count = 1
 
     i, row = pair

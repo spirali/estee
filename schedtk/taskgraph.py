@@ -16,8 +16,8 @@ class TaskGraph:
         for task in self.tasks:
             task.cleanup()
 
-    def new_task(self, name=None, duration=1, size=0):
-        task = Task(name, duration, size)
+    def new_task(self, name=None, duration=1, size=0, cpus=1):
+        task = Task(name, duration, size, cpus)
         task.id = self._id_counter
         self._id_counter += 1
         self.tasks.append(task)

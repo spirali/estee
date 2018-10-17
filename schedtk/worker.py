@@ -4,7 +4,8 @@ from .trace import TaskStartTraceEvent, TaskEndTraceEvent, FetchStartTraceEvent,
 
 class Worker:
 
-    def __init__(self):
+    def __init__(self, cpus=1):
+        self.cpus = cpus
         self.assigned_tasks = []
         self.ready_tasks = None
 
@@ -25,6 +26,8 @@ class Worker:
         return p
 
     def assign_task(self, task):
+        if task.cpus > self.cpus:
+            raise Exception("Task {} allocated on worker with {} cpus".format(task, self.cpus))
         self.assigned_tasks.append(task)
         self._init_downloads(task)
 
@@ -65,14 +68,33 @@ class Worker:
         self.connector = connector
         self.ready_tasks = Store(env)
 
+        free_cpus = self.cpus
+
+        prepared_tasks = []
+        events = [self.ready_tasks.get()]
+
         while True:
-            task = yield self.ready_tasks.get()
-            simulator.add_trace_event(TaskStartTraceEvent(self.env.now, self, task))
-            yield env.timeout(task.duration)
-            simulator.add_trace_event(TaskEndTraceEvent(self.env.now, self, task))
-            self.assigned_tasks.remove(task)
-            self.data.add(task)
-            simulator.on_task_finished(self, task)
+            finished = yield env.any_of(events)
+            for event in finished.keys():
+                if event == events[0]:
+                    prepared_tasks.append(event.value)
+                    events[0] = self.ready_tasks.get()
+                    continue
+
+                task = event.value
+                free_cpus += task.cpus
+                self.assigned_tasks.remove(task)
+                events.remove(event)
+                simulator.add_trace_event(TaskEndTraceEvent(self.env.now, self, task))
+                self.data.add(task)
+                simulator.on_task_finished(self, task)
+
+            for task in prepared_tasks[:]:
+                if task.cpus <= free_cpus:
+                    free_cpus -= task.cpus
+                    simulator.add_trace_event(TaskStartTraceEvent(self.env.now, self, task))
+                    events.append(env.timeout(task.duration, task))
+                    prepared_tasks.remove(task)
 
     def __repr__(self):
         return "<Worker {}>".format(id(self))
