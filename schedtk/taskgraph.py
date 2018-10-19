@@ -4,9 +4,23 @@ from .task import Task
 
 class TaskGraph:
 
-    def __init__(self):
-        self.tasks = []
-        self._id_counter = 0
+    def __init__(self, tasks=None):
+        if tasks is None:
+            self.tasks = []
+        else:
+            for i, task in enumerate(tasks):
+                task.id = i
+            self.tasks = tasks
+
+    def _copy_tasks(self):
+        tasks = [task.simple_copy() for task in self.tasks]
+        for old_task, task in zip(self.tasks, tasks):
+            for inp in old_task.inputs:
+                task.add_input(tasks[inp.id])
+        return tasks
+
+    def copy(self):
+        return TaskGraph(tasks=self._copy_tasks())
 
     @property
     def task_count(self):
@@ -18,8 +32,7 @@ class TaskGraph:
 
     def new_task(self, name=None, duration=1, size=0, cpus=1):
         task = Task(name, duration, size, cpus)
-        task.id = self._id_counter
-        self._id_counter += 1
+        task.id = len(self.tasks)
         self.tasks.append(task)
         return task
 
@@ -64,3 +77,8 @@ class TaskGraph:
 
     def __repr__(self):
         return "<TaskGraph #t={}>".format(len(self.tasks))
+
+    @staticmethod
+    def merge(task_graphs):
+        tasks = sum((tg._copy_tasks() for tg in task_graphs), [])
+        return TaskGraph(tasks=tasks)

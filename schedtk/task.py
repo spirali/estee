@@ -21,6 +21,9 @@ class Task:
         self.size = size
         self.cpus = cpus
 
+    def simple_copy(self):
+        return Task(self.name, self.duration, self.size, self.cpus)
+
     @property
     def label(self):
         if self.name:
