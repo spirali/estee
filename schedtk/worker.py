@@ -6,8 +6,8 @@ class Worker:
 
     def __init__(self, cpus=1):
         self.cpus = cpus
-        self.assigned_tasks = []
-        self.ready_tasks = None
+        self.assignments = []
+        self.ready_store = None
 
         self.data = set()
         self.downloads = {}
@@ -25,20 +25,29 @@ class Worker:
         self.downloads[task] = p
         return p
 
-    def assign_task(self, task):
-        if task.cpus > self.cpus:
-            raise Exception("Task {} allocated on worker with {} cpus".format(task, self.cpus))
-        self.assigned_tasks.append(task)
-        self._init_downloads(task)
+    def assign_task(self, assignment):
+        if assignment.task.cpus > self.cpus:
+            raise Exception("Task {} allocated on worker with {} cpus"
+                            .format(assignment.task, self.cpus))
+        assert assignment.worker == self
+        self.assignments.append(assignment)
+        self._init_downloads(assignment)
 
     def update_task(self, task):
-        assert task in self.assigned_tasks
-        self._init_downloads(task)
+        for assignment in self.assignments:
+            if task == assignment.task:
+                self._init_downloads(assignment)
+                return
+        raise Exception("Updating non assigned task {}, worker={}".format(task, self))
 
-    def _init_downloads(self, task):
+    @property
+    def assigned_tasks(self):
+        return [a.task for a in self.assignments]
+
+    def _init_downloads(self, assignment):
         deps = []
         not_complete = False
-        for input in task.inputs:
+        for input in assignment.task.inputs:
             if input in self.data:
                 continue
 
@@ -53,12 +62,12 @@ class Worker:
 
         def _helper():
             yield self.env.all_of(deps)
-            self.ready_tasks.put(task)
+            self.ready_store.put(assignment)
 
         if not_complete:
             return
         if not deps:
-            self.ready_tasks.put(task)
+            self.ready_store.put(assignment)
         else:
             self.env.process(_helper())
 
@@ -66,35 +75,37 @@ class Worker:
         self.env = env
         self.simulator = simulator
         self.connector = connector
-        self.ready_tasks = Store(env)
+        self.ready_store = Store(env)
 
         free_cpus = self.cpus
 
-        prepared_tasks = []
-        events = [self.ready_tasks.get()]
+        prepared_assignments = []
+        events = [self.ready_store.get()]
 
         while True:
             finished = yield env.any_of(events)
             for event in finished.keys():
                 if event == events[0]:
-                    prepared_tasks.append(event.value)
-                    events[0] = self.ready_tasks.get()
+                    prepared_assignments.append(event.value)
+                    events[0] = self.ready_store.get()
                     continue
 
-                task = event.value
+                assignment = event.value
+                task = assignment.task
                 free_cpus += task.cpus
-                self.assigned_tasks.remove(task)
+                self.assignments.remove(assignment)
                 events.remove(event)
                 simulator.add_trace_event(TaskEndTraceEvent(self.env.now, self, task))
                 self.data.add(task)
                 simulator.on_task_finished(self, task)
 
-            for task in prepared_tasks[:]:
+            for assignment in prepared_assignments[:]:
+                task = assignment.task
                 if task.cpus <= free_cpus:
                     free_cpus -= task.cpus
                     simulator.add_trace_event(TaskStartTraceEvent(self.env.now, self, task))
-                    events.append(env.timeout(task.duration, task))
-                    prepared_tasks.remove(task)
+                    events.append(env.timeout(task.duration, assignment))
+                    prepared_assignments.remove(assignment)
 
     def __repr__(self):
         return "<Worker {}>".format(id(self))

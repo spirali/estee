@@ -5,7 +5,7 @@ import numpy as np
 
 from schedtk import Worker, Simulator
 from schedtk.connectors import SimpleConnector
-from schedtk.schedulers import RandomGtScheduler
+from schedtk.schedulers import CampScheduler, AllOnOneScheduler
 import multiprocessing
 
 
@@ -24,7 +24,7 @@ def benchmark_scheduler(task_graph, scheduler_class, n_workers, bandwidth, count
 
 
 def process(pair):
-    scheduler = RandomGtScheduler
+    scheduler = CampScheduler
     count = 1
 
     i, row = pair
@@ -33,6 +33,7 @@ def process(pair):
     r.append(benchmark_scheduler(graph, scheduler, row.workers, row.bandwidth, count))
     graph.cleanup()
     return r
+
 
 def main():
 
@@ -46,14 +47,11 @@ def main():
     frame = pd.DataFrame(results, columns=["task_graph", "workers", "bandwidth", "avg"])
     frame["avg"] /= data["min"]
 
-
     df = frame.groupby("bandwidth")["avg"].mean()
-    seaborn.violinplot(y="avg", x="bandwidth", data=frame, palette="Set3")
-    plt.show()
+
     print(df)
 
     seaborn.violinplot(y="avg", x="bandwidth", data=frame, palette="Set3")
     plt.show()
-
 
 main()

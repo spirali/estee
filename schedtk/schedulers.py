@@ -1,6 +1,8 @@
 import random
 import numpy as np
 
+from .simulator import TaskAssignment
+
 
 class SchedulerBase:
 
@@ -44,7 +46,7 @@ class RandomAssignScheduler(StaticScheduler):
 
         results = []
         for t in tasks:
-            results.append((random.choice(workers), t))
+            results.append(TaskAssignment(random.choice(workers), t))
         return results
 
 
@@ -52,7 +54,7 @@ class AllOnOneScheduler(SchedulerBase):
 
     def schedule(self, new_ready, new_finished):
         worker = self.simulator.workers[0]
-        return [(worker, task) for task in new_ready]
+        return [TaskAssignment(worker, task) for task in new_ready]
 
 
 class QueueScheduler(SchedulerBase):
@@ -81,7 +83,7 @@ class QueueScheduler(SchedulerBase):
                     self.ready.remove(t)
                     self.queue.remove(t)
                     idx = self.choose_worker(workers, t)
-                    results.append((workers.pop(idx), t))
+                    results.append(TaskAssignment(workers.pop(idx), t))
                     break
         return results
 
@@ -186,9 +188,9 @@ class CampScheduler(StaticScheduler):
 
         assign_b_level(self.simulator.task_graph, lambda t: t.duration)
 
-        r = [(workers[w], task)
+        r = [TaskAssignment(workers[w], task)
              for task, w in zip(tasks, placement)]
-        r.sort(key=lambda p: p[1].s_info, reverse=True)
+        r.sort(key=lambda p: p.task.s_info, reverse=True)
         return r
 
     def placement_cost(self, placement):

@@ -4,6 +4,14 @@ from simpy import Environment, Event
 from .trace import TaskAssignTraceEvent, build_trace_html
 
 
+class TaskAssignment:
+
+    def __init__(self, worker, task, priority=0):
+        self.worker = worker
+        self.task = task
+        self.priority = priority
+
+
 class TaskState(Enum):
     Waiting = 1
     Ready = 2
@@ -65,14 +73,20 @@ class Simulator:
             self.trace_events.append(trace_event)
 
     def schedule(self, ready_tasks, finished_tasks):
-        for worker, task in self.scheduler.schedule(ready_tasks, finished_tasks):
-            info = task.info
+        for assignment in self.scheduler.schedule(ready_tasks, finished_tasks):
+            assert isinstance(assignment, TaskAssignment)
+            info = assignment.task.info
             if info.state == TaskState.Finished:
-                raise Exception("Scheduler tries to assign a finished task ({})".format(task))
+                raise Exception("Scheduler tries to assign a finished task ({})"
+                                .format(assignment.task))
+            if info.state == TaskState.Assigned:
+                raise Exception("Scheduler reassigns already assigned task ({})"
+                                .format(assignment.task))
             info.state = TaskState.Assigned
-            info.assigned_workers.append(worker)
-            worker.assign_task(task)
-            self.add_trace_event(TaskAssignTraceEvent(self.env.now, worker, task))
+            info.assigned_workers.append(assignment.worker)
+            assignment.worker.assign_task(assignment)
+            self.add_trace_event(TaskAssignTraceEvent(
+                self.env.now, assignment.worker, assignment.task))
 
     def _master_process(self, env):
         self.schedule(self.task_graph.source_tasks(), [])
