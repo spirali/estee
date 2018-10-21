@@ -20,18 +20,6 @@ def run_single_instance(task_graph, n_workers, scheduler, bandwidth):
     return simulator.run()
 
 
-def make_graph():
-    def make_node():
-        return graph.new_task(None, duration=random.random(), size=random.random())
-
-    graph = TaskGraph()
-    random_levels(
-        [(3, 10), (3, 20), (3, 20), (3, 10)],
-        [0, (1, 5), (2, 6), (1, 5)],
-        make_node)
-    return graph
-
-
 def benchmark_scheduler(task_graph, scheduler_class, n_workers, bandwidth, count):
     data = np.array(
         [run_single_instance(task_graph, n_workers, scheduler_class(), bandwidth)

@@ -106,7 +106,8 @@ class Simulator:
         self.new_finished.append(task)
         self.unprocessed_tasks -= 1
 
-        for t in task.consumers:
+        tasks = sorted(task.consumers, key=lambda t: t.id)
+        for t in tasks:
             t_info = t.info
             t_info.unfinished_inputs -= 1
             if t_info.unfinished_inputs <= 0:
@@ -119,7 +120,7 @@ class Simulator:
                     t_info.state = TaskState.Ready
                 self.new_ready.append(t)
 
-        for t in task.consumers:
+        for t in tasks:
             for w in t.info.assigned_workers:
                 w.update_task(t)
 

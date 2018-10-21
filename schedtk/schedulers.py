@@ -52,8 +52,12 @@ class RandomAssignScheduler(StaticScheduler):
 
 class AllOnOneScheduler(SchedulerBase):
 
+    def init(self, simulator):
+        super().init(simulator)
+        self.worker = max_cpus_worker(self.simulator.workers)
+
     def schedule(self, new_ready, new_finished):
-        worker = self.simulator.workers[0]
+        worker = self.worker
         return [TaskAssignment(worker, task) for task in new_ready]
 
 
@@ -246,3 +250,10 @@ def compute_independent_tasks(task_graph):
     #print(down_deps)
     return {task: tasks.difference(up_deps[task] | down_deps[task])
             for task in task_graph.tasks}
+
+
+def max_cpus_worker(workers):
+    cpus = max(w.cpus for w in workers)
+    for w in workers:
+        if w.cpus == cpus:
+            return w

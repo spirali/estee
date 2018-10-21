@@ -7,23 +7,29 @@ CPUS = np.array([1, 2, 3, 4], dtype=np.int32)
 CPUS_P = np.array([0.50, 0.24, 0.02, 0.24])
 
 
-def make_task(graph):
-    cpus = np.random.choice(CPUS, p=CPUS_P)
+def random_cpus():
+    return np.random.choice(CPUS, p=CPUS_P)
+
+
+def make_task(graph, cpus=None):
+    if cpus is None:
+        cpus = random_cpus()
     return graph.new_task(None,
                           duration=np.random.random(), size=np.random.random(), cpus=cpus)
 
 
-def make_independent_tasks(graph):
-    return [make_task(graph) for _ in range(np.random.randint(1, 20))]
+def make_independent_tasks(graph, cpus=None):
+    return [make_task(graph, cpus) for _ in range(np.random.randint(1, 20))]
 
 
 def gen_independent_tasks(graph):
-    make_independent_tasks(graph)
+    cpus = random_cpus()
+    make_independent_tasks(graph, cpus)
     return graph
 
 
 def gen_level(graph):
-    sources = graph.leaf_nodes()
+    sources = graph.leaf_tasks()
     counts = np.arange(1, len(sources) + 1)
     w = np.array([1/(i * 1.2 + 1) for i in range(len(counts))])
     p = w / w.sum()
@@ -36,14 +42,14 @@ def gen_level(graph):
 
 
 def gen_uniform_level(graph):
-    sources = graph.leaf_nodes()
+    sources = graph.leaf_tasks()
     counts = np.arange(1, len(sources) + 1)
     w = np.array([1/(i * 1.2 + 1) for i in range(len(counts))])
     p = w / w.sum()
     n_inps = np.random.choice(counts, p=p)
     duration = np.random.random()
     size = np.random.random()
-    cpus = np.random.choice(CPUS, p=CPUS_P)
+    cpus = random_cpus()
     for task in range(np.random.randint(4, 30)):
         task = graph.new_task(size=size, duration=duration, cpus=cpus)
         inps = np.random.choice(sources, n_inps, replace=False)
@@ -105,14 +111,3 @@ def generate_graph(steps):
     gen_random_links(graph)
     graph.write_dot("/tmp/x.dot")
     return graph
-
-
-def main():
-    for i in range(1000):
-        graph = generate_graph(10)
-        graph.validate()
-        print(graph.task_count)
-
-
-if __name__ == "__main__":
-    main()
