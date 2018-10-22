@@ -6,12 +6,13 @@ import argparse
 
 from schedtk import Worker, Simulator
 from schedtk.connectors import SimpleConnector
-from schedtk.schedulers import CampScheduler, AllOnOneScheduler
+from schedtk.schedulers import CampScheduler, AllOnOneScheduler, BlevelGtScheduler
 import multiprocessing
 
 SCHEDULERS = {
     "single": AllOnOneScheduler,
     "camp": CampScheduler,
+    "blevel": BlevelGtScheduler,
 }
 
 
@@ -31,7 +32,7 @@ def benchmark_scheduler(task_graph, scheduler_class, workers, bandwidth, count):
 def process(instance):
     scheduler_name, count, row = instance
     scheduler = SCHEDULERS[scheduler_name]
-    name, workers = row.cluster
+    workers = row.cluster_def
     row.task_graph.write_dot("/tmp/xx.dot")
     times = benchmark_scheduler(row.task_graph, scheduler, workers, row.bandwidth, count)
     row.task_graph.cleanup()
@@ -54,47 +55,31 @@ def parse_args():
 
 def main():
     args = parse_args()
-    data = pd.read_pickle(args.dataset)[0:150]
+    data = pd.read_pickle(args.dataset)
 
     pool = multiprocessing.Pool()
     results = []
-    #print(data)
-    #for r in pool.imap(process, data_iter(args.scheduler, args.repeat, data)):
-    #    results.append(r)
-    #    if len(results) % 50 == 0:
-    #        print("Step {}/{}".format(len(results), len(data)))
-
 
     for i, r in enumerate(data_iter(args.scheduler, args.repeat, data)):
         results.append(process(r))
 
     frame = pd.DataFrame(results, columns=[args.scheduler + "_avg", args.scheduler + "_std", args.scheduler + "_min"])
-    result_data = data #pd.concat([data, frame], axis=1)
+    mc = [c for c in data.columns if c.endswith("_min")]
+    if mc:
+        old_min = data[mc].min(axis=1)
 
-    print(result_data)
-    print(frame)
+    for c in frame.columns:
+        if c in data.columns:
+            del data[c]
+    result_data = pd.concat([data, frame], axis=1)
 
     if args.output:
         result_data.to_pickle(args.output)
 
-    mc = [c for c in data.columns if c.endswith("_min")]
+    avg_name = args.scheduler + "_avg"
     if mc:
-        m = data[mc].min(axis=1)
-        #print(frame[args.scheduler + "_avg"] / m)
-        #print(m)
-        #print(frame[args.scheduler + "_avg"])
+        result_data["rr"] = result_data[avg_name] / old_min
+        print(result_data.groupby(("bandwidth", "cluster_name"))["rr"].mean())
 
-
-
-
-
-    #frame["avg"] /= data["min"]
-
-    #df = frame.groupby("bandwidth")["avg"].mean()
-
-    #print(df)
-
-    #seaborn.violinplot(y="avg", x="bandwidth", data=frame, palette="Set3")
-    #plt.show()
-
-main()
+if __name__ == "__main__":
+    main()

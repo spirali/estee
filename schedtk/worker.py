@@ -87,6 +87,7 @@ class Worker:
             for event in finished.keys():
                 if event == events[0]:
                     prepared_assignments.append(event.value)
+                    prepared_assignments.sort(key=lambda a: a.priority, reverse=True)
                     events[0] = self.ready_store.get()
                     continue
 

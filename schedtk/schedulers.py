@@ -58,7 +58,8 @@ class AllOnOneScheduler(SchedulerBase):
 
     def schedule(self, new_ready, new_finished):
         worker = self.worker
-        return [TaskAssignment(worker, task) for task in new_ready]
+        assign_b_level(self.simulator.task_graph, lambda t: t.duration)
+        return [TaskAssignment(worker, task, task.s_info) for task in new_ready]
 
 
 class QueueScheduler(SchedulerBase):
@@ -79,16 +80,30 @@ class QueueScheduler(SchedulerBase):
 
     def schedule(self, new_ready, new_finished):
         self.ready += new_ready
-        workers = [w for w in self.simulator.workers if not w.assigned_tasks]
         results = []
-        while workers and self.ready:
-            for t in self.queue[:]:
-                if t in self.ready:
-                    self.ready.remove(t)
-                    self.queue.remove(t)
-                    idx = self.choose_worker(workers, t)
-                    results.append(TaskAssignment(workers.pop(idx), t))
-                    break
+        free_cpus = np.zeros(len(self.simulator.workers))
+        workers = self.simulator.workers
+        for i, worker in enumerate(workers):
+            free_cpus[i] = worker.cpus
+            for a in worker.assignments:
+                free_cpus[i] -= a.task.cpus
+        aws = list(range(len(workers)))
+        for t in self.queue[:]:
+            if t in self.ready:
+                ws = [i for i in aws
+                      if free_cpus[i] >= t.cpus]
+                if not ws:
+                    aws = [i for i in aws if workers[i].cpus < t.cpus]
+                    if aws:
+                        continue
+                    else:
+                        break
+                self.ready.remove(t)
+                self.queue.remove(t)
+                idx = self.choose_worker([workers[i] for i in ws], t)
+                idx = ws[idx]
+                free_cpus[idx] -= t.cpus
+                results.append(TaskAssignment(workers[idx], t))
         return results
 
 
@@ -127,7 +142,7 @@ class RandomGtScheduler(GreedyTransferQueueScheduler):
 
 class BlevelGtScheduler(GreedyTransferQueueScheduler):
 
-    def __init__(self, include_size):
+    def __init__(self, include_size=False):
         super().__init__()
         self.include_size = include_size
 
@@ -253,7 +268,4 @@ def compute_independent_tasks(task_graph):
 
 
 def max_cpus_worker(workers):
-    cpus = max(w.cpus for w in workers)
-    for w in workers:
-        if w.cpus == cpus:
-            return w
+    return max(workers, key=lambda w: w.cpus)
