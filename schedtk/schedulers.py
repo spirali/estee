@@ -187,17 +187,21 @@ class CampScheduler(StaticScheduler):
         self.tab = np.array(tab, dtype=np.int32)
         self.costs = np.array(costs)
 
-        placement = np.zeros(self.simulator.task_graph.task_count, dtype=np.int32)
-        pcost = self.placement_cost(placement)
         tasks = self.simulator.task_graph.tasks
         workers = self.simulator.workers
+        placement = np.empty(self.simulator.task_graph.task_count, dtype=np.int32)
+        placement[:] = workers.index(max_cpus_worker(workers))
+        pcost = self.placement_cost(placement)
 
+        #self.iterations = 0
         for i in range(self.iterations):
             t = random.randint(0, len(tasks) - 1)
             old_w = placement[t]
             new_w = random.randint(0, len(workers) - 2)
             if new_w >= old_w:
                 new_w += 1
+            if workers[new_w].cpus < tasks[t].cpus:
+                continue
             placement[t] = new_w
             new_pcost = self.placement_cost(placement)
             if new_pcost > pcost:  # and np.random.random() > (i / limit) / 100:
@@ -207,9 +211,8 @@ class CampScheduler(StaticScheduler):
 
         assign_b_level(self.simulator.task_graph, lambda t: t.duration)
 
-        r = [TaskAssignment(workers[w], task)
+        r = [TaskAssignment(workers[w], task, task.s_info)
              for task, w in zip(tasks, placement)]
-        r.sort(key=lambda p: p.task.s_info, reverse=True)
         return r
 
     def placement_cost(self, placement):

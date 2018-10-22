@@ -11,7 +11,7 @@ import multiprocessing
 
 SCHEDULERS = {
     "single": AllOnOneScheduler,
-    "camp": CampScheduler,
+    "camp": lambda: CampScheduler(10000),
     "blevel": BlevelGtScheduler,
 }
 
@@ -50,6 +50,7 @@ def parse_args():
     parser.add_argument("scheduler", choices=tuple(SCHEDULERS.keys()))
     parser.add_argument("repeat", type=int)
     parser.add_argument("--output")
+    parser.add_argument("--limit", type=int)
     return parser.parse_args()
 
 
@@ -57,11 +58,18 @@ def main():
     args = parse_args()
     data = pd.read_pickle(args.dataset)
 
+    if args.limit:
+        data = data[:args.limit]
+
     pool = multiprocessing.Pool()
     results = []
 
-    for i, r in enumerate(data_iter(args.scheduler, args.repeat, data)):
-        results.append(process(r))
+    # Single therad
+    #for i, r in enumerate(data_iter(args.scheduler, args.repeat, data)):
+    #    results.append(process(r))
+
+    for r in pool.imap(process, data_iter(args.scheduler, args.repeat, data)):
+        results.append(r)
 
     frame = pd.DataFrame(results, columns=[args.scheduler + "_avg", args.scheduler + "_std", args.scheduler + "_min"])
     mc = [c for c in data.columns if c.endswith("_min")]
