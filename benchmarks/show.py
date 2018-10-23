@@ -9,6 +9,7 @@ def parse_args():
     parser.add_argument("dataset")
     parser.add_argument("--heatmap", action="store_true")
     parser.add_argument("--violin", action="store_true")
+    parser.add_argument('--ignore', action='append')
     return parser.parse_args()
 
 
@@ -21,12 +22,17 @@ def draw_violin(*args, **kw):
     df = kw["data"][kw["avg_columns"]]
     df = df.melt(var_name='groups', value_name='vals')
     g = seaborn.violinplot(data=df, x="groups", y="vals")
-    g.set_yscale('log')
+    #g.set_yscale('log')
 
 
 def main():
     args = parse_args()
+
     data = pd.read_pickle(args.dataset)
+
+    if args.ignore:
+        for c in args.ignore:
+            del data[c]
 
     avg_columns = [c for c in data.columns if c.endswith("_avg")]
     min_columns = [c for c in data.columns if c.endswith("_min")]
