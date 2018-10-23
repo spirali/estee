@@ -156,7 +156,7 @@ class BlevelGtScheduler(GreedyTransferQueueScheduler):
         def cost_fn2(t):
             return t.duration + t.size / bandwidth
 
-        bandwidth = self.simulator.connector.bandwitdth
+        bandwidth = self.simulator.connector.bandwidth
         assign_b_level(self.simulator.task_graph, cost_fn2 if self.include_size else cost_fn1)
         tasks = self.simulator.task_graph.tasks[:]
         random.shuffle(tasks)  # To randomize keys with the same level
@@ -177,7 +177,7 @@ class CampScheduler(StaticScheduler):
         independencies = compute_independent_tasks(self.simulator.task_graph)
         tab = []
         costs = []
-        bandwidth = self.simulator.connector.bandwitdth
+        bandwidth = self.simulator.connector.bandwidth
         for task, indeps in independencies.items():
             for t in task.inputs:
                 tab.append((t.id, task.id))

@@ -8,8 +8,8 @@ class Connector:
                     (this is what network annoucess publicaly, not necessery how it really behaves)
     """
 
-    def __init__(self, bandwitdth=1.0):
-        self.bandwitdth = bandwitdth
+    def __init__(self, bandwidth=1.0):
+        self.bandwidth = bandwidth
 
     def init(self, env, workers):
         self.workers = workers
@@ -30,4 +30,4 @@ class InstantConnector(Connector):
 class SimpleConnector(Connector):
 
     def download(self, source, target, size):
-        return self.env.timeout(size / self.bandwitdth)
+        return self.env.timeout(size / self.bandwidth)
