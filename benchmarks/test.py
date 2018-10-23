@@ -1,6 +1,4 @@
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn
 import numpy as np
 import argparse
 
@@ -33,7 +31,7 @@ def process(instance):
     scheduler_name, count, row = instance
     scheduler = SCHEDULERS[scheduler_name]
     workers = row.cluster_def
-    row.task_graph.write_dot("/tmp/xx.dot")
+    #row.task_graph.write_dot("/tmp/xx.dot")
     times = benchmark_scheduler(row.task_graph, scheduler, workers, row.bandwidth, count)
     row.task_graph.cleanup()
     return np.average(times), np.std(times), times.min()
@@ -70,6 +68,8 @@ def main():
 
     for r in pool.imap(process, data_iter(args.scheduler, args.repeat, data)):
         results.append(r)
+        if len(results) % 50 == 0:
+            print(len(results))
 
     frame = pd.DataFrame(results, columns=[args.scheduler + "_avg", args.scheduler + "_std", args.scheduler + "_min"])
     mc = [c for c in data.columns if c.endswith("_min")]
@@ -87,7 +87,7 @@ def main():
     avg_name = args.scheduler + "_avg"
     if mc:
         result_data["rr"] = result_data[avg_name] / old_min
-        print(result_data.groupby(("bandwidth", "cluster_name"))["rr"].mean())
+        print(result_data.groupby(["bandwidth", "cluster_name"])["rr"].mean())
 
 if __name__ == "__main__":
     main()
