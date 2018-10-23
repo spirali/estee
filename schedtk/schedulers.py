@@ -46,7 +46,10 @@ class RandomAssignScheduler(StaticScheduler):
 
         results = []
         for t in tasks:
-            results.append(TaskAssignment(random.choice(workers), t))
+            w = random.choice(workers)
+            while w.cpus < t.cpus:
+                w = random.choice(workers)
+            results.append(TaskAssignment(w, t))
         return results
 
 
