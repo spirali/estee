@@ -6,6 +6,9 @@ from schedtk import Worker, Simulator
 from schedtk.connectors import SimpleConnector
 from schedtk.schedulers import CampScheduler, AllOnOneScheduler, BlevelGtScheduler
 import multiprocessing
+import sys
+
+sys.setrecursionlimit(2500)
 
 SCHEDULERS = {
     "single": AllOnOneScheduler,
