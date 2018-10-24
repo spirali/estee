@@ -1,4 +1,6 @@
+import itertools
 import random
+
 import numpy as np
 
 from .simulator import TaskAssignment
@@ -222,6 +224,51 @@ class CampScheduler(StaticScheduler):
         a = placement[self.tab[:, 0]]
         b = placement[self.tab[:, 1]]
         return (self.costs * (a == b)).sum()
+
+
+class SimpleScheduler(SchedulerBase):
+    def schedule(self, new_ready, new_finished):
+        workers = self.simulator.workers[:]
+        schedules = []
+
+        for _ in new_ready[:]:
+            (w, task) = self.find_assignment(workers, new_ready)
+            new_ready.remove(task)
+            schedules.append(TaskAssignment(w, task))
+
+        return schedules
+
+    def find_assignment(self, workers, tasks):
+        return min(itertools.product(workers, tasks),
+                   key=lambda item: self.calculate_cost(item[0], item[1]))
+
+    def calculate_cost(self, worker, task):
+        if task.cpus > worker.cpus:
+            return 10e10
+        transfer = self.calculate_transfer(worker, task)
+        cpu = task.duration
+        worker_cost = self.worker_cost(worker)
+
+        return sum((transfer, cpu, worker_cost))
+
+    def worker_cost(self, worker):
+        return sum(t.duration for t in worker.assigned_tasks)
+
+    def calculate_transfer(self, worker, task):
+        bandwidth = self.simulator.connector.bandwidth
+        cost = max((i.size for i in task.inputs
+                    if i.info.assigned_workers != [worker]),
+                   default=0)
+
+        for c in task.consumers:
+            for i in c.inputs:
+                if i != task and i.info.assigned_workers != [worker]:
+                    cost += i.size
+
+        return cost / bandwidth
+
+    def free_cpus(self, worker):
+        return worker.cpus - sum(t.cpus for t in worker.executions.keys())
 
 
 def assign_b_level(task_graph, cost_fn):
