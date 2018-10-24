@@ -1,11 +1,9 @@
-
-from . import Simulator, Worker
-from .taskgraph import TaskGraph
-from .schedulers import DoNothingScheduler, AllOnOneScheduler
-
-from .test_utils import do_sched_test
-
 import pytest
+
+from .schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase
+from .simulator import TaskAssignment
+from .taskgraph import TaskGraph
+from .test_utils import do_sched_test
 
 
 def test_simulator_empty_task_graph():
@@ -68,3 +66,24 @@ def test_simulator_cpus3():
 
     scheduler = AllOnOneScheduler()
     assert do_sched_test(test_graph, [5], scheduler) == 3
+
+
+def test_worker_freecpus():
+    test_graph = TaskGraph()
+    test_graph.new_task("A", duration=10, cpus=2)
+    test_graph.new_task("B", duration=8, cpus=3)
+    c = test_graph.new_task("C", duration=1, cpus=1)
+    d = test_graph.new_task("D", duration=3, cpus=3)
+    d.add_input(c)
+
+    free_cpus = []
+
+    class Scheduler(SchedulerBase):
+        def schedule(self, new_ready, new_finished):
+            worker = self.simulator.workers[0]
+            free_cpus.append(worker.free_cpus)
+            return (TaskAssignment(worker, t) for t in new_ready)
+
+    scheduler = Scheduler()
+    do_sched_test(test_graph, [10], scheduler)
+    assert free_cpus == [10, 5, 5, 8, 10]

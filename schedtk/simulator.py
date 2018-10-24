@@ -128,7 +128,7 @@ class Simulator:
             self.wakeup_event.succeed()
 
     def make_trace_report(self, filename):
-        build_trace_html(self.trace_events, self.workers, filename)
+        build_trace_html(self.trace_events or [], self.workers, filename)
 
     def run(self):
         assert not self.trace_events

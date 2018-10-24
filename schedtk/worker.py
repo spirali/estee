@@ -2,6 +2,12 @@ from simpy import Store
 from .trace import TaskStartTraceEvent, TaskEndTraceEvent, FetchStartTraceEvent, FetchEndTraceEvent
 
 
+class TaskExecution:
+    def __init__(self, task, start_time):
+        self.task = task
+        self.start_time = start_time
+
+
 class Worker:
 
     def __init__(self, cpus=1):
@@ -11,6 +17,7 @@ class Worker:
 
         self.data = set()
         self.downloads = {}
+        self.executions = {}
 
     def _download(self, worker, task):
         def _helper():
@@ -43,6 +50,10 @@ class Worker:
     @property
     def assigned_tasks(self):
         return [a.task for a in self.assignments]
+
+    @property
+    def free_cpus(self):
+        return self.cpus - sum(t.cpus for t in self.executions.keys())
 
     def _init_downloads(self, assignment):
         deps = []
@@ -96,6 +107,7 @@ class Worker:
                 free_cpus += task.cpus
                 self.assignments.remove(assignment)
                 events.remove(event)
+                del self.executions[task]
                 simulator.add_trace_event(TaskEndTraceEvent(self.env.now, self, task))
                 self.data.add(task)
                 simulator.on_task_finished(self, task)
@@ -104,6 +116,7 @@ class Worker:
                 task = assignment.task
                 if task.cpus <= free_cpus:
                     free_cpus -= task.cpus
+                    self.executions[task] = TaskExecution(task, self.env.now)
                     simulator.add_trace_event(TaskStartTraceEvent(self.env.now, self, task))
                     events.append(env.timeout(task.duration, assignment))
                     prepared_assignments.remove(assignment)
