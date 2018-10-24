@@ -5,6 +5,7 @@ import argparse
 from schedtk import Worker, Simulator
 from schedtk.connectors import SimpleConnector
 from schedtk.schedulers import CampScheduler, AllOnOneScheduler, BlevelGtScheduler, RandomAssignScheduler, RandomGtScheduler
+from schedtk.schedulers import K1hScheduler
 import multiprocessing
 import sys
 
@@ -16,6 +17,7 @@ SCHEDULERS = {
     "random-s": RandomAssignScheduler,
     "random-gt": RandomGtScheduler,
     "blevel": BlevelGtScheduler,
+    "k1h": K1hScheduler,
 }
 
 
