@@ -1,11 +1,30 @@
 from simpy import Store
-from .trace import TaskStartTraceEvent, TaskEndTraceEvent, FetchStartTraceEvent, FetchEndTraceEvent
+
+from .trace import FetchEndTraceEvent, FetchStartTraceEvent, \
+    TaskEndTraceEvent, TaskStartTraceEvent
 
 
 class TaskExecution:
     def __init__(self, task, start_time):
         self.task = task
         self.start_time = start_time
+
+
+class Download:
+    def __init__(self, process, task, start_time):
+        self.process = process
+        self.task = task
+        self.start_time = start_time
+
+    def remaining_time(self, simulator):
+        if self.task.size == 0:
+            return 0
+
+        size = self.task.size
+        bandwidth = simulator.connector.bandwidth
+
+        downloaded = (simulator.env.now - self.start_time) * bandwidth
+        return (size - downloaded) / bandwidth
 
 
 class Worker:
@@ -31,7 +50,8 @@ class Worker:
         assert worker != self
         self.simulator.add_trace_event(FetchStartTraceEvent(self.env.now, self, worker, task))
         p = self.env.process(_helper())
-        self.downloads[task] = p
+        download = Download(p, task, self.env.now)
+        self.downloads[task] = download
         return p
 
     def assign_task(self, assignment):
@@ -67,6 +87,8 @@ class Worker:
                     d = self._download(worker, input)
                 else:
                     not_complete = True
+            else:
+                d = d.process
             deps.append(d)
 
         def _helper():

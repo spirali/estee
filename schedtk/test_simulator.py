@@ -1,5 +1,6 @@
 import pytest
 
+from .connectors import SimpleConnector
 from .schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase
 from .simulator import TaskAssignment
 from .taskgraph import TaskGraph
@@ -87,3 +88,54 @@ def test_worker_freecpus():
     scheduler = Scheduler()
     do_sched_test(test_graph, [10], scheduler)
     assert free_cpus == [10, 5, 5, 8, 10]
+
+
+def test_worker_downloads():
+    test_graph = TaskGraph()
+    a = test_graph.new_task("A", duration=1, size=100)
+    b = test_graph.new_task("B", duration=1, size=50)
+    c = test_graph.new_task("C", duration=8)
+    c.add_inputs((a, b))
+
+    d = test_graph.new_task("D", duration=1)
+    e = test_graph.new_task("E", duration=1)
+    e.add_input(d)
+
+    downloads = []
+
+    class Scheduler(SchedulerBase):
+        def __init__(self):
+            self.scheduled = False
+
+        def schedule(self, new_ready, new_finished):
+            workers = self.simulator.workers
+
+            # remaining times of downloads, downloads are sorted by start time
+            downloads.append(list([d.remaining_time(self.simulator) for d
+                              in sorted([d
+                                         for d
+                                         in w.downloads.values()],
+                                        key=lambda d: d.start_time)]
+                             for w in workers))
+
+            if not self.scheduled:
+                tasks = self.simulator.task_graph.tasks
+                self.scheduled = True
+                return [
+                    TaskAssignment(workers[0], tasks[0]),
+                    TaskAssignment(workers[1], tasks[1]),
+                    TaskAssignment(workers[2], tasks[3]),
+                    TaskAssignment(workers[0], tasks[4]),
+                    TaskAssignment(workers[2], tasks[2])
+                ]
+            else:
+                return ()
+
+    scheduler = Scheduler()
+    do_sched_test(test_graph, 3, scheduler, SimpleConnector(bandwidth=2))
+    assert downloads == [
+        [[], [], []],
+        [[0.0], [], [50, 25]],
+        [[], [], [49, 24]],
+        [[], [], []]
+    ]
