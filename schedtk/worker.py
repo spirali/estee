@@ -19,6 +19,8 @@ class Worker:
         self.downloads = {}
         self.executions = {}
 
+        self.free_cpus = cpus
+
     def _download(self, worker, task):
         def _helper():
             yield self.connector.download(worker, self, task.size)
@@ -50,10 +52,6 @@ class Worker:
     @property
     def assigned_tasks(self):
         return [a.task for a in self.assignments]
-
-    @property
-    def free_cpus(self):
-        return self.cpus - sum(t.cpus for t in self.executions.keys())
 
     def _init_downloads(self, assignment):
         deps = []
@@ -88,7 +86,7 @@ class Worker:
         self.connector = connector
         self.ready_store = Store(env)
 
-        free_cpus = self.cpus
+        self.free_cpus = self.cpus
 
         prepared_assignments = []
         events = [self.ready_store.get()]
@@ -104,7 +102,7 @@ class Worker:
 
                 assignment = event.value
                 task = assignment.task
-                free_cpus += task.cpus
+                self.free_cpus += task.cpus
                 self.assignments.remove(assignment)
                 events.remove(event)
                 del self.executions[task]
@@ -114,8 +112,8 @@ class Worker:
 
             for assignment in prepared_assignments[:]:
                 task = assignment.task
-                if task.cpus <= free_cpus:
-                    free_cpus -= task.cpus
+                if task.cpus <= self.free_cpus:
+                    self.free_cpus -= task.cpus
                     self.executions[task] = TaskExecution(task, self.env.now)
                     simulator.add_trace_event(TaskStartTraceEvent(self.env.now, self, task))
                     events.append(env.timeout(task.duration, assignment))
