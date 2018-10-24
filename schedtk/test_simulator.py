@@ -111,10 +111,10 @@ def test_worker_downloads():
             workers = self.simulator.workers
 
             # remaining times of downloads, downloads are sorted by start time
-            downloads.append(list([d.remaining_time(self.simulator) for d
+            downloads.append(list([d.naive_remaining_time_estimate(self.simulator) for d
                               in sorted([d
                                          for d
-                                         in w.downloads.values()],
+                                         in w.running_downloads.values()],
                                         key=lambda d: d.start_time)]
                              for w in workers))
 

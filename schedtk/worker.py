@@ -4,27 +4,32 @@ from .trace import FetchEndTraceEvent, FetchStartTraceEvent, \
     TaskEndTraceEvent, TaskStartTraceEvent
 
 
-class TaskExecution:
+class RunningTask:
+
+    __slots__ = ("task", "start_time")
+
     def __init__(self, task, start_time):
         self.task = task
         self.start_time = start_time
 
+    def running_time(self, now):
+        return now - self.start_time
 
-class Download:
+
+class RunningDownload:
+
+    __slots__ = ("process", "task", "start_time")
+
     def __init__(self, process, task, start_time):
         self.process = process
         self.task = task
         self.start_time = start_time
 
-    def remaining_time(self, simulator):
-        if self.task.size == 0:
-            return 0
+    def running_time(self, now):
+        return now - self.start_time
 
-        size = self.task.size
-        bandwidth = simulator.connector.bandwidth
-
-        downloaded = (simulator.env.now - self.start_time) * bandwidth
-        return (size - downloaded) / bandwidth
+    def naive_remaining_time_estimate(self, simulator):
+        return self.task.size / simulator.connector.bandwidth + self.start_time - simulator.env.now
 
 
 class Worker:
@@ -35,8 +40,8 @@ class Worker:
         self.ready_store = None
 
         self.data = set()
-        self.downloads = {}
-        self.executions = {}
+        self.running_tasks = {}
+        self.running_downloads = {}
 
         self.free_cpus = cpus
 
@@ -44,15 +49,14 @@ class Worker:
         def _helper():
             yield self.connector.download(worker, self, task.size)
             self.simulator.add_trace_event(FetchEndTraceEvent(self.env.now, self, worker, task))
-            del self.downloads[task]
+            del self.running_downloads[task]
             self.data.add(task)
 
         assert worker != self
         self.simulator.add_trace_event(FetchStartTraceEvent(self.env.now, self, worker, task))
-        p = self.env.process(_helper())
-        download = Download(p, task, self.env.now)
-        self.downloads[task] = download
-        return p
+        process = self.env.process(_helper())
+        self.running_downloads[task] = RunningDownload(process, task, self.env.now)
+        return process
 
     def assign_task(self, assignment):
         if assignment.task.cpus > self.cpus:
@@ -80,7 +84,7 @@ class Worker:
             if input in self.data:
                 continue
 
-            d = self.downloads.get(input)
+            d = self.running_downloads.get(input)
             if d is None:
                 if input.info.is_finished:
                     worker = input.info.assigned_workers[0]
@@ -127,7 +131,7 @@ class Worker:
                 self.free_cpus += task.cpus
                 self.assignments.remove(assignment)
                 events.remove(event)
-                del self.executions[task]
+                del self.running_tasks[task]
                 simulator.add_trace_event(TaskEndTraceEvent(self.env.now, self, task))
                 self.data.add(task)
                 simulator.on_task_finished(self, task)
@@ -136,7 +140,7 @@ class Worker:
                 task = assignment.task
                 if task.cpus <= self.free_cpus:
                     self.free_cpus -= task.cpus
-                    self.executions[task] = TaskExecution(task, self.env.now)
+                    self.running_tasks[task] = RunningTask(task, self.env.now)
                     simulator.add_trace_event(TaskStartTraceEvent(self.env.now, self, task))
                     events.append(env.timeout(task.duration, assignment))
                     prepared_assignments.remove(assignment)
