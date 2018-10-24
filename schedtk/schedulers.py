@@ -226,7 +226,7 @@ class CampScheduler(StaticScheduler):
         return (self.costs * (a == b)).sum()
 
 
-class SimpleScheduler(SchedulerBase):
+class K1hScheduler(SchedulerBase):
     def schedule(self, new_ready, new_finished):
         workers = self.simulator.workers[:]
         schedules = []
@@ -249,7 +249,7 @@ class SimpleScheduler(SchedulerBase):
         cpu = task.duration
         worker_cost = self.worker_cost(worker)
 
-        return sum((transfer, cpu, worker_cost))
+        return transfer + cpu + worker_cost
 
     def worker_cost(self, worker):
         return sum(t.duration for t in worker.assigned_tasks)
@@ -266,9 +266,6 @@ class SimpleScheduler(SchedulerBase):
                     cost += i.size
 
         return cost / bandwidth
-
-    def free_cpus(self, worker):
-        return worker.cpus - sum(t.cpus for t in worker.executions.keys())
 
 
 def assign_b_level(task_graph, cost_fn):
