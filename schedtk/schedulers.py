@@ -166,7 +166,7 @@ class BlevelGtScheduler(GreedyTransferQueueScheduler):
         return tasks
 
 
-class CampScheduler(StaticScheduler):
+class Camp2Scheduler(StaticScheduler):
 
     def __init__(self, iterations=2000):
         super().__init__()
@@ -179,26 +179,23 @@ class CampScheduler(StaticScheduler):
         independencies = compute_independent_tasks(self.simulator.task_graph)
         tab = []
         costs = []
-        bandwidth = self.simulator.connector.bandwidth
+        workers = self.simulator.workers
+        cpu_factor = sum([w.cpus for w in workers]) / len(workers) / 2
         for task, indeps in independencies.items():
-            for t in task.inputs:
-                tab.append((t.id, task.id))
-                costs.append(-t.size / bandwidth * 2.5)
+            task_para_value = task.duration / len(indeps) * task.cpus / cpu_factor
             for t in indeps:
-                if t.id < task.id:
-                    continue
+                #if t.id < task.id:
+                #    continue
                 tab.append((t.id, task.id))
-                costs.append(t.duration + task.duration)
+                costs.append(task_para_value)
         self.tab = np.array(tab, dtype=np.int32)
         self.costs = np.array(costs)
 
         tasks = self.simulator.task_graph.tasks
-        workers = self.simulator.workers
         placement = np.empty(self.simulator.task_graph.task_count, dtype=np.int32)
         placement[:] = workers.index(max_cpus_worker(workers))
         pcost = self.placement_cost(placement)
 
-        #self.iterations = 0
         for i in range(self.iterations):
             t = random.randint(0, len(tasks) - 1)
             old_w = placement[t]
@@ -221,9 +218,22 @@ class CampScheduler(StaticScheduler):
         return r
 
     def placement_cost(self, placement):
+        s = 0
+        bandwidth = self.simulator.connector.bandwidth
+
+        for t in self.simulator.task_graph.tasks:
+            p = placement[t.id]
+            m = 0
+            for inp in t.inputs:
+                if p != placement[inp.id] and inp.size > m:
+                    m = inp.size
+            s += m
+
+        s /= bandwidth
+
         a = placement[self.tab[:, 0]]
         b = placement[self.tab[:, 1]]
-        return (self.costs * (a == b)).sum()
+        return (self.costs * (a == b)).sum() + s
 
 
 class K1hScheduler(SchedulerBase):

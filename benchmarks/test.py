@@ -4,7 +4,7 @@ import argparse
 
 from schedtk import Worker, Simulator
 from schedtk.connectors import SimpleConnector
-from schedtk.schedulers import CampScheduler, AllOnOneScheduler, BlevelGtScheduler, RandomAssignScheduler, RandomGtScheduler
+from schedtk.schedulers import Camp2Scheduler, AllOnOneScheduler, BlevelGtScheduler, RandomAssignScheduler, RandomGtScheduler
 from schedtk.schedulers import K1hScheduler
 import multiprocessing
 import sys
@@ -13,7 +13,7 @@ sys.setrecursionlimit(2500)
 
 SCHEDULERS = {
     "single": AllOnOneScheduler,
-    "camp": lambda: CampScheduler(10000),
+    "camp2": lambda: Camp2Scheduler(5000),
     "random-s": RandomAssignScheduler,
     "random-gt": RandomGtScheduler,
     "blevel": BlevelGtScheduler,
