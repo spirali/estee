@@ -182,6 +182,8 @@ class Camp2Scheduler(StaticScheduler):
         workers = self.simulator.workers
         cpu_factor = sum([w.cpus for w in workers]) / len(workers) / 2
         for task, indeps in independencies.items():
+            if not indeps:
+                continue
             task_para_value = task.duration / len(indeps) * task.cpus / cpu_factor
             for t in indeps:
                 #if t.id < task.id:
