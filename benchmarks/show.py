@@ -9,6 +9,7 @@ def parse_args():
     parser.add_argument("dataset")
     parser.add_argument("--heatmap", action="store_true")
     parser.add_argument("--violin", action="store_true")
+    parser.add_argument("--boxplot", action="store_true")
     parser.add_argument('--ignore', action='append')
     return parser.parse_args()
 
@@ -24,11 +25,17 @@ def draw_violin(*args, **kw):
     g = seaborn.violinplot(data=df, x="groups", y="vals")
     #g.set_yscale('log')
 
+def draw_boxplot(*args, **kw):
+    df = kw["data"][kw["avg_columns"]]
+    df = df.melt(var_name='groups', value_name='vals')
+    g = seaborn.boxplot(data=df, x="groups", y="vals")
+
 
 def main():
     args = parse_args()
 
     data = pd.read_pickle(args.dataset)
+    data = data[data.bandwidth > 0.5]
 
     if args.ignore:
         for c in args.ignore:
@@ -52,6 +59,10 @@ def main():
     if args.violin:
         fg = seaborn.FacetGrid(data, col='cluster_name', row='bandwidth')
         fg.map_dataframe(draw_violin, avg_columns=avg_columns)
+
+    if args.boxplot:
+        fg = seaborn.FacetGrid(data, col='cluster_name', row='bandwidth')
+        fg.map_dataframe(draw_boxplot, avg_columns=avg_columns)
 
     plt.show()
 
