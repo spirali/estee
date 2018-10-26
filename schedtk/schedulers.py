@@ -180,7 +180,7 @@ class Camp2Scheduler(StaticScheduler):
         tab = []
         costs = []
         workers = self.simulator.workers
-        cpu_factor = sum([w.cpus for w in workers]) / len(workers) / 2
+        cpu_factor = sum([w.cpus for w in workers]) / len(workers) / 8
         for task, indeps in independencies.items():
             if not indeps:
                 continue
