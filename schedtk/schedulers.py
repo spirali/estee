@@ -240,15 +240,8 @@ class Camp2Scheduler(StaticScheduler):
 
 class K1hScheduler(SchedulerBase):
     def schedule(self, new_ready, new_finished):
-        workers = self.simulator.workers[:]
-        schedules = []
-
-        for _ in new_ready[:]:
-            (w, task) = self.find_assignment(workers, new_ready)
-            new_ready.remove(task)
-            schedules.append(TaskAssignment(w, task))
-
-        return schedules
+        return schedule_all(self.simulator.workers, new_ready,
+                            lambda w, t: self.find_assignment(w, t))
 
     def find_assignment(self, workers, tasks):
         return min(itertools.product(workers, tasks),
@@ -268,16 +261,63 @@ class K1hScheduler(SchedulerBase):
 
     def calculate_transfer(self, worker, task):
         bandwidth = self.simulator.connector.bandwidth
-        cost = max((i.size for i in task.inputs
-                    if i.info.assigned_workers != [worker]),
-                   default=0)
+        cost = transfer_cost_parallel(worker, task)
 
         for c in task.consumers:
             for i in c.inputs:
-                if i != task and i.info.assigned_workers != [worker]:
+                if i != task and worker not in i.info.assigned_workers:
                     cost += i.size
 
         return cost / bandwidth
+
+
+class DLSScheduler(SchedulerBase):
+    """
+    Implementation of the dynamic level scheduler (DLS) from
+    A Compile-Time Scheduling Heuristic
+    for Interconnection-Constrained
+    Heterogeneous Processor Architectures (1993)
+
+    The scheduler calculates t.b_Level -
+    (minimum time when all dependencies of task t are available on worker w)
+    for all task-worker pairs (t, w) and selects the maximum.
+
+    :param extended_selection True if extended processor selection
+    should be used
+    """
+    def __init__(self, extended_selection=False):
+        self.extended_selection = extended_selection
+
+    def init(self, simulator):
+        super().init(simulator)
+        assign_b_level(simulator.task_graph, lambda t: t.duration)
+
+    def schedule(self, new_ready, new_finished):
+        return schedule_all(self.simulator.workers, new_ready,
+                            lambda w, t: self.find_assignment(w, t))
+
+    def find_assignment(self, workers, tasks):
+        return max(itertools.product(workers, tasks),
+                   key=lambda item: self.calculate_cost(item[0], item[1]))
+
+    def calculate_cost(self, worker, task):
+        if task.cpus > worker.cpus:
+            return -10e10
+
+        now = self.simulator.env.now
+        transfer = self.calculate_transfer(worker, task)
+
+        if self.extended_selection:
+            last_finish = now + max([t.remaining_time(now)
+                                     for t in worker.running_tasks.values()],
+                                    default=0)
+            transfer = max(transfer, last_finish)
+
+        return task.s_info - transfer
+
+    def calculate_transfer(self, worker, task):
+        return self.simulator.env.now + (transfer_cost_parallel(
+            worker, task) / self.simulator.connector.bandwidth)
 
 
 def assign_b_level(task_graph, cost_fn):
@@ -331,3 +371,28 @@ def compute_independent_tasks(task_graph):
 
 def max_cpus_worker(workers):
     return max(workers, key=lambda w: w.cpus)
+
+
+def transfer_cost_parallel(worker, task):
+    """
+    Calculates the cost of transferring inputs of `task` to `worker`.
+    Assumes parallel download.
+    """
+    return max((i.size for i in task.inputs
+                if worker not in i.info.assigned_workers),
+               default=0)
+
+
+def schedule_all(workers, tasks, get_assignment):
+    """
+    Schedules all tasks by repeatedly calling `get_assignment`.
+    Tasks are removed after being scheduler, workers stay the same.
+    """
+    schedules = []
+
+    for _ in tasks[:]:
+        (w, task) = get_assignment(workers, tasks)
+        tasks.remove(task)
+        schedules.append(TaskAssignment(w, task))
+
+    return schedules

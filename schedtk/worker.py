@@ -15,6 +15,9 @@ class RunningTask:
     def running_time(self, now):
         return now - self.start_time
 
+    def remaining_time(self, now):
+        return self.task.duration - self.running_time(now)
+
 
 class RunningDownload:
 
