@@ -139,3 +139,45 @@ def test_worker_downloads():
         [[], [], [49, 24]],
         [[], [], []]
     ]
+
+
+def test_worker_running_tasks():
+    test_graph = TaskGraph()
+    test_graph.new_task("X", duration=10)
+    a = test_graph.new_task("A", duration=1)
+    b = test_graph.new_task("B", duration=8)
+    b.add_input(a)
+
+    remaining_times = []
+
+    class Scheduler(SchedulerBase):
+        def __init__(self):
+            self.scheduled = False
+
+        def schedule(self, new_ready, new_finished):
+            workers = self.simulator.workers
+
+            remaining_times.append([[t.remaining_time(self.simulator.env.now)
+                                     for t
+                                     in w.running_tasks.values()]
+                                    for w in workers])
+
+            if not self.scheduled:
+                tasks = self.simulator.task_graph.tasks
+                self.scheduled = True
+                return [
+                    TaskAssignment(workers[0], tasks[0]),
+                    TaskAssignment(workers[1], tasks[1]),
+                    TaskAssignment(workers[1], tasks[2])
+                ]
+            else:
+                return ()
+
+    scheduler = Scheduler()
+    do_sched_test(test_graph, 2, scheduler)
+    assert remaining_times == [
+        [[], []],
+        [[9], []],
+        [[1], []],
+        [[], []]
+    ]

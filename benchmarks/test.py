@@ -1,13 +1,15 @@
-import pandas as pd
-import numpy as np
 import argparse
-
-from schedtk import Worker, Simulator
-from schedtk.connectors import SimpleConnector
-from schedtk.schedulers import Camp2Scheduler, AllOnOneScheduler, BlevelGtScheduler, RandomAssignScheduler, RandomGtScheduler
-from schedtk.schedulers import K1hScheduler
 import multiprocessing
 import sys
+
+import numpy as np
+import pandas as pd
+
+from schedtk import Simulator, Worker
+from schedtk.connectors import SimpleConnector
+from schedtk.schedulers import AllOnOneScheduler, BlevelGtScheduler, \
+    Camp2Scheduler, DLSScheduler, K1hScheduler, RandomAssignScheduler, \
+    RandomGtScheduler
 
 sys.setrecursionlimit(2500)
 
@@ -18,6 +20,7 @@ SCHEDULERS = {
     "random-gt": RandomGtScheduler,
     "blevel": BlevelGtScheduler,
     "k1h": K1hScheduler,
+    "dls": DLSScheduler
 }
 
 
@@ -77,6 +80,8 @@ def main():
         results.append(r)
         if len(results) % 50 == 0:
             print(len(results))
+
+    print("Testing scheduler: {}".format(args.scheduler))
 
     frame = pd.DataFrame(results, columns=[args.scheduler + "_avg", args.scheduler + "_std", args.scheduler + "_min"])
     mc = [c for c in data.columns if c.endswith("_min")]
