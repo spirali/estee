@@ -156,6 +156,8 @@ class BlevelGtScheduler(GreedyTransferQueueScheduler):
             return t.duration
 
         def cost_fn2(t):
+            if not t.consumers:
+                return t.duration
             return t.duration + t.size / bandwidth
 
         bandwidth = self.simulator.connector.bandwidth
