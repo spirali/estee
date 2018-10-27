@@ -68,6 +68,11 @@ class Simulator:
         else:
             self.trace_events = None
 
+        for i, worker in enumerate(workers):
+            assert worker.id is None
+            worker.id = i
+
+
     def add_trace_event(self, trace_event):
         if self.trace_events is not None:
             self.trace_events.append(trace_event)
@@ -140,7 +145,7 @@ class Simulator:
 
         env = Environment()
         self.env = env
-        self.connector.init(env, self.workers)
+        self.connector.init(self)
 
         for worker in self.workers:
             env.process(worker.run(env, self, self.connector))
