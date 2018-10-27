@@ -322,6 +322,52 @@ class DLSScheduler(SchedulerBase):
             worker, task) / self.simulator.connector.bandwidth)
 
 
+class LASTScheduler(SchedulerBase):
+    """
+    Implementation of the LAST scheduler from
+    “The LAST Algorithm: A Heuristic-Based Static Task Allocation
+    Algorithm (1989)
+
+    The scheduler tries to minimize overall communication by prioriting tasks
+    with small sizes and small neighbours.
+    """
+    def schedule(self, new_ready, new_finished):
+        bandwidth = self.simulator.connector.bandwidth
+        workers = self.simulator.workers[:]
+
+        def edge_cost(t1, t2):
+            return (0 if t1.info.assigned_workers == t2.info.assigned_workers
+                    else 1)
+
+        d_nodes = {}
+        for task in new_ready:
+            if not task.inputs:
+                d_nodes[task] = 1
+            else:
+                input_weighted = sum((i.size / bandwidth) * edge_cost(i, task)
+                            for i in task.inputs)
+                input = sum((i.size / bandwidth) for i in task.inputs)
+                output = sum((task.size / bandwidth) for _ in task.consumers)
+                d_nodes[task] = (input_weighted + output) / (input + output)
+
+        def worker_cost(worker, task):
+            if task.cpus > worker.cpus:
+                return 10e10
+            return 0
+
+        schedules = []
+        for _ in new_ready[:]:
+            m = max(d_nodes, key=lambda t: d_nodes[t])
+            worker_costs = [transfer_cost_parallel(w, m) +
+                            worker_cost(w, m) for w in workers]
+            worker_index = min(range(len(workers)),
+                               key=lambda i: worker_costs[i])
+            schedules.append(TaskAssignment(workers[worker_index], m))
+
+            del d_nodes[m]
+        return schedules
+
+
 def assign_b_level(task_graph, cost_fn):
     for task in task_graph.tasks:
         task.s_info = cost_fn(task)
