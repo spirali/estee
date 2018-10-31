@@ -394,11 +394,12 @@ class MCPScheduler(SchedulerBase):
         tasks = sorted(new_ready,
                        key=lambda t: [self.alap[t]] +
                                      [self.alap[c] for c in t.consumers])
+        bandwidth = self.simulator.connector.bandwidth
 
         def cost(w, t):
             if t.cpus > w.cpus:
                 return 10e10
-            return transfer_cost_parallel(w, t)
+            return transfer_cost_parallel(w, t) / bandwidth
 
         schedules = []
         for task in tasks:
