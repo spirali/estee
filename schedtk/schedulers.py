@@ -375,7 +375,7 @@ class LASTScheduler(SchedulerBase):
 
 class MCPScheduler(SchedulerBase):
     """
-    Implementation of the MCP scheduler from
+    Implementation of the MCP (Modified Critical Path) scheduler from
     Hypertool: A Programming Aid for Message-Passing Systems (1990)
 
     The scheduler prioritizes tasks by their latest possible start times
@@ -388,7 +388,7 @@ class MCPScheduler(SchedulerBase):
     def init(self, simulator):
         super().init(simulator)
         bandwidth = simulator.connector.bandwidth
-        self.alap = assign_alap(self.simulator.task_graph, bandwidth)
+        self.alap = compute_alap(self.simulator.task_graph, bandwidth)
 
     def schedule(self, new_ready, new_finished):
         tasks = sorted(new_ready,
@@ -409,7 +409,42 @@ class MCPScheduler(SchedulerBase):
         return schedules
 
 
-def assign_alap(task_graph, bandwidth):
+class ETFScheduler(SchedulerBase):
+    """
+    Implementation of the ETF (Earliest Time First) scheduler from
+    Scheduling Precedence Graphs in Systems with Interprocessor Communication
+    Times (1989)
+
+    The scheduler prioritizes (worker, task) pairs with the earliest possible
+    start time. Ties are broken with static B-level.
+    """
+    def __init__(self):
+        super().__init__()
+        self.b_level = {}
+
+    def init(self, simulator):
+        super().init(simulator)
+        self.b_level = compute_b_level(simulator.task_graph,
+                                       lambda t: t.duration)
+
+    def schedule(self, new_ready, new_finished):
+        return schedule_all(self.simulator.workers, new_ready,
+                            lambda w, t: self.find_assignment(w, t))
+
+    def find_assignment(self, workers, tasks):
+        return min(itertools.product(workers, tasks),
+                   key=lambda item: (self.calculate_cost(item[0], item[1]),
+                                     self.b_level[item[1]]))
+
+    def calculate_cost(self, worker, task):
+        if task.cpus > worker.cpus:
+            return 10e10
+
+        bandwidth = self.simulator.connector.bandwidth
+        return transfer_cost_parallel(worker, task) / bandwidth
+
+
+def compute_alap(task_graph, bandwidth):
     """
     Calculates the As-late-as-possible metric.
     """

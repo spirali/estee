@@ -1,9 +1,9 @@
 
 from .connectors import SimpleConnector
 from .schedulers import AllOnOneScheduler, BlevelGtScheduler, Camp2Scheduler, \
-    DLSScheduler, LASTScheduler, MCPScheduler, RandomAssignScheduler, \
-    RandomGtScheduler, RandomScheduler, assign_alap, compute_b_level, \
-    compute_t_level, compute_independent_tasks
+    DLSScheduler, ETFScheduler, LASTScheduler, MCPScheduler, \
+    RandomAssignScheduler, RandomGtScheduler, RandomScheduler, compute_alap, \
+    compute_b_level, compute_independent_tasks, compute_t_level
 from .test_utils import do_sched_test, task_by_name
 
 
@@ -77,6 +77,10 @@ def test_scheduler_mcp(plan1):
     assert do_sched_test(plan1, 2, MCPScheduler(), SimpleConnector()) == 17
 
 
+def test_scheduler_etf(plan1):
+    assert do_sched_test(plan1, 2, ETFScheduler(), SimpleConnector()) == 17
+
+
 def test_compute_indepndent_tasks(plan1):
     it = compute_independent_tasks(plan1)
     a1, a2, a3, a4, a5, a6, a7, a8 = plan1.tasks
@@ -115,7 +119,7 @@ def test_compute_b_level(plan1):
 
 
 def test_compute_alap(plan1):
-    alap = assign_alap(plan1, 1)
+    alap = compute_alap(plan1, 1)
 
     assert alap[task_by_name(plan1, "a1")] == 6
     assert alap[task_by_name(plan1, "a2")] == 6
