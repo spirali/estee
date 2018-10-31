@@ -325,7 +325,7 @@ class DLSScheduler(SchedulerBase):
 class LASTScheduler(SchedulerBase):
     """
     Implementation of the LAST scheduler from
-    “The LAST Algorithm: A Heuristic-Based Static Task Allocation
+    The LAST Algorithm: A Heuristic-Based Static Task Allocation
     Algorithm (1989)
 
     The scheduler tries to minimize overall communication by prioriting tasks
@@ -368,23 +368,106 @@ class LASTScheduler(SchedulerBase):
         return schedules
 
 
+class MCPScheduler(SchedulerBase):
+    """
+    Implementation of the MCP scheduler from
+    Hypertool: A Programming Aid for Message-Passing Systems (1990)
+
+    The scheduler prioritizes tasks by their latest possible start times
+    (ALAP).
+    """
+    def __init__(self):
+        super().__init__()
+        self.alap = {}
+
+    def init(self, simulator):
+        super().init(simulator)
+        bandwidth = simulator.connector.bandwidth
+        self.alap = assign_alap(self.simulator.task_graph, bandwidth)
+
+    def schedule(self, new_ready, new_finished):
+        tasks = sorted(new_ready,
+                       key=lambda t: [self.alap[t]] +
+                                     [self.alap[c] for c in t.consumers])
+
+        def cost(w, t):
+            if t.cpus > w.cpus:
+                return 10e10
+            return transfer_cost_parallel(w, t)
+
+        schedules = []
+        for task in tasks:
+            worker = min(self.simulator.workers, key=lambda w: cost(w, task))
+            schedules.append(TaskAssignment(worker, task))
+
+        return schedules
+
+
+def assign_alap(task_graph, bandwidth):
+    """
+    Calculates the As-late-as-possible metric.
+    """
+    assign_t_level(task_graph, lambda t: t.duration + t.size / bandwidth)
+
+    alap = {}
+
+    def calc(task):
+        if task in alap:
+            return alap[task]
+
+        if not task.consumers:
+            value = task.s_info
+        else:
+            value = min((calc(t) - task.size / bandwidth
+                        for t in task.consumers),
+                        default=task.s_info) - task.duration
+        alap[task] = value
+        return value
+
+    tasks = task_graph.leaf_tasks()
+    while tasks:
+        new_tasks = set()
+        for task in tasks:
+            calc(task)
+            new_tasks |= set(task.inputs)
+        tasks = new_tasks
+
+    return alap
+
+
 def assign_b_level(task_graph, cost_fn):
+    """
+    Calculates the B-level (taken from the HLFET algorithm).
+    """
     for task in task_graph.tasks:
         task.s_info = cost_fn(task)
-    graph_dist_crawl(task_graph.leaf_tasks(), lambda t: t.inputs, cost_fn)
+    graph_dist_crawl(task_graph.leaf_tasks(), lambda t: t.inputs,
+                     lambda task, next: max(next.s_info,
+                                            task.s_info + cost_fn(next)))
 
 
-def graph_dist_crawl(initial_tasks, nexts_fn, cost_fn):
+def assign_t_level(task_graph, cost_fn):
+    """
+    Calculates the T-level (the earliest time possible to start the task).
+    """
+    for task in task_graph.tasks:
+        task.s_info = 0
+    graph_dist_crawl(task_graph.source_tasks(),
+                     lambda t: t.consumers,
+                     lambda task, next: max(next.s_info,
+                                            task.s_info + cost_fn(task)))
+
+
+def graph_dist_crawl(initial_tasks, nexts_fn, aggregate):
     tasks = initial_tasks
     while tasks:
         new_tasks = set()
         for task in tasks:
-            dist = task.s_info
-            for t in nexts_fn(task):
-                new_value = max(t.s_info, dist + cost_fn(t))
-                if new_value != t.s_info:
-                    t.s_info = new_value
-                    new_tasks.add(t)
+            for next in nexts_fn(task):
+                new_value = aggregate(task, next)
+                if new_value != next.s_info:
+                    next.s_info = new_value
+                    new_tasks.add(next)
         tasks = new_tasks
 
 
