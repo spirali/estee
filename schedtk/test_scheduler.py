@@ -2,8 +2,8 @@
 from .connectors import SimpleConnector
 from .schedulers import AllOnOneScheduler, BlevelGtScheduler, Camp2Scheduler, \
     DLSScheduler, LASTScheduler, MCPScheduler, RandomAssignScheduler, \
-    RandomGtScheduler, RandomScheduler, assign_alap, assign_b_level, \
-    assign_t_level, compute_independent_tasks
+    RandomGtScheduler, RandomScheduler, assign_alap, compute_b_level, \
+    compute_t_level, compute_independent_tasks
 from .test_utils import do_sched_test, task_by_name
 
 
@@ -89,29 +89,29 @@ def test_compute_indepndent_tasks(plan1):
 
 
 def test_compute_t_level(plan1):
-    assign_t_level(plan1, lambda t: t.duration + t.size)
+    t = compute_t_level(plan1, lambda t: t.duration + t.size)
 
-    assert task_by_name(plan1, "a1").s_info == 0
-    assert task_by_name(plan1, "a2").s_info == 0
-    assert task_by_name(plan1, "a3").s_info == 3
-    assert task_by_name(plan1, "a4").s_info == 0
-    assert task_by_name(plan1, "a5").s_info == 7
-    assert task_by_name(plan1, "a6").s_info == 7
-    assert task_by_name(plan1, "a7").s_info == 0
-    assert task_by_name(plan1, "a8").s_info == 14
+    assert t[task_by_name(plan1, "a1")] == 0
+    assert t[task_by_name(plan1, "a2")] == 0
+    assert t[task_by_name(plan1, "a3")] == 3
+    assert t[task_by_name(plan1, "a4")] == 0
+    assert t[task_by_name(plan1, "a5")] == 7
+    assert t[task_by_name(plan1, "a6")] == 7
+    assert t[task_by_name(plan1, "a7")] == 0
+    assert t[task_by_name(plan1, "a8")] == 14
 
 
 def test_compute_b_level(plan1):
-    assign_b_level(plan1, lambda t: t.duration + t.size)
+    b = compute_b_level(plan1, lambda t: t.duration + t.size)
 
-    assert task_by_name(plan1, "a1").s_info == 10
-    assert task_by_name(plan1, "a2").s_info == 10
-    assert task_by_name(plan1, "a3").s_info == 7
-    assert task_by_name(plan1, "a4").s_info == 16
-    assert task_by_name(plan1, "a5").s_info == 4
-    assert task_by_name(plan1, "a6").s_info == 9
-    assert task_by_name(plan1, "a7").s_info == 5
-    assert task_by_name(plan1, "a8").s_info == 2
+    assert b[task_by_name(plan1, "a1")] == 10
+    assert b[task_by_name(plan1, "a2")] == 10
+    assert b[task_by_name(plan1, "a3")] == 7
+    assert b[task_by_name(plan1, "a4")] == 16
+    assert b[task_by_name(plan1, "a5")] == 4
+    assert b[task_by_name(plan1, "a6")] == 9
+    assert b[task_by_name(plan1, "a7")] == 5
+    assert b[task_by_name(plan1, "a8")] == 2
 
 
 def test_compute_alap(plan1):

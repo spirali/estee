@@ -63,8 +63,10 @@ class AllOnOneScheduler(SchedulerBase):
 
     def schedule(self, new_ready, new_finished):
         worker = self.worker
-        assign_b_level(self.simulator.task_graph, lambda t: t.duration)
-        return [TaskAssignment(worker, task, task.s_info) for task in new_ready]
+        b_level = compute_b_level(self.simulator.task_graph,
+                                  lambda t: t.duration)
+        return [TaskAssignment(worker, task, b_level[task])
+                for task in new_ready]
 
 
 class QueueScheduler(SchedulerBase):
@@ -161,10 +163,11 @@ class BlevelGtScheduler(GreedyTransferQueueScheduler):
             return t.duration + t.size / bandwidth
 
         bandwidth = self.simulator.connector.bandwidth
-        assign_b_level(self.simulator.task_graph, cost_fn2 if self.include_size else cost_fn1)
+        b_level = compute_b_level(self.simulator.task_graph,
+                                  cost_fn2 if self.include_size else cost_fn1)
         tasks = self.simulator.task_graph.tasks[:]
         random.shuffle(tasks)  # To randomize keys with the same level
-        tasks.sort(key=lambda n: n.s_info, reverse=True)
+        tasks.sort(key=lambda n: b_level[n], reverse=True)
         return tasks
 
 
@@ -215,9 +218,10 @@ class Camp2Scheduler(StaticScheduler):
             else:
                 pcost = new_pcost
 
-        assign_b_level(self.simulator.task_graph, lambda t: t.duration)
+        b_level = compute_b_level(self.simulator.task_graph,
+                                  lambda t: t.duration)
 
-        r = [TaskAssignment(workers[w], task, task.s_info)
+        r = [TaskAssignment(workers[w], task, b_level[task])
              for task, w in zip(tasks, placement)]
         return r
 
@@ -292,7 +296,8 @@ class DLSScheduler(SchedulerBase):
 
     def init(self, simulator):
         super().init(simulator)
-        assign_b_level(simulator.task_graph, lambda t: t.duration)
+        self.b_level = compute_b_level(simulator.task_graph,
+                                       lambda t: t.duration)
 
     def schedule(self, new_ready, new_finished):
         return schedule_all(self.simulator.workers, new_ready,
@@ -315,7 +320,7 @@ class DLSScheduler(SchedulerBase):
                                     default=0)
             transfer = max(transfer, last_finish)
 
-        return task.s_info - transfer
+        return self.b_level[task] - transfer
 
     def calculate_transfer(self, worker, task):
         return self.simulator.env.now + (transfer_cost_parallel(
@@ -407,7 +412,8 @@ def assign_alap(task_graph, bandwidth):
     """
     Calculates the As-late-as-possible metric.
     """
-    assign_t_level(task_graph, lambda t: t.duration + t.size / bandwidth)
+    t_level = compute_t_level(task_graph,
+                              lambda t: t.duration + t.size / bandwidth)
 
     alap = {}
 
@@ -416,11 +422,11 @@ def assign_alap(task_graph, bandwidth):
             return alap[task]
 
         if not task.consumers:
-            value = task.s_info
+            value = t_level[task]
         else:
             value = min((calc(t) - task.size / bandwidth
                         for t in task.consumers),
-                        default=task.s_info) - task.duration
+                        default=t_level[task]) - task.duration
         alap[task] = value
         return value
 
@@ -435,38 +441,47 @@ def assign_alap(task_graph, bandwidth):
     return alap
 
 
-def assign_b_level(task_graph, cost_fn):
+def compute_b_level(task_graph, cost_fn):
     """
     Calculates the B-level (taken from the HLFET algorithm).
     """
+    b_level = {}
     for task in task_graph.tasks:
-        task.s_info = cost_fn(task)
-    graph_dist_crawl(task_graph.leaf_tasks(), lambda t: t.inputs,
-                     lambda task, next: max(next.s_info,
-                                            task.s_info + cost_fn(next)))
+        b_level[task] = cost_fn(task)
+
+    graph_dist_crawl(b_level,
+                     task_graph.leaf_tasks(),
+                     lambda t: t.inputs,
+                     lambda task, next: max(b_level[next],
+                                            b_level[task] + cost_fn(next)))
+    return b_level
 
 
-def assign_t_level(task_graph, cost_fn):
+def compute_t_level(task_graph, cost_fn):
     """
-    Calculates the T-level (the earliest time possible to start the task).
+    Calculates the T-level (the earliest possible time to start the task).
     """
+    t_level = {}
     for task in task_graph.tasks:
-        task.s_info = 0
-    graph_dist_crawl(task_graph.source_tasks(),
+        t_level[task] = 0
+
+    graph_dist_crawl(t_level,
+                     task_graph.source_tasks(),
                      lambda t: t.consumers,
-                     lambda task, next: max(next.s_info,
-                                            task.s_info + cost_fn(task)))
+                     lambda task, next: max(t_level[next],
+                                            t_level[task] + cost_fn(task)))
+    return t_level
 
 
-def graph_dist_crawl(initial_tasks, nexts_fn, aggregate):
+def graph_dist_crawl(values, initial_tasks, nexts_fn, aggregate):
     tasks = initial_tasks
     while tasks:
         new_tasks = set()
         for task in tasks:
             for next in nexts_fn(task):
                 new_value = aggregate(task, next)
-                if new_value != next.s_info:
-                    next.s_info = new_value
+                if new_value != values[next]:
+                    values[next] = new_value
                     new_tasks.add(next)
         tasks = new_tasks
 
