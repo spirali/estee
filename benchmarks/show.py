@@ -48,7 +48,6 @@ def main():
     args = parse_args()
 
     data = pd.read_pickle(args.dataset)
-    data = data[data.bandwidth > 0.5]
 
     if args.ignore:
         for c in args.ignore:
