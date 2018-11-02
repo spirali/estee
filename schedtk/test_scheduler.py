@@ -1,6 +1,6 @@
 
 from .schedulers import (AllOnOneScheduler, RandomScheduler, RandomGtScheduler,
-                         BlevelGtScheduler, RandomAssignScheduler, CampScheduler)
+                         BlevelGtScheduler, RandomAssignScheduler, Camp2Scheduler)
 from .schedulers import compute_independent_tasks
 from .connectors import SimpleConnector
 
@@ -62,7 +62,7 @@ def test_scheduler_random_assign(plan1):
 
 def test_scheduler_camp(plan1):
     for _ in range(10):
-        assert 10 <= do_sched_test(plan1, 2, CampScheduler(), SimpleConnector()) <= 13
+        assert 10 <= do_sched_test(plan1, 2, Camp2Scheduler(), SimpleConnector()) <= 13
 
 
 def test_compute_indepndent_tasks(plan1):
