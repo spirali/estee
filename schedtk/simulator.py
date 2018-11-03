@@ -145,7 +145,7 @@ class Simulator:
 
         env = Environment()
         self.env = env
-        self.connector.init(self)
+        self.connector.init(self.env, self.workers)
 
         for worker in self.workers:
             env.process(worker.run(env, self, self.connector))
