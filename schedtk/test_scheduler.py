@@ -62,7 +62,7 @@ def test_scheduler_random_assign(plan1):
 
 def test_scheduler_camp(plan1):
     for _ in range(10):
-        assert 10 <= do_sched_test(plan1, 2, Camp2Scheduler(), SimpleConnector()) <= 13
+        assert 10 <= do_sched_test(plan1, 2, Camp2Scheduler(), SimpleConnector()) <= 18
 
 
 def test_compute_indepndent_tasks(plan1):
