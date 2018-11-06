@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<adag xmlns="http://pegasus.isi.edu/schema/DAX" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pegasus.isi.edu/schema/DAX http://pegasus.isi.edu/schema/dax-2.1.xsd" version="2.1" count="1" index="0" name="test" jobCount="24" fileCount="0" childCount="23">
+<!-- part 1: list of all referenced files (may be empty) -->
+<!-- part 2: definition of all jobs (at least one) -->
+  <job id="a1_2_1" namespace="" name="" version="1.0" runtime="2.0">
+    <uses file="output" link="output" register="true" transfer="true" optional="false" type="data" size="1"/>
+  </job>
+  <job id="a2_3_3" namespace="" name="" version="1.0" runtime="3.0">
+    <uses file="output" link="output" register="true" transfer="true" optional="false" type="data" size="3"/>
+  </job>
+  <job id="a3_2_1" namespace="" name="" version="1.0" runtime="2.0">
+    <uses file="output" link="output" register="true" transfer="true" optional="false" type="data" size="1"/>
+  </job>
+  <job id="a4_1_6" namespace="" name="" version="1.0" runtime="1.0">
+    <uses file="output" link="output" register="true" transfer="true" optional="false" type="data" size="6"/>
+  </job>
+  <job id="a5_1_1" namespace="" name="" version="1.0" runtime="1.0">
+    <uses file="output" link="output" register="true" transfer="true" optional="false" type="data" size="1"/>
+  </job>
+  <job id="a6_6_1" namespace="" name="" version="1.0" runtime="6.0">
+    <uses file="output" link="output" register="true" transfer="true" optional="false" type="data" size="1"/>
+  </job>
+  <job id="a7_1_2" namespace="" name="" version="1.0" runtime="1.0">
+    <uses file="output" link="output" register="true" transfer="true" optional="false" type="data" size="2"/>
+  </job>
+  <job id="a8_1_1" namespace="" name="" version="1.0" runtime="1.0">
+    <uses file="output" link="output" register="true" transfer="true" optional="false" type="data" size="1"/>
+  </job>
+<!-- part 3: list of control-flow dependencies (may be empty) -->
+  <child ref="a3_2_1">
+    <parent ref="a1_2_1"/>
+  </child>
+  <child ref="a5_1_1">
+    <parent ref="a3_2_1"/>
+    <parent ref="a2_3_3"/>
+    <parent ref="a4_1_6"/>
+  </child>
+  <child ref="a6_6_1">
+    <parent ref="a4_1_6"/>
+  </child>
+  <child ref="a8_1_1">
+    <parent ref="a3_2_1"/>
+    <parent ref="a5_1_1"/>
+    <parent ref="a6_6_1"/>
+    <parent ref="a7_1_2"/>
+  </child>
+</adag>
