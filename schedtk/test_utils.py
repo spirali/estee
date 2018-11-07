@@ -75,3 +75,7 @@ def do_sched_test(task_graph, workers, scheduler, connector=None, report=None):
     if report:
         simulator.make_trace_report(report)
     return result
+
+
+def task_by_name(plan, name):
+    return [t for t in plan.tasks if t.name == name][0]

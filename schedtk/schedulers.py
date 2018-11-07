@@ -63,8 +63,10 @@ class AllOnOneScheduler(SchedulerBase):
 
     def schedule(self, new_ready, new_finished):
         worker = self.worker
-        assign_b_level(self.simulator.task_graph, lambda t: t.duration)
-        return [TaskAssignment(worker, task, task.s_info) for task in new_ready]
+        b_level = compute_b_level(self.simulator.task_graph,
+                                  lambda t: t.duration)
+        return [TaskAssignment(worker, task, b_level[task])
+                for task in new_ready]
 
 
 class QueueScheduler(SchedulerBase):
@@ -161,10 +163,11 @@ class BlevelGtScheduler(GreedyTransferQueueScheduler):
             return t.duration + t.size / bandwidth
 
         bandwidth = self.simulator.connector.bandwidth
-        assign_b_level(self.simulator.task_graph, cost_fn2 if self.include_size else cost_fn1)
+        b_level = compute_b_level(self.simulator.task_graph,
+                                  cost_fn2 if self.include_size else cost_fn1)
         tasks = self.simulator.task_graph.tasks[:]
         random.shuffle(tasks)  # To randomize keys with the same level
-        tasks.sort(key=lambda n: n.s_info, reverse=True)
+        tasks.sort(key=lambda n: b_level[n], reverse=True)
         return tasks
 
 
@@ -218,9 +221,10 @@ class Camp2Scheduler(StaticScheduler):
             if new_score > old_score:  # and np.random.random() > (i / limit) / 100:
                 placement[t] = old_w
 
-        assign_b_level(self.simulator.task_graph, lambda t: t.duration)
+        b_level = compute_b_level(self.simulator.task_graph,
+                                  lambda t: t.duration)
 
-        r = [TaskAssignment(workers[w], task, task.s_info)
+        r = [TaskAssignment(workers[w], task, b_level[task])
              for task, w in zip(tasks, placement)]
         return r
 
@@ -320,7 +324,8 @@ class DLSScheduler(SchedulerBase):
 
     def init(self, simulator):
         super().init(simulator)
-        assign_b_level(simulator.task_graph, lambda t: t.duration)
+        self.b_level = compute_b_level(simulator.task_graph,
+                                       lambda t: t.duration)
 
     def schedule(self, new_ready, new_finished):
         return schedule_all(self.simulator.workers, new_ready,
@@ -343,7 +348,7 @@ class DLSScheduler(SchedulerBase):
                                     default=0)
             transfer = max(transfer, last_finish)
 
-        return task.s_info - transfer
+        return self.b_level[task] - transfer
 
     def calculate_transfer(self, worker, task):
         return self.simulator.env.now + (transfer_cost_parallel(
@@ -353,7 +358,7 @@ class DLSScheduler(SchedulerBase):
 class LASTScheduler(SchedulerBase):
     """
     Implementation of the LAST scheduler from
-    “The LAST Algorithm: A Heuristic-Based Static Task Allocation
+    The LAST Algorithm: A Heuristic-Based Static Task Allocation
     Algorithm (1989)
 
     The scheduler tries to minimize overall communication by prioriting tasks
@@ -396,23 +401,152 @@ class LASTScheduler(SchedulerBase):
         return schedules
 
 
-def assign_b_level(task_graph, cost_fn):
+class MCPScheduler(SchedulerBase):
+    """
+    Implementation of the MCP (Modified Critical Path) scheduler from
+    Hypertool: A Programming Aid for Message-Passing Systems (1990)
+
+    The scheduler prioritizes tasks by their latest possible start times
+    (ALAP).
+    """
+    def __init__(self):
+        super().__init__()
+        self.alap = {}
+
+    def init(self, simulator):
+        super().init(simulator)
+        bandwidth = simulator.connector.bandwidth
+        self.alap = compute_alap(self.simulator.task_graph, bandwidth)
+
+    def schedule(self, new_ready, new_finished):
+        tasks = sorted(new_ready,
+                       key=lambda t: [self.alap[t]] +
+                                     [self.alap[c] for c in t.consumers])
+        bandwidth = self.simulator.connector.bandwidth
+
+        def cost(w, t):
+            if t.cpus > w.cpus:
+                return 10e10
+            return transfer_cost_parallel(w, t) / bandwidth
+
+        schedules = []
+        for task in tasks:
+            worker = min(self.simulator.workers, key=lambda w: cost(w, task))
+            schedules.append(TaskAssignment(worker, task))
+
+        return schedules
+
+
+class ETFScheduler(SchedulerBase):
+    """
+    Implementation of the ETF (Earliest Time First) scheduler from
+    Scheduling Precedence Graphs in Systems with Interprocessor Communication
+    Times (1989)
+
+    The scheduler prioritizes (worker, task) pairs with the earliest possible
+    start time. Ties are broken with static B-level.
+    """
+    def __init__(self):
+        super().__init__()
+        self.b_level = {}
+
+    def init(self, simulator):
+        super().init(simulator)
+        self.b_level = compute_b_level(simulator.task_graph,
+                                       lambda t: t.duration)
+
+    def schedule(self, new_ready, new_finished):
+        return schedule_all(self.simulator.workers, new_ready,
+                            lambda w, t: self.find_assignment(w, t))
+
+    def find_assignment(self, workers, tasks):
+        return min(itertools.product(workers, tasks),
+                   key=lambda item: (self.calculate_cost(item[0], item[1]),
+                                     self.b_level[item[1]]))
+
+    def calculate_cost(self, worker, task):
+        if task.cpus > worker.cpus:
+            return 10e10
+
+        bandwidth = self.simulator.connector.bandwidth
+        return transfer_cost_parallel(worker, task) / bandwidth
+
+
+def compute_alap(task_graph, bandwidth):
+    """
+    Calculates the As-late-as-possible metric.
+    """
+    t_level = compute_t_level(task_graph,
+                              lambda t: t.duration + t.size / bandwidth)
+
+    alap = {}
+
+    def calc(task):
+        if task in alap:
+            return alap[task]
+
+        if not task.consumers:
+            value = t_level[task]
+        else:
+            value = min((calc(t) - task.size / bandwidth
+                        for t in task.consumers),
+                        default=t_level[task]) - task.duration
+        alap[task] = value
+        return value
+
+    tasks = task_graph.leaf_tasks()
+    while tasks:
+        new_tasks = set()
+        for task in tasks:
+            calc(task)
+            new_tasks |= set(task.inputs)
+        tasks = new_tasks
+
+    return alap
+
+
+def compute_b_level(task_graph, cost_fn):
+    """
+    Calculates the B-level (taken from the HLFET algorithm).
+    """
+    b_level = {}
     for task in task_graph.tasks:
-        task.s_info = cost_fn(task)
-    graph_dist_crawl(task_graph.leaf_tasks(), lambda t: t.inputs, cost_fn)
+        b_level[task] = cost_fn(task)
+
+    graph_dist_crawl(b_level,
+                     task_graph.leaf_tasks(),
+                     lambda t: t.inputs,
+                     lambda task, next: max(b_level[next],
+                                            b_level[task] + cost_fn(next)))
+    return b_level
 
 
-def graph_dist_crawl(initial_tasks, nexts_fn, cost_fn):
+def compute_t_level(task_graph, cost_fn):
+    """
+    Calculates the T-level (the earliest possible time to start the task).
+    """
+    t_level = {}
+    for task in task_graph.tasks:
+        t_level[task] = 0
+
+    graph_dist_crawl(t_level,
+                     task_graph.source_tasks(),
+                     lambda t: t.consumers,
+                     lambda task, next: max(t_level[next],
+                                            t_level[task] + cost_fn(task)))
+    return t_level
+
+
+def graph_dist_crawl(values, initial_tasks, nexts_fn, aggregate):
     tasks = initial_tasks
     while tasks:
         new_tasks = set()
         for task in tasks:
-            dist = task.s_info
-            for t in nexts_fn(task):
-                new_value = max(t.s_info, dist + cost_fn(t))
-                if new_value != t.s_info:
-                    t.s_info = new_value
-                    new_tasks.add(t)
+            for next in nexts_fn(task):
+                new_value = aggregate(task, next)
+                if new_value != values[next]:
+                    values[next] = new_value
+                    new_tasks.add(next)
         tasks = new_tasks
 
 
