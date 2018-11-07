@@ -10,6 +10,7 @@ def parse_args():
     parser.add_argument("--heatmap", action="store_true")
     parser.add_argument("--violin", action="store_true")
     parser.add_argument("--boxplot", action="store_true")
+    parser.add_argument("--lineplot", action="store_true")
     parser.add_argument('--ignore', action='append')
     return parser.parse_args()
 
@@ -25,17 +26,28 @@ def draw_violin(*args, **kw):
     g = seaborn.violinplot(data=df, x="groups", y="vals")
     #g.set_yscale('log')
 
+
 def draw_boxplot(*args, **kw):
     df = kw["data"][kw["avg_columns"]]
     df = df.melt(var_name='groups', value_name='vals')
     g = seaborn.boxplot(data=df, x="groups", y="vals")
 
 
+def draw_lineplot(*args, **kw):
+    line = kw["data"].melt(id_vars=['bandwidth'], value_vars=kw["avg_columns"])
+    line = line.rename(index=str, columns={"variable": "scheduler"})
+    line['scheduler'] = line['scheduler'].map(
+        lambda x: x[:-4] if x.endswith("_avg") else x)
+
+    line['bandwidth'] = line['bandwidth'].astype(str)
+    g = seaborn.lineplot(x="bandwidth", y="value", hue="scheduler", data=line)
+    g.set(yscale="log", xlabel="Bandwidth", ylabel="Makespan")
+
+
 def main():
     args = parse_args()
 
     data = pd.read_pickle(args.dataset)
-    data = data[data.bandwidth > 0.5]
 
     if args.ignore:
         for c in args.ignore:
@@ -63,6 +75,10 @@ def main():
     if args.boxplot:
         fg = seaborn.FacetGrid(data, col='cluster_name', row='bandwidth')
         fg.map_dataframe(draw_boxplot, avg_columns=avg_columns)
+
+    if args.lineplot:
+        fg = seaborn.FacetGrid(data, col='cluster_name')
+        fg.map_dataframe(draw_lineplot, avg_columns=avg_columns).add_legend()
 
     plt.show()
 

@@ -47,6 +47,7 @@ class Worker:
         self.running_downloads = {}
 
         self.free_cpus = cpus
+        self.id = None
 
     def _download(self, worker, task):
         def _helper():
@@ -149,4 +150,4 @@ class Worker:
                     prepared_assignments.remove(assignment)
 
     def __repr__(self):
-        return "<Worker {}>".format(id(self))
+        return "<Worker {}>".format(self.id)

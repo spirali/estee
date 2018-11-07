@@ -186,22 +186,26 @@ class Camp2Scheduler(StaticScheduler):
         costs = []
         workers = self.simulator.workers
         cpu_factor = sum([w.cpus for w in workers]) / len(workers) / 8
+
+        self.repulse_score = {}
+
         for task, indeps in independencies.items():
+            lst = []
+            self.repulse_score[task] = lst
             if not indeps:
                 continue
-            task_para_value = task.duration / len(indeps) * task.cpus / cpu_factor
+            task_value = task.duration / len(indeps) * task.cpus / cpu_factor
             for t in indeps:
-                #if t.id < task.id:
-                #    continue
-                tab.append((t.id, task.id))
-                costs.append(task_para_value)
-        self.tab = np.array(tab, dtype=np.int32)
-        self.costs = np.array(costs)
+                score = task_value + t.duration / len(independencies[t]) * t.cpus / cpu_factor
+                lst.append((t.id, score))
 
         tasks = self.simulator.task_graph.tasks
         placement = np.empty(self.simulator.task_graph.task_count, dtype=np.int32)
         placement[:] = workers.index(max_cpus_worker(workers))
-        pcost = self.placement_cost(placement)
+        #score_cache = np.empty_like(placement, dtype=np.float)
+
+        #for t in tasks:
+        #    score_cache[t.id] = self.compute_task_score(placement, t)
 
         for i in range(self.iterations):
             t = random.randint(0, len(tasks) - 1)
@@ -211,12 +215,11 @@ class Camp2Scheduler(StaticScheduler):
                 new_w += 1
             if workers[new_w].cpus < tasks[t].cpus:
                 continue
+            old_score = self.compute_task_score(placement, tasks[t])
             placement[t] = new_w
-            new_pcost = self.placement_cost(placement)
-            if new_pcost > pcost:  # and np.random.random() > (i / limit) / 100:
+            new_score = self.compute_task_score(placement, tasks[t])
+            if new_score > old_score:  # and np.random.random() > (i / limit) / 100:
                 placement[t] = old_w
-            else:
-                pcost = new_pcost
 
         b_level = compute_b_level(self.simulator.task_graph,
                                   lambda t: t.duration)
@@ -225,6 +228,30 @@ class Camp2Scheduler(StaticScheduler):
              for task, w in zip(tasks, placement)]
         return r
 
+    def compute_input_score(self, placement, task):
+        old_worker = placement[task.id]
+        score = 0
+        for inp in task.inputs:
+            if inp.size > score and placement[inp.id] != old_worker:
+                score = inp.size
+        return score
+
+    def compute_task_score(self, placement, task):
+        score = self.compute_input_score(placement, task)
+        for t in task.consumers:
+            score += self.compute_input_score(placement, t)
+        score /= self.simulator.connector.bandwidth
+        p = placement[task.id]
+        for t_id, v in self.repulse_score[task]:
+            if placement[t_id] == p:
+                score += v
+        """
+        tids, scores = self.repulse_score[task]
+        score += (scores * (placement[tids] == p)).sum()
+        """
+        return score
+
+    """
     def placement_cost(self, placement):
         s = 0
         bandwidth = self.simulator.connector.bandwidth
@@ -242,6 +269,7 @@ class Camp2Scheduler(StaticScheduler):
         a = placement[self.tab[:, 0]]
         b = placement[self.tab[:, 1]]
         return (self.costs * (a == b)).sum() + s
+    """
 
 
 class K1hScheduler(SchedulerBase):
