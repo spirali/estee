@@ -5,7 +5,7 @@ from .taskgraph import TaskGraph
 def test_is_descendant():
     graph = TaskGraph()
 
-    n1, n2, n3, n4, n5 = [graph.new_task() for i in range(5)]
+    n1, n2, n3, n4, n5 = [graph.new_task(output_size=1 if i != 5 else None) for i in range(5)]
 
     n1.add_input(n2)
     n1.add_input(n4)
@@ -25,24 +25,34 @@ def test_is_descendant():
 def test_task_graph_copy(plan1):
     task_graph = plan1.copy()
 
+    task_graph.validate()
+
     for t1, t2 in zip(task_graph.tasks, plan1.tasks):
         assert id(t1) != id(t2)
         assert t1.id == t2.id
         assert len(t1.inputs) == len(t2.inputs)
+        assert len(t1.outputs) == len(t2.outputs)
+
         for i1, i2 in zip(t1.inputs, t2.inputs):
             assert id(i1) != id(i2)
             assert i1.id == i2.id
 
-        for i1, i2 in zip(sorted(t1.consumers, key=lambda t: t.id),
-                          sorted(t2.consumers, key=lambda t: t.id)):
-            assert id(i1) != id(i2)
-            assert i1.id == i2.id
+        for o1, o2 in zip(t1.outputs, t2.outputs):
+            assert id(o1) != id(o2)
+            assert o1.id == o2.id
+
+            for i1, i2 in zip(sorted(o1.consumers, key=lambda t: t.id),
+                              sorted(o2.consumers, key=lambda t: t.id)):
+                assert id(i1) != id(i2)
+                assert i1.id == i2.id
 
 
 def test_task_graph_merge(plan1):
 
     task_graph = TaskGraph.merge([plan1, plan1, plan1, plan1])
     assert task_graph.task_count == 4 * plan1.task_count
+
+    task_graph.validate()
 
     for i, t in enumerate(task_graph.tasks):
         print(i)

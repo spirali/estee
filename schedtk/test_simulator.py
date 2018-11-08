@@ -71,10 +71,10 @@ def test_simulator_cpus3():
 
 def test_worker_freecpus():
     test_graph = TaskGraph()
-    test_graph.new_task("A", duration=10, cpus=2)
-    test_graph.new_task("B", duration=8, cpus=3)
-    c = test_graph.new_task("C", duration=1, cpus=1)
-    d = test_graph.new_task("D", duration=3, cpus=3)
+    test_graph.new_task("A", duration=10, cpus=2, output_size=1)
+    test_graph.new_task("B", duration=8, cpus=3, output_size=1)
+    c = test_graph.new_task("C", duration=1, cpus=1, output_size=1)
+    d = test_graph.new_task("D", duration=3, cpus=3, output_size=1)
     d.add_input(c)
 
     free_cpus = []
@@ -92,13 +92,13 @@ def test_worker_freecpus():
 
 def test_worker_downloads():
     test_graph = TaskGraph()
-    a = test_graph.new_task("A", duration=1, size=100)
-    b = test_graph.new_task("B", duration=1, size=50)
+    a = test_graph.new_task("A", duration=1, output_size=100)
+    b = test_graph.new_task("B", duration=1, output_size=50)
     c = test_graph.new_task("C", duration=8)
     c.add_inputs((a, b))
 
-    d = test_graph.new_task("D", duration=1)
-    e = test_graph.new_task("E", duration=1)
+    d = test_graph.new_task("D", duration=1, outputs=[0])
+    e = test_graph.new_task("E", duration=1, outputs=[0])
     e.add_input(d)
 
     downloads = []
@@ -144,8 +144,8 @@ def test_worker_downloads():
 def test_worker_running_tasks():
     test_graph = TaskGraph()
     test_graph.new_task("X", duration=10)
-    a = test_graph.new_task("A", duration=1)
-    b = test_graph.new_task("B", duration=8)
+    a = test_graph.new_task("A", duration=1, output_size=1)
+    b = test_graph.new_task("B", duration=8, output_size=1)
     b.add_input(a)
 
     remaining_times = []

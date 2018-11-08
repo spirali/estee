@@ -12,6 +12,7 @@ def plan1():
         |    |
         a3/1 | a4/1/6
         |\  / /|
+        o o |/ |
         | a5/1 a6/6 a7/2
         |  \   |   /
         |   \  |  /
@@ -20,23 +21,23 @@ def plan1():
     task_graph = TaskGraph()
 
     a1, a2, a3, a4, a5, a6, a7, a8 = [
-        task_graph.new_task("a{}".format(i + 1), duration, size)
-        for i, (duration, size) in enumerate([
-            (2, 1),  # a1
-            (3, 3),  # a2
-            (2, 1),  # a3
-            (1, 6),  # a4
-            (1, 1),  # a5
-            (6, 1),  # a6
-            (1, 2),  # a7
-            (1, 1)   # a8
+        task_graph.new_task("a{}".format(i + 1), duration=duration, outputs=outputs)
+        for i, (duration, outputs) in enumerate([
+            (2, [1]),  # a1
+            (3, [3]),  # a2
+            (2, [1, 1]),  # a3
+            (1, [6]),  # a4
+            (1, [1]),  # a5
+            (6, [1]),  # a6
+            (1, [2]),  # a7
+            (1, [])   # a8
         ])
     ]
 
     a3.add_input(a1)
-    a5.add_inputs([a3, a2, a4])
+    a5.add_inputs([a3.outputs[0], a2, a4])
     a6.add_input(a4)
-    a8.add_inputs([a5, a6, a7, a3])
+    a8.add_inputs([a5, a6, a7, a3.outputs[1]])
 
     task_graph.validate()
 

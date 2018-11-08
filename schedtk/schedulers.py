@@ -129,11 +129,11 @@ class GreedyTransferQueueScheduler(QueueScheduler):
 
     def choose_worker(self, workers, task):
         costs = np.zeros(len(workers))
-
+        simulator = self.simulator
         for i in range(len(workers)):
             w = workers[i]
             for inp in task.inputs:
-                if w not in inp.info.assigned_workers:
+                if w not in simulator.output_info(inp).placing:
                     costs[i] += inp.size
 
         return np.random.choice(np.flatnonzero(costs == costs.min()))
@@ -149,22 +149,15 @@ class RandomGtScheduler(GreedyTransferQueueScheduler):
 
 class BlevelGtScheduler(GreedyTransferQueueScheduler):
 
-    def __init__(self, include_size=False):
+    def __init__(self):
         super().__init__()
-        self.include_size = include_size
 
     def make_queue(self):
         def cost_fn1(t):
             return t.duration
 
-        def cost_fn2(t):
-            if not t.consumers:
-                return t.duration
-            return t.duration + t.size / bandwidth
-
-        bandwidth = self.simulator.connector.bandwidth
         b_level = compute_b_level(self.simulator.task_graph,
-                                  cost_fn2 if self.include_size else cost_fn1)
+                                  cost_fn1)
         tasks = self.simulator.task_graph.tasks[:]
         random.shuffle(tasks)  # To randomize keys with the same level
         tasks.sort(key=lambda n: b_level[n], reverse=True)
@@ -238,7 +231,7 @@ class Camp2Scheduler(StaticScheduler):
 
     def compute_task_score(self, placement, task):
         score = self.compute_input_score(placement, task)
-        for t in task.consumers:
+        for t in task.consumers():
             score += self.compute_input_score(placement, t)
         score /= self.simulator.connector.bandwidth
         p = placement[task.id]
@@ -295,7 +288,7 @@ class K1hScheduler(SchedulerBase):
 
     def calculate_transfer(self, worker, task):
         bandwidth = self.simulator.connector.bandwidth
-        cost = transfer_cost_parallel(worker, task)
+        cost = transfer_cost_parallel(self.simulator, worker, task)
 
         for c in task.consumers:
             for i in c.inputs:
@@ -352,7 +345,7 @@ class DLSScheduler(SchedulerBase):
 
     def calculate_transfer(self, worker, task):
         return self.simulator.env.now + (transfer_cost_parallel(
-            worker, task) / self.simulator.connector.bandwidth)
+            self.simulator, worker, task) / self.simulator.connector.bandwidth)
 
 
 class LASTScheduler(SchedulerBase):
@@ -367,10 +360,13 @@ class LASTScheduler(SchedulerBase):
     def schedule(self, new_ready, new_finished):
         bandwidth = self.simulator.connector.bandwidth
         workers = self.simulator.workers[:]
+        simulator = self.simulator
 
-        def edge_cost(t1, t2):
-            return (0 if t1.info.assigned_workers == t2.info.assigned_workers
-                    else 1)
+        def edge_cost(o1, t2):
+            if simulator.output_info(o1).placing == simulator.task_info(t2).assigned_workers:
+                return 0
+            else:
+                return 1
 
         d_nodes = {}
         for task in new_ready:
@@ -378,7 +374,7 @@ class LASTScheduler(SchedulerBase):
                 d_nodes[task] = 1
             else:
                 input_weighted = sum((i.size / bandwidth) * edge_cost(i, task)
-                            for i in task.inputs)
+                                     for i in task.inputs)
                 input = sum((i.size / bandwidth) for i in task.inputs)
                 output = sum((task.size / bandwidth) for _ in task.consumers)
                 d_nodes[task] = (input_weighted + output) / (input + output)
@@ -391,7 +387,7 @@ class LASTScheduler(SchedulerBase):
         schedules = []
         for _ in new_ready[:]:
             m = max(d_nodes, key=lambda t: d_nodes[t])
-            worker_costs = [transfer_cost_parallel(w, m) +
+            worker_costs = [transfer_cost_parallel(self.simulator, w, m) +
                             worker_cost(w, m) for w in workers]
             worker_index = min(range(len(workers)),
                                key=lambda i: worker_costs[i])
@@ -427,7 +423,7 @@ class MCPScheduler(SchedulerBase):
         def cost(w, t):
             if t.cpus > w.cpus:
                 return 10e10
-            return transfer_cost_parallel(w, t) / bandwidth
+            return transfer_cost_parallel(self.simulator, w, t) / bandwidth
 
         schedules = []
         for task in tasks:
@@ -469,7 +465,7 @@ class ETFScheduler(SchedulerBase):
             return 10e10
 
         bandwidth = self.simulator.connector.bandwidth
-        return transfer_cost_parallel(worker, task) / bandwidth
+        return transfer_cost_parallel(self.simulator, worker, task) / bandwidth
 
 
 def compute_alap(task_graph, bandwidth):
@@ -515,7 +511,7 @@ def compute_b_level(task_graph, cost_fn):
 
     graph_dist_crawl(b_level,
                      task_graph.leaf_tasks(),
-                     lambda t: t.inputs,
+                     lambda t: t.pretasks,
                      lambda task, next: max(b_level[next],
                                             b_level[task] + cost_fn(next)))
     return b_level
@@ -531,7 +527,7 @@ def compute_t_level(task_graph, cost_fn):
 
     graph_dist_crawl(t_level,
                      task_graph.source_tasks(),
-                     lambda t: t.consumers,
+                     lambda t: t.consumers(),
                      lambda task, next: max(t_level[next],
                                             t_level[task] + cost_fn(task)))
     return t_level
@@ -572,8 +568,8 @@ def compute_independent_tasks(task_graph):
         return frozenset.union(*values)
 
     tasks = frozenset(task_graph.tasks)
-    up_deps = graph_crawl(task_graph.leaf_tasks(), lambda t: t.inputs, union)
-    down_deps = graph_crawl(task_graph.source_tasks(), lambda t: t.consumers, union)
+    up_deps = graph_crawl(task_graph.leaf_tasks(), lambda t: t.pretasks, union)
+    down_deps = graph_crawl(task_graph.source_tasks(), lambda t: t.consumers(), union)
     #print(down_deps)
     return {task: tasks.difference(up_deps[task] | down_deps[task])
             for task in task_graph.tasks}
@@ -583,13 +579,13 @@ def max_cpus_worker(workers):
     return max(workers, key=lambda w: w.cpus)
 
 
-def transfer_cost_parallel(worker, task):
+def transfer_cost_parallel(simulator, worker, task):
     """
     Calculates the cost of transferring inputs of `task` to `worker`.
     Assumes parallel download.
     """
     return max((i.size for i in task.inputs
-                if worker not in i.info.assigned_workers),
+                if worker not in simulator.output_info(i).placing),
                default=0)
 
 

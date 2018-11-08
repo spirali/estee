@@ -1,5 +1,6 @@
 
 from .task import Task
+from .utils import flat_list
 
 
 class TaskGraph:
@@ -7,16 +8,24 @@ class TaskGraph:
     def __init__(self, tasks=None):
         if tasks is None:
             self.tasks = []
+            self.outputs = []
         else:
+            outputs = []
             for i, task in enumerate(tasks):
                 task.id = i
+                for output in task.outputs:
+                    output.id = len(outputs)
+                    outputs.append(output)
             self.tasks = tasks
+            self.outputs = outputs
 
     def _copy_tasks(self):
         tasks = [task.simple_copy() for task in self.tasks]
+        outputs = flat_list(task.outputs for task in tasks)
+
         for old_task, task in zip(self.tasks, tasks):
             for inp in old_task.inputs:
-                task.add_input(tasks[inp.id])
+                task.add_input(outputs[inp.id])
         return tasks
 
     def copy(self):
@@ -26,21 +35,25 @@ class TaskGraph:
     def task_count(self):
         return len(self.tasks)
 
-    def cleanup(self):
-        for task in self.tasks:
-            task.cleanup()
-
-    def new_task(self, name=None, duration=1, size=0, cpus=1):
-        task = Task(name, duration, size, cpus)
+    def new_task(self, name=None, outputs=(), duration=1, cpus=1, output_size=None):
+        task = Task(name, outputs, duration, cpus, output_size)
         task.id = len(self.tasks)
+
+        output_id = len(self.outputs)
+        for o in task.outputs:
+            o.id = output_id
+            output_id += 1
+
         self.tasks.append(task)
+        self.outputs += task.outputs
+
         return task
 
     def source_tasks(self):
         return [t for t in self.tasks if not t.inputs]
 
     def leaf_tasks(self):
-        return [t for t in self.tasks if not t.consumers]
+        return [t for t in self.tasks if all(not o.consumers for o in t.outputs)]
 
     @property
     def arcs(self):
@@ -49,15 +62,22 @@ class TaskGraph:
                 yield (task, t)
 
     def validate(self):
+        tasks = set(self.tasks)
+        outputs = set(self.outputs)
+
         for i, task in enumerate(self.tasks):
             assert task.id == i
             task.validate()
 
-            for t in task.inputs:
-                assert t in self.tasks
+            for o in task.inputs:
+                assert o in outputs
+                assert o.parent in tasks
 
-            for t in task.consumers:
-                assert t in self.tasks
+            for o in task.outputs:
+                assert o in outputs
+                assert o.parent is task
+                for c in o.consumers:
+                    assert c in tasks
 
     def to_dot(self, name, verbose=False):
         stream = ["digraph ", name, " {\n"]
@@ -80,5 +100,5 @@ class TaskGraph:
 
     @staticmethod
     def merge(task_graphs):
-        tasks = sum((tg._copy_tasks() for tg in task_graphs), [])
+        tasks = flat_list(tg._copy_tasks() for tg in task_graphs)
         return TaskGraph(tasks=tasks)

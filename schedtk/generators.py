@@ -12,7 +12,7 @@ def random_dependencies(count: int, edge_density: float, task_fn):
         for n2 in nodes:
             if n1 == n2 or random.random() > edge_density or n1.is_predecessor_of(n2):
                 continue
-            n1.add_input(n2)
+            n1.add_input(random.choice(n2.outputs))
 
 
 def random_levels(counts, inputs, task_fn):
@@ -32,4 +32,4 @@ def random_levels(counts, inputs, task_fn):
                     inps = random.randint(min(len(prev), inps[0]),
                                           min(len(prev), inps[1]))
                 task.add_inputs(random.sample(prev, inps))
-        prev = level
+        prev = sum((task.outputs for task in level), ())

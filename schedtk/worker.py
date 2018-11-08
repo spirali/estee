@@ -90,8 +90,9 @@ class Worker:
 
             d = self.running_downloads.get(input)
             if d is None:
-                if input.info.is_finished:
-                    worker = input.info.assigned_workers[0]
+                info = self.simulator.output_info(input)
+                if info.placing:
+                    worker = info.placing[0]
                     d = self._download(worker, input)
                 else:
                     not_complete = True
@@ -137,7 +138,8 @@ class Worker:
                 events.remove(event)
                 del self.running_tasks[task]
                 simulator.add_trace_event(TaskEndTraceEvent(self.env.now, self, task))
-                self.data.add(task)
+                for output in task.outputs:
+                    self.data.add(output)
                 simulator.on_task_finished(self, task)
 
             for assignment in prepared_assignments[:]:

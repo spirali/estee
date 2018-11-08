@@ -53,8 +53,7 @@ def test_scheduler_blevel_gt(plan1):
 
     # 2w, simple
     for _ in range(50):
-        assert do_sched_test(plan1, 2, BlevelGtScheduler(False), SimpleConnector()) in [13, 16]
-        assert do_sched_test(plan1, 2, BlevelGtScheduler(True), SimpleConnector()) in [16]
+        assert do_sched_test(plan1, 2, BlevelGtScheduler(), SimpleConnector()) in [13, 16]
 
 
 def test_scheduler_random_assign(plan1):
