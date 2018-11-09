@@ -83,10 +83,19 @@ class TaskGraph:
         stream = ["digraph ", name, " {\n"]
 
         for task in self.tasks:
-            label = "{}\\n{}\\n{:.2f}/{:.2f}".format(task.label, task.cpus, task.duration, task.size)
-            stream.append("v{} [shape=box,label=\"{}\"]\n".format(task.id, label))
-            for t in task.inputs:
-                stream.append("v{} -> v{}\n".format(t.id, task.id))
+            label = "{}\\n{}\\n{:.2f}".format(task.label, task.cpus, task.duration)
+            stream.append("t{} [shape=oval,label=\"{}\"]\n".format(task.id, label))
+
+        for output in self.outputs:
+            label = "{}\\n{:.2f}".format(output.id, output.size)
+            stream.append("o{} [shape=box,label=\"{}\"]\n".format(output.id, label))
+
+        for task in self.tasks:
+            for o in task.inputs:
+                stream.append("o{} -> t{}\n".format(o.id, task.id))
+            for o in task.outputs:
+                stream.append("t{} -> o{}\n".format(task.id, o.id))
+
         stream.append("}\n")
         return "".join(stream)
 
