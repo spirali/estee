@@ -1,9 +1,9 @@
 import pytest
 
-from .connectors import SimpleConnector
-from .schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase
-from .simulator import TaskAssignment
-from .taskgraph import TaskGraph
+from schedsim.communication import SimpleConnector
+from schedsim.schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase
+from schedsim.simulator import TaskAssignment
+from schedsim.common import TaskGraph
 from .test_utils import do_sched_test
 
 

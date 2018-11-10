@@ -1,6 +1,6 @@
-from .connectors import compute_maxmin_flow, MaxMinFlowConnector, SimpleConnector
-from .simulator import Simulator
-from .worker import Worker
+from schedsim.communication.connectors import compute_maxmin_flow, MaxMinFlowConnector, SimpleConnector
+from schedsim.simulator import Simulator
+from schedsim.worker import Worker
 
 
 import simpy

@@ -39,6 +39,8 @@ class Task:
         return outputs[0]
 
     def consumers(self):
+        if not self.outputs:
+            return set()
         return set.union(*[o.consumers for o in self.outputs])
 
     @property

@@ -1,7 +1,7 @@
 
 
-from .taskgraph import TaskGraph
-from .generators import random_dependencies, random_levels
+from schedsim.common import TaskGraph
+from schedsim.generators import random_dependencies, random_levels
 
 
 def test_random_dependencies():

@@ -1,7 +1,10 @@
 
-from . import Simulator, Worker
-from .taskgraph import TaskGraph
-from .connectors import InstantConnector
+import sys
+
+from schedsim.simulator import Simulator
+from schedsim.worker import Worker
+from schedsim.common import TaskGraph
+from schedsim.communication import InstantConnector
 import pytest
 
 

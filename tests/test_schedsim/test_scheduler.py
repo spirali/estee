@@ -1,12 +1,14 @@
 
-from .schedulers import (AllOnOneScheduler, RandomScheduler, RandomGtScheduler,
-                         BlevelGtScheduler, RandomAssignScheduler, Camp2Scheduler)
-from .schedulers import compute_independent_tasks
-from .connectors import SimpleConnector
-from .schedulers import AllOnOneScheduler, BlevelGtScheduler, Camp2Scheduler, \
-    DLSScheduler, ETFScheduler, LASTScheduler, MCPScheduler, \
-    RandomAssignScheduler, RandomGtScheduler, RandomScheduler, compute_alap, \
-    compute_b_level, compute_independent_tasks, compute_t_level
+from schedsim.schedulers import (AllOnOneScheduler, RandomScheduler, RandomGtScheduler,
+                                 BlevelGtScheduler, RandomAssignScheduler, Camp2Scheduler)
+from schedsim.schedulers.utils import compute_independent_tasks
+from schedsim.communication import SimpleConnector
+from schedsim.schedulers import (AllOnOneScheduler, BlevelGtScheduler, Camp2Scheduler,
+    DLSScheduler, ETFScheduler, LASTScheduler, MCPScheduler,
+    RandomAssignScheduler, RandomGtScheduler, RandomScheduler)
+
+from schedsim.schedulers.utils import (compute_alap,
+    compute_b_level, compute_independent_tasks, compute_t_level)
 from .test_utils import do_sched_test, task_by_name
 
 

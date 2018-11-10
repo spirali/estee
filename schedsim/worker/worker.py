@@ -1,6 +1,6 @@
 from simpy import Store
 
-from .trace import FetchEndTraceEvent, FetchStartTraceEvent, \
+from ..simulator.trace import FetchEndTraceEvent, FetchStartTraceEvent, \
     TaskEndTraceEvent, TaskStartTraceEvent
 
 
