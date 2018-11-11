@@ -38,7 +38,12 @@ class Simulator:
             self.trace_events.append(trace_event)
 
     def schedule(self, ready_tasks, finished_tasks):
-        for assignment in self.scheduler.schedule(ready_tasks, finished_tasks):
+        worker_loads = {}
+        schedule = self.scheduler.schedule(ready_tasks, finished_tasks)
+        if not schedule:
+            return
+        schedule.sort(key=lambda a: a.priority, reverse=True)
+        for assignment in schedule:
             assert isinstance(assignment, TaskAssignment)
             info = self.task_info(assignment.task)
             if info.state == TaskState.Finished:
@@ -49,9 +54,16 @@ class Simulator:
                                 .format(assignment.task))
             info.state = TaskState.Assigned
             info.assigned_workers.append(assignment.worker)
-            assignment.worker.assign_task(assignment)
+            worker = assignment.worker
+            lst = worker_loads.get(worker)
+            if lst is None:
+                lst = []
+                worker_loads[worker] = lst
+            lst.append(assignment)
             self.add_trace_event(TaskAssignTraceEvent(
                 self.env.now, assignment.worker, assignment.task))
+        for worker in worker_loads:
+            worker.assign_tasks(worker_loads[worker])
 
     def _master_process(self, env):
         self.schedule(self.task_graph.source_tasks(), [])
@@ -68,9 +80,11 @@ class Simulator:
         assert info.state == TaskState.Assigned
         assert worker in info.assigned_workers
         info.state = TaskState.Finished
+        info.end_time = self.env.now
         self.new_finished.append(task)
         self.unprocessed_tasks -= 1
 
+        worker_updates = {}
         for o in task.outputs:
             self.output_info(o).placing.append(worker)
             tasks = sorted(o.consumers, key=lambda t: t.id)
@@ -89,8 +103,14 @@ class Simulator:
 
             for t in tasks:
                 for w in self.task_info(t).assigned_workers:
-                    w.update_task(t)
+                    lst = worker_updates.get(w)
+                    if lst is None:
+                        lst = []
+                        worker_updates[w] = lst
+                    lst.append(t)
 
+        for w in worker_updates:
+            w.update_tasks(worker_updates[w])
         if not self.wakeup_event.triggered:
             self.wakeup_event.succeed()
 

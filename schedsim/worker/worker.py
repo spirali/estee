@@ -1,7 +1,12 @@
-from simpy import Store
+from simpy import Store, Event
 
 from ..simulator.trace import FetchEndTraceEvent, FetchStartTraceEvent, \
     TaskEndTraceEvent, TaskStartTraceEvent
+
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class RunningTask:
@@ -19,63 +24,77 @@ class RunningTask:
         return self.task.duration - self.running_time(now)
 
 
-class RunningDownload:
+class Download:
 
-    __slots__ = ("process", "task", "start_time")
+    __slots__ = ("event", "output", "source", "start_time", "priority")
 
-    def __init__(self, process, task, start_time):
-        self.process = process
-        self.task = task
-        self.start_time = start_time
+    def __init__(self, event, output, priority):
+        self.event = event
+        self.output = output
+        self.start_time = None
+        self.source = None
+        self.priority = priority
+
+    def update_priority(self, priority):
+        self.priority = max(self.priority, priority)
 
     def running_time(self, now):
+        if self.start_time is None:
+            return None
         return now - self.start_time
 
     def naive_remaining_time_estimate(self, simulator):
-        return self.task.size / simulator.connector.bandwidth + self.start_time - simulator.env.now
+        if self.start_time is None:
+            return None
+        return self.output.size / simulator.connector.bandwidth + self.start_time - simulator.env.now
 
 
 class Worker:
 
-    def __init__(self, cpus=1):
+    def __init__(self, cpus=1, max_downloads=4, max_downloads_per_worker=2):
         self.cpus = cpus
         self.assignments = []
         self.ready_store = None
 
         self.data = set()
         self.running_tasks = {}
-        self.running_downloads = {}
+        self.scheduled_downloads = {}
+        self.running_downloads = []
 
         self.free_cpus = cpus
+        self.max_downloads = max_downloads
+        self.max_downloads_per_worker = max_downloads_per_worker
         self.id = None
 
-    def _download(self, worker, task):
-        def _helper():
-            yield self.connector.download(worker, self, task.size)
-            self.simulator.add_trace_event(FetchEndTraceEvent(self.env.now, self, worker, task))
-            del self.running_downloads[task]
-            self.data.add(task)
+    def _download(self, output, priority):
+        logger.info("Worker %s: scheduled downloading %s, priority=%s", self, output, priority)
+        assert output not in self.data
+        download = Download(Event(self.env), output, priority)
+        self.scheduled_downloads[output] = download
+        return download
 
-        assert worker != self
-        self.simulator.add_trace_event(FetchStartTraceEvent(self.env.now, self, worker, task))
-        process = self.env.process(_helper())
-        self.running_downloads[task] = RunningDownload(process, task, self.env.now)
-        return process
+    def assign_tasks(self, assignments):
+        for assignment in assignments:
+            if assignment.task.cpus > self.cpus:
+                raise Exception("Task {} allocated on worker with {} cpus"
+                                .format(assignment.task, self.cpus))
+            assert assignment.worker == self
+            self.assignments.append(assignment)
+            self._init_downloads(assignment)
 
-    def assign_task(self, assignment):
-        if assignment.task.cpus > self.cpus:
-            raise Exception("Task {} allocated on worker with {} cpus"
-                            .format(assignment.task, self.cpus))
-        assert assignment.worker == self
-        self.assignments.append(assignment)
-        self._init_downloads(assignment)
+        if not self.download_wakeup.triggered:
+            self.download_wakeup.succeed()
 
-    def update_task(self, task):
-        for assignment in self.assignments:
-            if task == assignment.task:
-                self._init_downloads(assignment)
-                return
-        raise Exception("Updating non assigned task {}, worker={}".format(task, self))
+    def update_tasks(self, tasks):
+        for task in tasks:
+            for assignment in self.assignments:
+                if task == assignment.task:
+                    self._init_downloads(assignment)
+                    break
+            else:
+                raise Exception("Updating non assigned task {}, worker={}".format(task, self))
+        if not self.download_wakeup.triggered:
+            self.download_wakeup.succeed()
 
     @property
     def assigned_tasks(self):
@@ -88,17 +107,17 @@ class Worker:
             if input in self.data:
                 continue
 
-            d = self.running_downloads.get(input)
+            d = self.scheduled_downloads.get(input)
             if d is None:
                 info = self.simulator.output_info(input)
                 if info.placing:
-                    worker = info.placing[0]
-                    d = self._download(worker, input)
+                    d = self._download(input, assignment.priority)
+                    deps.append(d.event)
                 else:
                     not_complete = True
             else:
-                d = d.process
-            deps.append(d)
+                d.update_priority(assignment.priority)
+                deps.append(d.event)
 
         def _helper():
             yield self.env.all_of(deps)
@@ -111,16 +130,61 @@ class Worker:
         else:
             self.env.process(_helper())
 
+    def _download_process(self):
+        events = [self.download_wakeup]
+        env = self.env
+
+        while True:
+            finished = yield env.any_of(events)
+            for event in finished.keys():
+                if event == events[0]:
+                    self.download_wakeup = Event(self.simulator.env)
+                    events[0] = self.download_wakeup
+                    continue
+                events.remove(event)
+                download = event.value
+                assert download.output not in self.data
+                self.data.add(download.output)
+                self.running_downloads.remove(download)
+                del self.scheduled_downloads[download.output]
+                download.event.succeed(download)
+
+            if len(self.running_downloads) < self.max_downloads:
+                # We need to sort any time, as it priority may changed in background
+                downloads = list(o for o in self.scheduled_downloads.values()
+                                 if o not in self.running_downloads)
+                downloads.sort(key=lambda d: d.priority, reverse=True)
+                for d in downloads[:]:
+                    count = 0
+                    worker = self.simulator.output_info(d.output).placing[0]
+                    for rd in self.running_downloads:
+                        if worker == rd.source:
+                            count += 1
+                    if count >= self.max_downloads_per_worker:
+                        continue
+                    d.start_time = self.env.now
+                    d.source = worker
+                    self.running_downloads.append(d)
+                    event = self.connector.download(worker, self, d.output.size, d)
+                    events.append(event)
+                    self.simulator.add_trace_event(
+                        FetchStartTraceEvent(self.env.now, self, worker, d.output))
+                    if len(self.running_downloads) >= self.max_downloads:
+                        break
+
     def run(self, env, simulator, connector):
         self.env = env
         self.simulator = simulator
         self.connector = connector
         self.ready_store = Store(env)
+        self.download_wakeup = Event(self.simulator.env)
 
         self.free_cpus = self.cpus
+        env.process(self._download_process())
 
         prepared_assignments = []
         events = [self.ready_store.get()]
+
 
         while True:
             finished = yield env.any_of(events)

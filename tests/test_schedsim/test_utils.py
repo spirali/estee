@@ -4,6 +4,8 @@ from schedsim.common import TaskGraph
 from schedsim.communication import InstantConnector
 from schedsim.simulator import Simulator
 from schedsim.worker import Worker
+from schedsim.schedulers import StaticScheduler
+from schedsim.simulator import TaskAssignment
 
 
 @pytest.fixture
@@ -62,22 +64,41 @@ def plan_reverse_cherry1():
     return task_graph
 
 
-def do_sched_test(task_graph, workers, scheduler, connector=None, report=None):
+def do_sched_test(task_graph, workers, scheduler,
+                  connector=None, report=None,
+                  return_simulator=False):
 
     if connector is None:
         connector = InstantConnector()
 
     if isinstance(workers, int):
         workers = [Worker() for _ in range(workers)]
-    else:
+    elif isinstance(workers[0], int):
         workers = [Worker(cpus=cpus) for cpus in workers]
-
+    else:
+        assert isinstance(workers[0], Worker)
     simulator = Simulator(task_graph, workers, scheduler, connector, trace=bool(report))
     result = simulator.run()
     if report:
         simulator.make_trace_report(report)
-    return result
+    if return_simulator:
+        return simulator
+    else:
+        return result
 
 
 def task_by_name(plan, name):
     return [t for t in plan.tasks if t.name == name][0]
+
+
+def fixed_scheduler(assignments):
+
+    class FixScheduler(StaticScheduler):
+
+        def static_schedule(self):
+            workers = self.simulator.workers
+            return [
+                TaskAssignment(workers[w], t, p) for w, t, p in assignments
+            ]
+
+    return FixScheduler()

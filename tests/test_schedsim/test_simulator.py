@@ -83,7 +83,7 @@ def test_worker_freecpus():
         def schedule(self, new_ready, new_finished):
             worker = self.simulator.workers[0]
             free_cpus.append(worker.free_cpus)
-            return (TaskAssignment(worker, t) for t in new_ready)
+            return [TaskAssignment(worker, t) for t in new_ready]
 
     scheduler = Scheduler()
     do_sched_test(test_graph, [10], scheduler)
@@ -114,7 +114,7 @@ def test_worker_downloads():
             downloads.append(
                 list([d.naive_remaining_time_estimate(self.simulator)
                       for d in sorted([d for d
-                                       in w.running_downloads.values()],
+                                       in w.running_downloads],
                                       key=lambda d: d.start_time)]
                      for w in workers))
 

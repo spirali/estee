@@ -61,8 +61,8 @@ def test_scheduler_blevel_gt(plan1):
 
 def test_scheduler_random_assign(plan1):
     for _ in range(50):
-        assert 10 <= do_sched_test(plan1, 2, RandomAssignScheduler(), SimpleConnector()) <= 22
-        assert 9 <= do_sched_test(plan1, 3, RandomAssignScheduler(), SimpleConnector()) <= 22
+        assert 10 <= do_sched_test(plan1, 2, RandomAssignScheduler(), SimpleConnector()) <= 25
+        assert 9 <= do_sched_test(plan1, 3, RandomAssignScheduler(), SimpleConnector()) <= 25
 
 
 def test_scheduler_camp(plan1):

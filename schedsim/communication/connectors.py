@@ -29,16 +29,18 @@ class InstantConnector(Connector):
     def __init__(self):
         super().__init__(float("inf"))
 
-    def download(self, source, target, size):
+    def download(self, source, target, size, value=None):
+        assert source != target
         event = Event(self.env)
-        event.succeed()
+        event.succeed(value)
         return event
 
 
 class SimpleConnector(Connector):
 
-    def download(self, source, target, size):
-        return self.env.timeout(size / self.bandwidth)
+    def download(self, source, target, size, value=None):
+        assert source != target
+        return self.env.timeout(size / self.bandwidth, value)
 
 
 """
@@ -53,12 +55,13 @@ class Download:
 
 class RunningDownload:
 
-    __slots__ = ("size", "speed", "event")
+    __slots__ = ("size", "speed", "event", "value")
 
-    def __init__(self, size, event):
+    def __init__(self, size, event, value):
         self.size = size
         self.event = event
         self.speed = None
+        self.value = value
 
     def __repr__(self):
         return "<RD {} {} {}>".format(id(self), self.size, self.speed)
@@ -118,7 +121,7 @@ class MaxMinFlowConnector(Connector):
                 if size < 0.00000001:
                     logger.info("Download finished %s", download)
                     lst.remove(download)
-                    download.event.succeed()
+                    download.event.succeed(download.value)
                 download.size = size
             if not lst:
                 source, target = key
@@ -134,9 +137,10 @@ class MaxMinFlowConnector(Connector):
         recv_capacities = send_capacities.copy()
         self.flows = compute_maxmin_flow(send_capacities, recv_capacities, connections)
 
-    def download(self, source, target, size):
+    def download(self, source, target, size, value=None):
+        assert source != target
         event = Event(self.env)
-        rd = RunningDownload(size, event)
+        rd = RunningDownload(size, event, value)
         logger.info("New download %s; %s-%s size=%s", rd, source, target, size)
         key = (source, target)
         lst = self.downloads.get(key)

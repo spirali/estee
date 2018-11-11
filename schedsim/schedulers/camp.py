@@ -3,7 +3,8 @@ import random
 
 import numpy as np
 
-from .scheduler import StaticScheduler, TaskAssignment
+from . import StaticScheduler
+from ..simulator import TaskAssignment
 from .utils import compute_independent_tasks, max_cpus_worker, \
     compute_b_level_duration
 
