@@ -19,8 +19,6 @@ class Camp2Scheduler(StaticScheduler):
 
     def static_schedule(self):
         independencies = compute_independent_tasks(self.simulator.task_graph)
-        tab = []
-        costs = []
         workers = self.simulator.workers
         cpu_factor = sum([w.cpus for w in workers]) / len(workers) / 8
 
@@ -33,15 +31,17 @@ class Camp2Scheduler(StaticScheduler):
                 continue
             task_value = task.duration / len(indeps) * task.cpus / cpu_factor
             for t in indeps:
-                score = task_value + t.duration / len(independencies[t]) * t.cpus / cpu_factor
+                score = task_value + t.duration / len(independencies[t])\
+                        * t.cpus / cpu_factor
                 lst.append((t.id, score))
 
         tasks = self.simulator.task_graph.tasks
-        placement = np.empty(self.simulator.task_graph.task_count, dtype=np.int32)
+        placement = np.empty(self.simulator.task_graph.task_count,
+                             dtype=np.int32)
         placement[:] = workers.index(max_cpus_worker(workers))
-        #score_cache = np.empty_like(placement, dtype=np.float)
+        # score_cache = np.empty_like(placement, dtype=np.float)
 
-        #for t in tasks:
+        # for t in tasks:
         #    score_cache[t.id] = self.compute_task_score(placement, t)
 
         for i in range(self.iterations):
@@ -55,7 +55,8 @@ class Camp2Scheduler(StaticScheduler):
             old_score = self.compute_task_score(placement, tasks[t])
             placement[t] = new_w
             new_score = self.compute_task_score(placement, tasks[t])
-            if new_score > old_score:  # and np.random.random() > (i / limit) / 100:
+            # and np.random.random() > (i / limit) / 100:
+            if new_score > old_score:
                 placement[t] = old_w
 
         b_level = compute_b_level_duration(self.simulator.task_graph)

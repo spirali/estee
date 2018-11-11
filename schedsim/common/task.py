@@ -61,7 +61,8 @@ class Task:
         if isinstance(output, Task):
             output = output.output
         elif not isinstance(output, TaskOutput):
-            raise Exception("Only 'Task' or 'TaskInstance' is expected, not {}".format(repr(output)))
+            raise Exception("Only 'Task' or 'TaskInstance' is expected, not {}"
+                            .format(repr(output)))
         self.inputs.append(output)
         output.consumers.add(self)
 
@@ -69,9 +70,9 @@ class Task:
         for t in tasks:
             self.add_input(t)
 
-    def add_dependancy(self, task):
+    def add_dependency(self, task):
         assert isinstance(task, Task)
-        self.dependancies.append(task)
+        self.dependencies.append(task)
 
     def __repr__(self):
         if self.name:

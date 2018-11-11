@@ -18,7 +18,7 @@ def plan1():
         |  \   |   /
         |   \  |  /
          \--- a8/1
-    """
+    """  # noqa
     task_graph = TaskGraph()
 
     a1, a2, a3, a4, a5, a6, a7, a8 = [
@@ -51,7 +51,7 @@ def plan_reverse_cherry1():
           \     /
            \   /
              a3
-    """
+    """  # noqa
     task_graph = TaskGraph()
     a1 = task_graph.new_task("a1", 10, 1)
     a2 = task_graph.new_task("a2", 10, 1)

@@ -1,14 +1,13 @@
-from schedsim.communication.connectors import compute_maxmin_flow, MaxMinFlowConnector, SimpleConnector
-from schedsim.simulator import Simulator
-from schedsim.worker import Worker
-
-
-import simpy
-import numpy as np
-import pytest
 import random
 
+import numpy as np
+import pytest
+import simpy
 from numpy.testing import assert_array_equal
+
+from schedsim.communication.connectors import compute_maxmin_flow, \
+    MaxMinFlowConnector, SimpleConnector
+from schedsim.worker import Worker
 
 
 def test_maxmin_flow():
@@ -41,10 +40,12 @@ def test_maxmin_flow():
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.0, 0.0, 0.0, 0.4]]),
-                       mm_flow([0.4, 1, 1, 1], [1, 1, 0.8, 1], [[1, 1, 1, 1]] * 3 + [[0, 0, 0, 1]]))
+                       mm_flow([0.4, 1, 1, 1], [1, 1, 0.8, 1], [[1, 1, 1, 1]]
+                               * 3 + [[0, 0, 0, 1]]))
 
     assert_array_equal(np.diag([0.1, 0.2, 0.2, 0.1]),
-                       mm_flow([0.1, 0.2, 0.3, 0.4], [1, 0.2, 0.2, 0.1], np.eye(4, dtype=np.int32)))
+                       mm_flow([0.1, 0.2, 0.3, 0.4], [1, 0.2, 0.2, 0.1],
+                               np.eye(4, dtype=np.int32)))
 
 
 def create_connector(cclass=MaxMinFlowConnector):
@@ -85,7 +86,7 @@ def test_maxmin_connector_mix():
     assert env.now == pytest.approx(1.0)
     d2 = connector.download(workers[0], workers[2], 200)
     d3 = connector.download(workers[3], workers[1], 1000)
-    #env.run(env.timeout(1))
+    # env.run(env.timeout(1))
     # d1 100; d2 200; d3 1000
     env.run(d1)
     assert env.now == pytest.approx(3.0)

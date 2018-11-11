@@ -10,15 +10,18 @@ def random_dependencies(count: int, edge_density: float, task_fn):
 
     for n1 in nodes:
         for n2 in nodes:
-            if n1 == n2 or random.random() > edge_density or n1.is_predecessor_of(n2):
+            if (n1 == n2 or random.random() > edge_density
+                    or n1.is_predecessor_of(n2)):
                 continue
             n1.add_input(random.choice(n2.outputs))
 
 
 def random_levels(counts, inputs, task_fn):
     """
-        Counts - number of tasks in each of level, it may be an integer or range (min, max)
-        Inputs - number of inputs for each level, it may be an integer or range (min, max)
+        Counts - number of tasks in each of level, it may be an integer or
+        range (min, max)
+        Inputs - number of inputs for each level, it may be an integer or
+        range (min, max)
     """
     prev = None
     for count, inps in zip(counts, inputs):

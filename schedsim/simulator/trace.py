@@ -26,42 +26,46 @@ def merge_trace_events(trace_events, start_type, end_type, merge_fn, key_fn):
             event2 = open_events[key]
             yield merge_fn(event2, event)
 
+
 """
 def make_blocks(trace_events):
     blocks = []
     blocks += merge_trace_events(
-        trace_events, "start", "end", lambda e1, e2: (e1.time, e2.time, e1.task.label))
+        trace_events, "start", "end",
+        lambda e1, e2: (e1.time, e2.time, e1.task.label))
     return blocks
 """
 
+
 def build_trace_html(trace_events, workers, filename):
-    ##print(trace_events)
-    ##blocks = make_blocks(trace_events)
-    ##print(blocks)
+    # print(trace_events)
+    # blocks = make_blocks(trace_events)
+    # print(blocks)
 
     import bokeh.plotting
     import bokeh.io
     from pandas import DataFrame
 
-    #from bokeh.io import output_file, save
-    #from bokeh.models import ColumnDataSource, LabelSet
-    #from bokeh.plotting import figure
-
+    # from bokeh.io import output_file, save
+    # from bokeh.models import ColumnDataSource, LabelSet
+    # from bokeh.plotting import figure
 
     plot = bokeh.plotting.figure(plot_width=1200, plot_height=850,
-                  title='CPU schedules')
-
+                                 title='CPU schedules')
 
     frame = bokeh.models.ColumnDataSource(DataFrame(merge_trace_events(
             trace_events, TaskStartTraceEvent, TaskEndTraceEvent,
-            lambda e1, e2: (workers.index(e1.worker), e1.time, e2.time, e1.task.label),
+            lambda e1, e2: (workers.index(e1.worker), e1.time, e2.time,
+                            e1.task.label),
             lambda e: (e.task, e.worker)),
         columns=["worker", "start", "end", "label"]))
 
-    plot.hbar(y='worker', left='start', right='end', height=0.025, source=frame, line_color="black", line_width=2)
+    plot.hbar(y='worker', left='start', right='end', height=0.025,
+              source=frame, line_color="black", line_width=2)
 
     labels = bokeh.models.LabelSet(x='start', y='worker', text='label',
-                                   x_offset=5, y_offset=5, source=frame, text_color="black", render_mode='canvas')
+                                   x_offset=5, y_offset=5, source=frame, text_color="black",
+                                   render_mode='canvas')
     plot.add_layout(labels)
 
     frame = bokeh.models.ColumnDataSource(DataFrame(merge_trace_events(
@@ -74,11 +78,13 @@ def build_trace_html(trace_events, workers, filename):
             lambda e: (e.task, e.target_worker, e.source_worker)),
         columns=["worker", "start", "worker2", "end", "label"]))
 
-    plot.segment(y0='worker', x0='start', y1='worker2', x1='end', source=frame, line_color="black", line_width=2)
+    plot.segment(y0='worker', x0='start', y1='worker2', x1='end', source=frame, line_color="black",
+                 line_width=2)
     plot.circle(y="worker2", x="end", source=frame, size=15, color="black")
 
     labels = bokeh.models.LabelSet(x='end', y='worker2', text='label',
-                                   x_offset=-10, source=frame, text_color="black", text_align="right", render_mode='canvas')
+                                   x_offset=-10, source=frame, text_color="black",
+                                   text_align="right", render_mode='canvas')
     plot.add_layout(labels)
 
     plot.yaxis.axis_label = 'Worker'
@@ -86,4 +92,3 @@ def build_trace_html(trace_events, workers, filename):
 
     bokeh.io.output_file(filename)
     bokeh.io.save(plot)
-

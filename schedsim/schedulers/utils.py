@@ -65,8 +65,7 @@ def compute_b_level_duration(task_graph):
 def compute_b_level_duration_size(task_graph, bandwidth=1):
     return compute_b_level(
         task_graph,
-        lambda task, next: task.duration + largest_transfer(task, next)
-                           / bandwidth
+        lambda task, next: task.duration + largest_transfer(task, next) / bandwidth
     )
 
 
@@ -95,8 +94,7 @@ def compute_t_level_duration(task_graph):
 def compute_t_level_duration_size(task_graph, bandwidth=1):
     return compute_t_level(
         task_graph,
-        lambda task, next: task.duration + largest_transfer(task, next) /
-                           bandwidth
+        lambda task, next: task.duration + largest_transfer(task, next) / bandwidth
     )
 
 
@@ -137,7 +135,6 @@ def compute_independent_tasks(task_graph):
     tasks = frozenset(task_graph.tasks)
     up_deps = graph_crawl(task_graph.leaf_tasks(), lambda t: t.pretasks, union)
     down_deps = graph_crawl(task_graph.source_tasks(), lambda t: t.consumers(), union)
-    #print(down_deps)
     return {task: tasks.difference(up_deps[task] | down_deps[task])
             for task in task_graph.tasks}
 

@@ -1,11 +1,3 @@
-import itertools
-import random
-
-import numpy as np
-
-from ..simulator.commands import TaskAssignment
-
-
 class SchedulerBase:
 
     def init(self, simulator):
@@ -29,5 +21,3 @@ class StaticScheduler(SchedulerBase):
 
     def static_schedule(self):
         raise NotImplementedError()
-
-

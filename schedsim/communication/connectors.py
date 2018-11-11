@@ -1,7 +1,8 @@
 
+import logging
+
 import numpy as np
 from simpy import Event
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +10,8 @@ logger = logging.getLogger(__name__)
 class Connector:
     """
         bandwidth - maximal bandwidth between two nodes
-                    (this is what network annoucess publicaly, not necessery how it really behaves)
+                    (this is what network annoucess publicaly,
+                    not necessery how it really behaves)
     """
 
     def __init__(self, bandwidth=1.0):
