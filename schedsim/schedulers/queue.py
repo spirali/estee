@@ -1,11 +1,11 @@
 
-from .scheduler import SchedulerBase
-from ..simulator import TaskAssignment
-
-from .utils import max_cpus_worker, compute_b_level
-
 import random
+
 import numpy as np
+
+from .scheduler import SchedulerBase
+from .utils import compute_b_level_duration
+from ..simulator import TaskAssignment
 
 
 class QueueScheduler(SchedulerBase):
@@ -18,7 +18,7 @@ class QueueScheduler(SchedulerBase):
         super().init(simulator)
         self.queue = self.make_queue()
 
-    def make_queue(self, simulator):
+    def make_queue(self):
         raise NotImplementedError()
 
     def choose_worker(self, workers, task):
@@ -92,11 +92,7 @@ class BlevelGtScheduler(GreedyTransferQueueScheduler):
         super().__init__()
 
     def make_queue(self):
-        def cost_fn1(t):
-            return t.duration
-
-        b_level = compute_b_level(self.simulator.task_graph,
-                                  cost_fn1)
+        b_level = compute_b_level_duration(self.simulator.task_graph)
         tasks = self.simulator.task_graph.tasks[:]
         random.shuffle(tasks)  # To randomize keys with the same level
         tasks.sort(key=lambda n: b_level[n], reverse=True)

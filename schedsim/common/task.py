@@ -29,6 +29,10 @@ class Task:
         return t
 
     @property
+    def is_leaf(self):
+        return all(not o.consumers for o in self.outputs)
+
+    @property
     def output(self):
         outputs = self.outputs
         if not outputs:

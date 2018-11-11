@@ -1,14 +1,15 @@
-
-from schedsim.schedulers import (AllOnOneScheduler, RandomScheduler, RandomGtScheduler,
-                                 BlevelGtScheduler, RandomAssignScheduler, Camp2Scheduler)
-from schedsim.schedulers.utils import compute_independent_tasks
+from schedsim.common import TaskGraph
 from schedsim.communication import SimpleConnector
-from schedsim.schedulers import (AllOnOneScheduler, BlevelGtScheduler, Camp2Scheduler,
-    DLSScheduler, ETFScheduler, LASTScheduler, MCPScheduler,
-    RandomAssignScheduler, RandomGtScheduler, RandomScheduler)
-
+from schedsim.schedulers import (AllOnOneScheduler, BlevelGtScheduler,
+                                 Camp2Scheduler,
+                                 DLSScheduler, ETFScheduler, LASTScheduler,
+                                 MCPScheduler,
+                                 RandomAssignScheduler, RandomGtScheduler,
+                                 RandomScheduler)
 from schedsim.schedulers.utils import (compute_alap,
-    compute_b_level, compute_independent_tasks, compute_t_level)
+                                       compute_independent_tasks)
+from schedsim.schedulers.utils import compute_b_level_duration_size, \
+    compute_t_level_duration_size
 from .test_utils import do_sched_test, task_by_name
 
 
@@ -97,7 +98,7 @@ def test_compute_indepndent_tasks(plan1):
 
 
 def test_compute_t_level(plan1):
-    t = compute_t_level(plan1, lambda t: t.duration + t.size)
+    t = compute_t_level_duration_size(plan1)
 
     assert t[task_by_name(plan1, "a1")] == 0
     assert t[task_by_name(plan1, "a2")] == 0
@@ -109,27 +110,46 @@ def test_compute_t_level(plan1):
     assert t[task_by_name(plan1, "a8")] == 14
 
 
-def test_compute_b_level(plan1):
-    b = compute_b_level(plan1, lambda t: t.duration + t.size)
+def test_compute_b_level_plan1(plan1):
+    b = compute_b_level_duration_size(plan1)
 
-    assert b[task_by_name(plan1, "a1")] == 10
-    assert b[task_by_name(plan1, "a2")] == 10
-    assert b[task_by_name(plan1, "a3")] == 7
-    assert b[task_by_name(plan1, "a4")] == 16
-    assert b[task_by_name(plan1, "a5")] == 4
-    assert b[task_by_name(plan1, "a6")] == 9
-    assert b[task_by_name(plan1, "a7")] == 5
-    assert b[task_by_name(plan1, "a8")] == 2
+    assert b[task_by_name(plan1, "a1")] == 9
+    assert b[task_by_name(plan1, "a2")] == 9
+    assert b[task_by_name(plan1, "a3")] == 6
+    assert b[task_by_name(plan1, "a4")] == 15
+    assert b[task_by_name(plan1, "a5")] == 3
+    assert b[task_by_name(plan1, "a6")] == 8
+    assert b[task_by_name(plan1, "a7")] == 4
+    assert b[task_by_name(plan1, "a8")] == 1
+
+
+def test_compute_b_level_multiple_outputs():
+    tg = TaskGraph()
+    a = tg.new_task(outputs=[2, 4], duration=0)
+    b = tg.new_task(outputs=[5], duration=0)
+    c = tg.new_task(outputs=[2], duration=0)
+    d = tg.new_task(duration=0)
+
+    b.add_input(a.outputs[0])
+    c.add_input(a.outputs[1])
+    d.add_inputs((b, c))
+
+    blevel = compute_b_level_duration_size(tg)
+
+    assert blevel[a] == 7
+    assert blevel[b] == 5
+    assert blevel[c] == 2
+    assert blevel[d] == 0
 
 
 def test_compute_alap(plan1):
     alap = compute_alap(plan1, 1)
 
     assert alap[task_by_name(plan1, "a1")] == 6
-    assert alap[task_by_name(plan1, "a2")] == 6
-    assert alap[task_by_name(plan1, "a3")] == 9
-    assert alap[task_by_name(plan1, "a4")] == 0
-    assert alap[task_by_name(plan1, "a5")] == 12
-    assert alap[task_by_name(plan1, "a6")] == 7
-    assert alap[task_by_name(plan1, "a7")] == 11
+    assert alap[task_by_name(plan1, "a2")] == 9
+    assert alap[task_by_name(plan1, "a3")] == 10
+    assert alap[task_by_name(plan1, "a4")] == 6
+    assert alap[task_by_name(plan1, "a5")] == 13
+    assert alap[task_by_name(plan1, "a6")] == 8
+    assert alap[task_by_name(plan1, "a7")] == 13
     assert alap[task_by_name(plan1, "a8")] == 14

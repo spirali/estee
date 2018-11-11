@@ -1,9 +1,11 @@
 
-from .scheduler import StaticScheduler, TaskAssignment
-from .utils import compute_independent_tasks, max_cpus_worker, compute_b_level
-
 import random
+
 import numpy as np
+
+from .scheduler import StaticScheduler, TaskAssignment
+from .utils import compute_independent_tasks, max_cpus_worker, \
+    compute_b_level_duration
 
 
 class Camp2Scheduler(StaticScheduler):
@@ -56,8 +58,7 @@ class Camp2Scheduler(StaticScheduler):
             if new_score > old_score:  # and np.random.random() > (i / limit) / 100:
                 placement[t] = old_w
 
-        b_level = compute_b_level(self.simulator.task_graph,
-                                  lambda t: t.duration)
+        b_level = compute_b_level_duration(self.simulator.task_graph)
 
         r = [TaskAssignment(workers[w], task, b_level[task])
              for task, w in zip(tasks, placement)]

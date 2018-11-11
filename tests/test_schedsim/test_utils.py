@@ -1,11 +1,9 @@
+import pytest
 
-import sys
-
-from schedsim.simulator import Simulator
-from schedsim.worker import Worker
 from schedsim.common import TaskGraph
 from schedsim.communication import InstantConnector
-import pytest
+from schedsim.simulator import Simulator
+from schedsim.worker import Worker
 
 
 @pytest.fixture

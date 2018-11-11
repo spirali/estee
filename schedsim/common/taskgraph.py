@@ -53,7 +53,7 @@ class TaskGraph:
         return [t for t in self.tasks if not t.inputs]
 
     def leaf_tasks(self):
-        return [t for t in self.tasks if all(not o.consumers for o in t.outputs)]
+        return [t for t in self.tasks if t.is_leaf]
 
     @property
     def arcs(self):

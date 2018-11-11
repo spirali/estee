@@ -135,8 +135,8 @@ def test_worker_downloads():
     do_sched_test(test_graph, 3, scheduler, SimpleConnector(bandwidth=2))
     assert downloads == [
         [[], [], []],
-        [[0.0], [], [50, 25]],
-        [[], [], [49, 24]],
+        [[0.0], [], [25, 50]],
+        [[], [], [24, 49]],
         [[], [], []]
     ]
 

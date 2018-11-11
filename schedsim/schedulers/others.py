@@ -1,8 +1,9 @@
-from .scheduler import SchedulerBase
-from ..simulator import TaskAssignment
-from .utils import schedule_all, compute_b_level, transfer_cost_parallel
-
 import itertools
+
+from .scheduler import SchedulerBase
+from .utils import schedule_all, transfer_cost_parallel, \
+    compute_alap, compute_b_level_duration
+from ..simulator import TaskAssignment
 
 
 class K1hScheduler(SchedulerBase):
@@ -57,8 +58,7 @@ class DLSScheduler(SchedulerBase):
 
     def init(self, simulator):
         super().init(simulator)
-        self.b_level = compute_b_level(simulator.task_graph,
-                                       lambda t: t.duration)
+        self.b_level = compute_b_level_duration(simulator.task_graph)
 
     def schedule(self, new_ready, new_finished):
         return schedule_all(self.simulator.workers, new_ready,
@@ -103,7 +103,8 @@ class LASTScheduler(SchedulerBase):
         simulator = self.simulator
 
         def edge_cost(o1, t2):
-            if simulator.output_info(o1).placing == simulator.task_info(t2).assigned_workers:
+            if (simulator.output_info(o1).placing ==
+                    simulator.task_info(t2).assigned_workers):
                 return 0
             else:
                 return 1
@@ -116,7 +117,8 @@ class LASTScheduler(SchedulerBase):
                 input_weighted = sum((i.size / bandwidth) * edge_cost(i, task)
                                      for i in task.inputs)
                 input = sum((i.size / bandwidth) for i in task.inputs)
-                output = sum((task.size / bandwidth) for _ in task.consumers)
+                output = sum((output.size / bandwidth)
+                             for output in task.outputs)
                 d_nodes[task] = (input_weighted + output) / (input + output)
 
         def worker_cost(worker, task):
@@ -157,7 +159,7 @@ class MCPScheduler(SchedulerBase):
     def schedule(self, new_ready, new_finished):
         tasks = sorted(new_ready,
                        key=lambda t: [self.alap[t]] +
-                                     [self.alap[c] for c in t.consumers])
+                                     [self.alap[c] for c in t.consumers()])
         bandwidth = self.simulator.connector.bandwidth
 
         def cost(w, t):
@@ -188,8 +190,7 @@ class ETFScheduler(SchedulerBase):
 
     def init(self, simulator):
         super().init(simulator)
-        self.b_level = compute_b_level(simulator.task_graph,
-                                       lambda t: t.duration)
+        self.b_level = compute_b_level_duration(simulator.task_graph)
 
     def schedule(self, new_ready, new_finished):
         return schedule_all(self.simulator.workers, new_ready,

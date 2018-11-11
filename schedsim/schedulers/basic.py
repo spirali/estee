@@ -1,8 +1,9 @@
 
-from .scheduler import SchedulerBase, StaticScheduler
-from ..simulator import TaskAssignment
-from .utils import max_cpus_worker, compute_b_level
 import random
+
+from .scheduler import SchedulerBase, StaticScheduler
+from .utils import max_cpus_worker, compute_b_level_duration
+from ..simulator import TaskAssignment
 
 
 class DoNothingScheduler(SchedulerBase):
@@ -37,8 +38,6 @@ class AllOnOneScheduler(SchedulerBase):
 
     def schedule(self, new_ready, new_finished):
         worker = self.worker
-        b_level = compute_b_level(self.simulator.task_graph,
-                                  lambda t: t.duration)
+        b_level = compute_b_level_duration(self.simulator.task_graph)
         return [TaskAssignment(worker, task, b_level[task])
                 for task in new_ready]
-

@@ -55,7 +55,6 @@ def test_task_graph_merge(plan1):
     task_graph.validate()
 
     for i, t in enumerate(task_graph.tasks):
-        print(i)
         assert t.id == i
         assert len(t.inputs) == len(plan1.tasks[i % plan1.task_count].inputs)
         assert t.duration == plan1.tasks[i % plan1.task_count].duration
@@ -63,7 +62,7 @@ def test_task_graph_merge(plan1):
 
 
 def test_task_graph_export_dot(plan1, tmpdir):
-    name = tmpdir.join("test.dot")
+    name = str(tmpdir.join("test.dot"))
     plan1.write_dot(name)
     with open(name) as f:
         assert f.read().count("\n") == 35

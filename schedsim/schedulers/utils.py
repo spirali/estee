@@ -5,8 +5,10 @@ def compute_alap(task_graph, bandwidth):
     """
     Calculates the As-late-as-possible metric.
     """
-    t_level = compute_t_level(task_graph,
-                              lambda t: t.duration + t.size / bandwidth)
+    def task_size(task):
+        return sum(o.size for o in task.outputs)
+
+    t_level = compute_t_level_duration_size(task_graph, bandwidth)
 
     alap = {}
 
@@ -14,11 +16,12 @@ def compute_alap(task_graph, bandwidth):
         if task in alap:
             return alap[task]
 
-        if not task.consumers:
+        consumers = task.consumers()
+        if not consumers:
             value = t_level[task]
         else:
-            value = min((calc(t) - task.size / bandwidth
-                        for t in task.consumers),
+            value = min((calc(t) - task_size(t) / bandwidth
+                        for t in consumers),
                         default=t_level[task]) - task.duration
         alap[task] = value
         return value
@@ -28,7 +31,7 @@ def compute_alap(task_graph, bandwidth):
         new_tasks = set()
         for task in tasks:
             calc(task)
-            new_tasks |= set(task.inputs)
+            new_tasks |= set(task.pretasks)
         tasks = new_tasks
 
     return alap
@@ -40,14 +43,31 @@ def compute_b_level(task_graph, cost_fn):
     """
     b_level = {}
     for task in task_graph.tasks:
-        b_level[task] = cost_fn(task)
+        if task.is_leaf:
+            b_level[task] = cost_fn(task, task)
+        else:
+            b_level[task] = 0
 
     graph_dist_crawl(b_level,
                      task_graph.leaf_tasks(),
                      lambda t: t.pretasks,
                      lambda task, next: max(b_level[next],
-                                            b_level[task] + cost_fn(next)))
+                                            b_level[task] +
+                                            cost_fn(next, task)))
     return b_level
+
+
+def compute_b_level_duration(task_graph):
+    return compute_b_level(task_graph,
+                           lambda task, next: task.duration)
+
+
+def compute_b_level_duration_size(task_graph, bandwidth=1):
+    return compute_b_level(
+        task_graph,
+        lambda task, next: task.duration + largest_transfer(task, next)
+                           / bandwidth
+    )
 
 
 def compute_t_level(task_graph, cost_fn):
@@ -62,8 +82,22 @@ def compute_t_level(task_graph, cost_fn):
                      task_graph.source_tasks(),
                      lambda t: t.consumers(),
                      lambda task, next: max(t_level[next],
-                                            t_level[task] + cost_fn(task)))
+                                            t_level[task] +
+                                            cost_fn(task, next)))
     return t_level
+
+
+def compute_t_level_duration(task_graph):
+    return compute_t_level(task_graph,
+                           lambda task, next: task.duration)
+
+
+def compute_t_level_duration_size(task_graph, bandwidth=1):
+    return compute_t_level(
+        task_graph,
+        lambda task, next: task.duration + largest_transfer(task, next) /
+                           bandwidth
+    )
 
 
 def graph_dist_crawl(values, initial_tasks, nexts_fn, aggregate):
@@ -135,3 +169,11 @@ def schedule_all(workers, tasks, get_assignment):
         schedules.append(TaskAssignment(w, task))
 
     return schedules
+
+
+def largest_transfer(task1, task2):
+    """
+    Returns the largest transferred output from `task1` to `task2`.
+    """
+    return max((o.size for o in set(task1.outputs).intersection(task2.inputs)),
+               default=0)
