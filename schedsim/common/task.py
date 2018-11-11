@@ -2,14 +2,13 @@
 
 class Task:
 
-    __slots__ = ("inputs", "outputs", "duration", "name", "id", "cpus", "pretasks")
+    __slots__ = ("inputs", "outputs", "duration", "name", "id", "cpus")
 
     def __init__(self, name=None, outputs=(), duration=1, cpus=1, output_size=None):
         assert cpus >= 0
         assert duration >= 0
 
         self.inputs = []
-        self.pretasks = []
 
         if output_size is not None:
             if outputs:
@@ -50,17 +49,17 @@ class Task:
         else:
             return "id={}".format(self.id)
 
+    @property
+    def pretasks(self):
+        return set(o.parent for o in self.inputs)
+
     def add_input(self, output):
         if isinstance(output, Task):
             output = output.output
         elif not isinstance(output, TaskOutput):
             raise Exception("Only 'Task' or 'TaskInstance' is expected, not {}".format(repr(output)))
         self.inputs.append(output)
-        if output.parent not in self.pretasks:
-            self.pretasks.append(output.parent)
         output.consumers.add(self)
-
-
 
     def add_inputs(self, tasks):
         for t in tasks:
