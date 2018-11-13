@@ -104,13 +104,16 @@ class Worker:
         deps = []
         not_complete = False
         for input in assignment.task.inputs:
-            if input in self.data or input.size == 0:
+            if input in self.data:
                 continue
 
             d = self.scheduled_downloads.get(input)
             if d is None:
                 info = self.simulator.output_info(input)
                 if info.placing:
+                    if input.size == 0:
+                       self.data.add(input)
+                       continue
                     d = self._download(input, assignment.priority)
                     deps.append(d.event)
                 else:
