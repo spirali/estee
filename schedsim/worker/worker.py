@@ -104,7 +104,7 @@ class Worker:
         deps = []
         not_complete = False
         for input in assignment.task.inputs:
-            if input in self.data:
+            if input in self.data or input.size == 0:
                 continue
 
             d = self.scheduled_downloads.get(input)
