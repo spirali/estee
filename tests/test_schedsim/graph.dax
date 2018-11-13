@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- LEAD Data Mining workflow (Figure 3 in Ramakrishnan and Gannon) -->
+<adag name="leaddm" jobCount="3" fileCount="0" childCount="2">
+	<job id="sc" namespace="leaddm" name="SpatialClustering" runtime="129" cores="4">
+		<uses file="ra_out1.dat" link="input" size="1024"/>
+		<uses file="sc_out1.dat" link="output" size="5120"/>
+		<uses file="sc_out2.dat" link="output" size="9216"/>
+	</job>
+	<job id="ra" namespace="leaddm" name="RemoveAttributes" runtime="66" cores="1">
+		<uses file="sd_out2.dat" link="input" size="1024"/>
+		<uses file="ra_out1.dat" link="output" size="1024"/>
+	</job>
+	<job id="sd" namespace="leaddm" name="StormDetection" runtime="35" cores="1">
+		<uses file="sd_in2.dat" link="input" size="2097152"/>
+		<uses file="sd_in1.dat" link="input" size="1024"/>
+		<uses file="sd_out2.dat" link="output" size="1024"/>
+		<uses file="sd_out1.dat" link="output" size="4096"/>
+	</job>
+	<child ref="sc">
+		<parent ref="ra"/>
+        <parent ref="sd"/>
+	</child>
+	<child ref="ra">
+		<parent ref="sd"/>
+	</child>
+</adag>
