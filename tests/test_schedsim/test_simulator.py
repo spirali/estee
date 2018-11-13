@@ -1,6 +1,6 @@
 import pytest
 
-from schedsim.communication import SimpleConnector
+from schedsim.communication import SimpleNetModel
 from schedsim.schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase
 from schedsim.simulator import TaskAssignment
 from schedsim.common import TaskGraph
@@ -132,7 +132,7 @@ def test_worker_downloads():
                 return ()
 
     scheduler = Scheduler()
-    do_sched_test(test_graph, 3, scheduler, SimpleConnector(bandwidth=2))
+    do_sched_test(test_graph, 3, scheduler, SimpleNetModel(bandwidth=2))
     assert downloads == [
         [[], [], []],
         [[0.0], [], [25, 50]],

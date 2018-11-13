@@ -5,8 +5,8 @@ import pytest
 import simpy
 from numpy.testing import assert_array_equal
 
-from schedsim.communication.connectors import compute_maxmin_flow, \
-    MaxMinFlowConnector, SimpleConnector
+from schedsim.communication.netmodels import compute_maxmin_flow, \
+    MaxMinFlowNetModel, SimpleNetModel
 from schedsim.worker import Worker
 
 
@@ -48,7 +48,7 @@ def test_maxmin_flow():
                                np.eye(4, dtype=np.int32)))
 
 
-def create_connector(cclass=MaxMinFlowConnector):
+def create_connector(cclass=MaxMinFlowNetModel):
     env = simpy.Environment()
     workers = [Worker() for _ in range(4)]
     for i, w in enumerate(workers):
@@ -130,7 +130,7 @@ def test_maxmin_connector():
         tm1 = env.now
 
         events = []
-        connector, env, workers = create_connector(SimpleConnector)
+        connector, env, workers = create_connector(SimpleNetModel)
         for p, s, d in zip(pairs, sizes, diffs):
             ev = connector.download(workers[p[0]], workers[p[1]], s)
             env.run(env.timeout(d))

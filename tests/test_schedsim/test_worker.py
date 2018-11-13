@@ -1,7 +1,7 @@
 import pytest
 
 from schedsim.worker import Worker
-from schedsim.communication import SimpleConnector
+from schedsim.communication import SimpleNetModel
 from schedsim.schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase
 from schedsim.simulator import TaskAssignment
 from schedsim.common import TaskGraph
@@ -21,17 +21,17 @@ def test_worker_max_downloads_per_worker():
         (1, b, 0),
     ])
 
-    assert do_sched_test(g, [1, 1], s, SimpleConnector()) == 2
+    assert do_sched_test(g, [1, 1], s, SimpleNetModel()) == 2
     assert do_sched_test(
-        g, [Worker(), Worker(max_downloads_per_worker=1)], s, SimpleConnector()) == 4
+        g, [Worker(), Worker(max_downloads_per_worker=1)], s, SimpleNetModel()) == 4
     assert do_sched_test(
-        g, [Worker(), Worker(max_downloads_per_worker=2)], s, SimpleConnector()) == 2
+        g, [Worker(), Worker(max_downloads_per_worker=2)], s, SimpleNetModel()) == 2
     assert do_sched_test(
-        g, [Worker(), Worker(max_downloads_per_worker=3)], s, SimpleConnector()) == 2
+        g, [Worker(), Worker(max_downloads_per_worker=3)], s, SimpleNetModel()) == 2
     assert do_sched_test(
-        g, [Worker(), Worker(max_downloads_per_worker=4)], s, SimpleConnector()) == 1
+        g, [Worker(), Worker(max_downloads_per_worker=4)], s, SimpleNetModel()) == 1
     assert do_sched_test(
-        g, [Worker(), Worker(max_downloads_per_worker=5)], s, SimpleConnector()) == 1
+        g, [Worker(), Worker(max_downloads_per_worker=5)], s, SimpleNetModel()) == 1
 
 
 def test_worker_max_downloads_global():
@@ -58,19 +58,19 @@ def test_worker_max_downloads_global():
         ]
 
     assert do_sched_test(
-        g, make_workers(1), s, SimpleConnector()) == pytest.approx(4)
+        g, make_workers(1), s, SimpleNetModel()) == pytest.approx(4)
     assert do_sched_test(
-        g, make_workers(2), s, SimpleConnector()) == pytest.approx(2)
+        g, make_workers(2), s, SimpleNetModel()) == pytest.approx(2)
     assert do_sched_test(
-        g, make_workers(3), s, SimpleConnector()) == pytest.approx(2)
+        g, make_workers(3), s, SimpleNetModel()) == pytest.approx(2)
     assert do_sched_test(
-        g, make_workers(3), s, SimpleConnector()) == pytest.approx(2)
+        g, make_workers(3), s, SimpleNetModel()) == pytest.approx(2)
     assert do_sched_test(
-        g, make_workers(4), s, SimpleConnector()) == pytest.approx(1)
+        g, make_workers(4), s, SimpleNetModel()) == pytest.approx(1)
     assert do_sched_test(
-        g, make_workers(4, 1), s, SimpleConnector()) == pytest.approx(2)
+        g, make_workers(4, 1), s, SimpleNetModel()) == pytest.approx(2)
     assert do_sched_test(
-        g, make_workers(3, 1), s, SimpleConnector()) == pytest.approx(2)
+        g, make_workers(3, 1), s, SimpleNetModel()) == pytest.approx(2)
 
 
 def test_worker_download_priorities():
@@ -90,7 +90,7 @@ def test_worker_download_priorities():
         [(0, a, 0)] + [(1, t, p) for t, p in zip(b, priorities)])
 
     w = [Worker(), Worker(max_downloads=2, max_downloads_per_worker=2)]
-    simulator = do_sched_test(g, w, s, SimpleConnector(), return_simulator=True)
+    simulator = do_sched_test(g, w, s, SimpleNetModel(), return_simulator=True)
 
     for t, p in zip(b, priorities):
         assert simulator.task_info(t).end_time == pytest.approx((SIZE - p - 1) // 2 + 1)

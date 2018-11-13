@@ -1,7 +1,7 @@
 import pytest
 
 from schedsim.common import TaskGraph
-from schedsim.communication import InstantConnector
+from schedsim.communication import InstantNetModel
 from schedsim.simulator import Simulator
 from schedsim.worker import Worker
 from schedsim.schedulers import StaticScheduler
@@ -69,7 +69,7 @@ def do_sched_test(task_graph, workers, scheduler,
                   return_simulator=False):
 
     if connector is None:
-        connector = InstantConnector()
+        connector = InstantNetModel()
 
     if isinstance(workers, int):
         workers = [Worker() for _ in range(workers)]

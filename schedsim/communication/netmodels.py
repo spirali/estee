@@ -7,7 +7,7 @@ from simpy import Event
 logger = logging.getLogger(__name__)
 
 
-class Connector:
+class NetModel:
     """
         bandwidth - maximal bandwidth between two nodes
                     (this is what network annoucess publicaly,
@@ -24,7 +24,7 @@ class Connector:
             assert worker.id is not None
 
 
-class InstantConnector(Connector):
+class InstantNetModel(NetModel):
 
     def __init__(self):
         super().__init__(float("inf"))
@@ -36,7 +36,7 @@ class InstantConnector(Connector):
         return event
 
 
-class SimpleConnector(Connector):
+class SimpleNetModel(NetModel):
 
     def download(self, source, target, size, value=None):
         assert source != target
@@ -67,7 +67,7 @@ class RunningDownload:
         return "<RD {} {} {}>".format(id(self), self.size, self.speed)
 
 
-class MaxMinFlowConnector(Connector):
+class MaxMinFlowNetModel(NetModel):
 
     def init(self, env, workers):
         super().init(env, workers)

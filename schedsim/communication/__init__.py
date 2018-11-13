@@ -1,2 +1,2 @@
 
-from .connectors import InstantConnector, SimpleConnector  # noqa
+from .netmodels import InstantNetModel, SimpleNetModel, MaxMinFlowNetModel  # noqa

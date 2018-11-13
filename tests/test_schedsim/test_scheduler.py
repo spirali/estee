@@ -1,5 +1,5 @@
 from schedsim.common import TaskGraph
-from schedsim.communication import SimpleConnector
+from schedsim.communication import SimpleNetModel
 from schedsim.schedulers import (AllOnOneScheduler, BlevelGtScheduler,
                                  Camp2Scheduler,
                                  DLSScheduler, ETFScheduler, LASTScheduler,
@@ -42,48 +42,48 @@ def test_scheduler_random(plan1):
 
     # 2w, simple
     for _ in range(50):
-        assert 13 <= do_sched_test(plan1, 2, RandomScheduler(), SimpleConnector()) <= 20
+        assert 13 <= do_sched_test(plan1, 2, RandomScheduler(), SimpleNetModel()) <= 20
 
 
 def test_scheduler_random_gt(plan1):
 
     # 2w, simple
     for _ in range(50):
-        assert 13 <= do_sched_test(plan1, 2, RandomGtScheduler(), SimpleConnector()) <= 19
+        assert 13 <= do_sched_test(plan1, 2, RandomGtScheduler(), SimpleNetModel()) <= 19
 
 
 def test_scheduler_blevel_gt(plan1):
 
     # 2w, simple
     for _ in range(50):
-        assert do_sched_test(plan1, 2, BlevelGtScheduler(), SimpleConnector()) in [13, 16]
+        assert do_sched_test(plan1, 2, BlevelGtScheduler(), SimpleNetModel()) in [13, 16]
 
 
 def test_scheduler_random_assign(plan1):
     for _ in range(50):
-        assert 10 <= do_sched_test(plan1, 2, RandomAssignScheduler(), SimpleConnector()) <= 25
-        assert 9 <= do_sched_test(plan1, 3, RandomAssignScheduler(), SimpleConnector()) <= 25
+        assert 10 <= do_sched_test(plan1, 2, RandomAssignScheduler(), SimpleNetModel()) <= 25
+        assert 9 <= do_sched_test(plan1, 3, RandomAssignScheduler(), SimpleNetModel()) <= 25
 
 
 def test_scheduler_camp(plan1):
     for _ in range(10):
-        assert 10 <= do_sched_test(plan1, 2, Camp2Scheduler(), SimpleConnector()) <= 18
+        assert 10 <= do_sched_test(plan1, 2, Camp2Scheduler(), SimpleNetModel()) <= 18
 
 
 def test_scheduler_dls(plan1):
-    assert do_sched_test(plan1, 2, DLSScheduler(), SimpleConnector()) == 17
+    assert do_sched_test(plan1, 2, DLSScheduler(), SimpleNetModel()) == 17
 
 
 def test_scheduler_last(plan1):
-    assert do_sched_test(plan1, 2, LASTScheduler(), SimpleConnector()) == 17
+    assert do_sched_test(plan1, 2, LASTScheduler(), SimpleNetModel()) == 17
 
 
 def test_scheduler_mcp(plan1):
-    assert do_sched_test(plan1, 2, MCPScheduler(), SimpleConnector()) == 17
+    assert do_sched_test(plan1, 2, MCPScheduler(), SimpleNetModel()) == 17
 
 
 def test_scheduler_etf(plan1):
-    assert do_sched_test(plan1, 2, ETFScheduler(), SimpleConnector()) == 17
+    assert do_sched_test(plan1, 2, ETFScheduler(), SimpleNetModel()) == 17
 
 
 def test_compute_indepndent_tasks(plan1):
