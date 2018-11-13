@@ -5,11 +5,12 @@ import sys
 import numpy as np
 import pandas as pd
 
-from schedtk import Simulator, Worker
-from schedtk.connectors import SimpleConnector
-from schedtk.schedulers import AllOnOneScheduler, BlevelGtScheduler, \
-    Camp2Scheduler, DLSScheduler, K1hScheduler, RandomAssignScheduler, \
-    RandomGtScheduler
+from schedsim.communication import SimpleConnector
+from schedsim.schedulers import AllOnOneScheduler, Camp2Scheduler, \
+    RandomAssignScheduler, RandomGtScheduler, BlevelGtScheduler, DLSScheduler
+from schedsim.schedulers.others import K1hScheduler
+from schedsim.simulator import Simulator
+from schedsim.worker import Worker
 
 sys.setrecursionlimit(2500)
 

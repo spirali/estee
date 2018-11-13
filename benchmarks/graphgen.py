@@ -1,5 +1,5 @@
 
-from schedtk.taskgraph import TaskGraph
+from schedsim.common.taskgraph import TaskGraph
 
 import numpy as np
 
