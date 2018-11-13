@@ -1,9 +1,9 @@
 import pytest
 
-from schedsim.communication import SimpleNetModel
-from schedsim.schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase
-from schedsim.simulator import TaskAssignment
 from schedsim.common import TaskGraph
+from schedsim.communication import SimpleNetModel
+from schedsim.schedulers import AllOnOneScheduler, DoNothingScheduler, StaticScheduler
+from schedsim.simulator import TaskAssignment
 from .test_utils import do_sched_test
 
 
@@ -69,28 +69,7 @@ def test_simulator_cpus3():
     assert do_sched_test(test_graph, [5], scheduler) == 3
 
 
-def test_worker_freecpus():
-    test_graph = TaskGraph()
-    test_graph.new_task("A", duration=10, cpus=2, output_size=1)
-    test_graph.new_task("B", duration=8, cpus=3, output_size=1)
-    c = test_graph.new_task("C", duration=1, cpus=1, output_size=1)
-    d = test_graph.new_task("D", duration=3, cpus=3, output_size=1)
-    d.add_input(c)
-
-    free_cpus = []
-
-    class Scheduler(SchedulerBase):
-        def schedule(self, new_ready, new_finished):
-            worker = self.simulator.workers[0]
-            free_cpus.append(worker.free_cpus)
-            return [TaskAssignment(worker, t) for t in new_ready]
-
-    scheduler = Scheduler()
-    do_sched_test(test_graph, [10], scheduler)
-    assert free_cpus == [10, 5, 5, 8, 10]
-
-
-def test_worker_downloads():
+def test_task_zerocost():
     test_graph = TaskGraph()
     a = test_graph.new_task("A", duration=1, output_size=100)
     b = test_graph.new_task("B", duration=1, output_size=50)
@@ -101,83 +80,17 @@ def test_worker_downloads():
     e = test_graph.new_task("E", duration=1, outputs=[0])
     e.add_input(d)
 
-    downloads = []
-
-    class Scheduler(SchedulerBase):
-        def __init__(self):
-            self.scheduled = False
-
-        def schedule(self, new_ready, new_finished):
+    class Scheduler(StaticScheduler):
+        def static_schedule(self):
             workers = self.simulator.workers
-
-            # remaining times of downloads, downloads are sorted by start time
-            downloads.append(
-                list([d.naive_remaining_time_estimate(self.simulator)
-                      for d in sorted([d for d
-                                       in w.running_downloads],
-                                      key=lambda d: d.start_time)]
-                     for w in workers))
-
-            if not self.scheduled:
-                tasks = self.simulator.task_graph.tasks
-                self.scheduled = True
-                return [
-                    TaskAssignment(workers[0], tasks[0]),
-                    TaskAssignment(workers[1], tasks[1]),
-                    TaskAssignment(workers[2], tasks[3]),
-                    TaskAssignment(workers[0], tasks[4]),
-                    TaskAssignment(workers[2], tasks[2])
-                ]
-            else:
-                return ()
+            tasks = self.simulator.task_graph.tasks
+            return [
+                TaskAssignment(workers[0], tasks[0]),
+                TaskAssignment(workers[1], tasks[1]),
+                TaskAssignment(workers[2], tasks[3]),
+                TaskAssignment(workers[0], tasks[4]),
+                TaskAssignment(workers[2], tasks[2])
+            ]
 
     scheduler = Scheduler()
     do_sched_test(test_graph, 3, scheduler, SimpleNetModel(bandwidth=2))
-    assert downloads == [
-        [[], [], []],
-        [[0.0], [], [25, 50]],
-        [[], [], [24, 49]],
-        [[], [], []]
-    ]
-
-
-def test_worker_running_tasks():
-    test_graph = TaskGraph()
-    test_graph.new_task("X", duration=10)
-    a = test_graph.new_task("A", duration=1, output_size=1)
-    b = test_graph.new_task("B", duration=8, output_size=1)
-    b.add_input(a)
-
-    remaining_times = []
-
-    class Scheduler(SchedulerBase):
-        def __init__(self):
-            self.scheduled = False
-
-        def schedule(self, new_ready, new_finished):
-            workers = self.simulator.workers
-
-            remaining_times.append([[t.remaining_time(self.simulator.env.now)
-                                     for t
-                                     in w.running_tasks.values()]
-                                    for w in workers])
-
-            if not self.scheduled:
-                tasks = self.simulator.task_graph.tasks
-                self.scheduled = True
-                return [
-                    TaskAssignment(workers[0], tasks[0]),
-                    TaskAssignment(workers[1], tasks[1]),
-                    TaskAssignment(workers[1], tasks[2])
-                ]
-            else:
-                return ()
-
-    scheduler = Scheduler()
-    do_sched_test(test_graph, 2, scheduler)
-    assert remaining_times == [
-        [[], []],
-        [[9], []],
-        [[1], []],
-        [[], []]
-    ]
