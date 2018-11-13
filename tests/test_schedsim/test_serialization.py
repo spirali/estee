@@ -1,11 +1,12 @@
 import io
+import os
 
 from schedsim.common import TaskGraph
 from schedsim.serialization.dax import dax_deserialize, dax_serialize
 
 
 def test_load_graph():
-    tg = dax_deserialize("graph.dax")
+    tg = dax_deserialize(os.path.join(os.path.dirname(__file__), "graph.dax"))
 
     assert isinstance(tg, TaskGraph)
     assert len(tg.tasks) == 3
