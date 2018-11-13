@@ -46,7 +46,8 @@ class Download:
     def naive_remaining_time_estimate(self, simulator):
         if self.start_time is None:
             return None
-        return self.output.size / simulator.connector.bandwidth + self.start_time - simulator.env.now
+        return (self.output.size / simulator.connector.bandwidth +
+                self.start_time - simulator.env.now)
 
 
 class Worker:
@@ -112,8 +113,8 @@ class Worker:
                 info = self.simulator.output_info(input)
                 if info.placing:
                     if input.size == 0:
-                       self.data.add(input)
-                       continue
+                        self.data.add(input)
+                        continue
                     d = self._download(input, assignment.priority)
                     deps.append(d.event)
                 else:

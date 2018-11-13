@@ -26,8 +26,8 @@ def test_load_graph():
     assert tasks["StormDetection"].duration == 35
     assert tasks["StormDetection"].cpus == 1
 
-    assert set(tasks["StormDetection"].consumers()) ==\
-           {tasks["RemoveAttributes"], tasks["SpatialClustering"]}
+    assert set(tasks["StormDetection"].consumers()) == {tasks["RemoveAttributes"],
+                                                        tasks["SpatialClustering"]}
 
 
 def test_serialize_deserialize(plan1):

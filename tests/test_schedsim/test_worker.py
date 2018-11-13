@@ -1,13 +1,12 @@
+import random
+
 import pytest
 
-from schedsim.worker import Worker
-from schedsim.communication import SimpleNetModel
-from schedsim.schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase
-from schedsim.simulator import TaskAssignment
 from schedsim.common import TaskGraph
+from schedsim.communication import SimpleNetModel
+from schedsim.worker import Worker
 from .test_utils import do_sched_test, fixed_scheduler
 
-import random
 
 def test_worker_max_downloads_per_worker():
     g = TaskGraph()
