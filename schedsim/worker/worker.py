@@ -148,6 +148,8 @@ class Worker:
                 self.running_downloads.remove(download)
                 del self.scheduled_downloads[download.output]
                 download.event.succeed(download)
+                self.simulator.add_trace_event(
+                    FetchEndTraceEvent(self.env.now, self, download.source, download.output))
 
             if len(self.running_downloads) < self.max_downloads:
                 # We need to sort any time, as it priority may changed in background
@@ -184,7 +186,6 @@ class Worker:
 
         prepared_assignments = []
         events = [self.ready_store.get()]
-
 
         while True:
             finished = yield env.any_of(events)
