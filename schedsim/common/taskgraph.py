@@ -35,8 +35,14 @@ class TaskGraph:
     def task_count(self):
         return len(self.tasks)
 
-    def new_task(self, name=None, outputs=(), duration=1, cpus=1, output_size=None):
-        task = Task(name, outputs, duration, cpus, output_size)
+    def new_task(self,
+                 name=None,
+                 outputs=(),
+                 duration=1,
+                 expected_duration=None,
+                 cpus=1,
+                 output_size=None):
+        task = Task(name, outputs, duration, cpus, output_size, expected_duration)
         task.id = len(self.tasks)
 
         output_id = len(self.outputs)

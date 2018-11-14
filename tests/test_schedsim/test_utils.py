@@ -1,6 +1,6 @@
 import pytest
 
-from schedsim.common import TaskGraph
+from schedsim.common import TaskGraph, TaskOutput
 from schedsim.communication import InstantNetModel
 from schedsim.simulator import Simulator
 from schedsim.worker import Worker
@@ -24,7 +24,9 @@ def plan1():
     task_graph = TaskGraph()
 
     a1, a2, a3, a4, a5, a6, a7, a8 = [
-        task_graph.new_task("a{}".format(i + 1), duration=duration, outputs=outputs)
+        task_graph.new_task("a{}".format(i + 1),
+                            duration=duration, expected_duration=duration,
+                            outputs=[TaskOutput(size, size) for size in outputs])
         for i, (duration, outputs) in enumerate([
             (2, [1]),  # a1
             (3, [3]),  # a2

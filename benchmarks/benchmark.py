@@ -1,9 +1,9 @@
 
-from schedtk.taskgraph import TaskGraph
-from schedtk import Worker, Simulator
-from schedtk.connectors import SimpleConnector
-from schedtk.generators import random_levels
-from schedtk.schedulers import RandomAssignScheduler, BlevelGtScheduler, RandomGtScheduler, AllOnOneScheduler
+from schedsim.common import TaskGraph
+from schedsim import Worker, Simulator
+from schedsim.communication import MaxMinFlowNetModel
+from schedsim.generators import random_levels
+from schedsim.schedulers import RandomAssignScheduler, BlevelGtScheduler, RandomGtScheduler, AllOnOneScheduler
 
 import random
 import numpy as np
@@ -15,7 +15,7 @@ import multiprocessing
 
 def run_single_instance(task_graph, n_workers, scheduler, bandwidth):
     workers = [Worker() for _ in range(n_workers)]
-    connector = SimpleConnector(bandwidth)
+    connector = MaxMinNetModel(bandwidth)
     simulator = Simulator(task_graph, workers, scheduler, connector)
     return simulator.run()
 

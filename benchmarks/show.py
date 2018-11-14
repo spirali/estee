@@ -62,7 +62,6 @@ def main():
         data[c] /= m
 
     df = data.groupby(["cluster_name", "bandwidth"])[avg_columns].mean()
-    print(df)
 
     if args.heatmap:
         fg = seaborn.FacetGrid(data, col='cluster_name')

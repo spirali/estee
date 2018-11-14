@@ -2,30 +2,42 @@
 
 class Task:
 
-    __slots__ = ("inputs", "outputs", "duration", "name", "id", "cpus")
+    __slots__ = ("inputs", "outputs", "duration", "expected_duration", "name", "id", "cpus")
 
-    def __init__(self, name=None, outputs=(), duration=1, cpus=1, output_size=None):
+    def __init__(self, name=None,
+                       outputs=(),
+                       duration=1,
+                       cpus=1,
+                       output_size=None,
+                       expected_duration=None):
         assert cpus >= 0
         assert duration >= 0
+        assert expected_duration is None or duration >= 0
 
         self.inputs = []
 
         if output_size is not None:
             if outputs:
                 raise Exception("Cannot set 'output_size' and 'outputs' at once")
-            self.outputs = (TaskOutput(self, output_size),)
+            self.outputs = (TaskOutput(output_size, output_size),)
         else:
-            self.outputs = tuple(TaskOutput(self, size) for size in outputs)
+            self.outputs = tuple(TaskOutput(s, s) if (isinstance(s, float) or isinstance(s, int)) else s
+                                 for s in outputs)
+
+        for output in self.outputs:
+            assert output.parent is None
+            output.parent = self
 
         self.name = name
         self.id = None
 
         self.duration = duration
+        self.expected_duration = expected_duration
         self.cpus = cpus
 
     def simple_copy(self):
         t = Task(self.name, duration=self.duration, cpus=self.cpus)
-        t.outputs = [TaskOutput(t, o.size) for o in self.outputs]
+        t.outputs = [TaskOutput(o.size, o.expected_size) for o in self.outputs]
         return t
 
     @property
@@ -107,23 +119,27 @@ class Task:
 
     def validate(self):
         assert self.duration >= 0
+        assert self.expected_duration is None or self.expected_duration >= 0
         assert not self.is_predecessor_of(self)
         for o in self.outputs:
             assert o.parent == self
             assert o.size >= 0
+            assert o.expected_size is None or o.expected_size >= 0
 
 
 class TaskOutput:
 
-    __slots__ = ("parent", "id", "size", "consumers")
+    __slots__ = ("parent", "id", "size", "consumers", "expected_size")
 
-    def __init__(self, parent, size):
+    def __init__(self, size, expected_size=None):
         assert size >= 0
+        assert expected_size is None or expected_size >= 0
 
-        self.parent = parent
+        self.parent = None
         self.size = size
         self.consumers = set()
         self.id = None
+        self.expected_size = expected_size
 
     def __repr__(self):
         return "<O id={} p={} size={}>".format(self.id, repr(self.parent), self.size)

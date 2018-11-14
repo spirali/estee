@@ -1,113 +1,114 @@
 
 from schedsim.common.taskgraph import TaskGraph
 
+from clusters import clusters
+
+import itertools
+import pandas
 import numpy as np
+import uuid
 
-CPUS = np.array([1, 2, 3, 4], dtype=np.int32)
-CPUS_P = np.array([0.50, 0.24, 0.02, 0.24])
-
-
-def random_cpus():
-    return np.random.choice(CPUS, p=CPUS_P)
+def normal(loc, scale):
+    return max(0.00000001, np.random.normal(loc, scale))
 
 
-def make_task(graph, cpus=None):
-    if cpus is None:
-        cpus = random_cpus()
-    return graph.new_task(None,
-                          duration=np.random.random(), size=np.random.random(), cpus=cpus)
+def exponential(scale):
+    return max(0.00000001, np.random.exponential(scale))
 
 
-def make_independent_tasks(graph, cpus=None):
-    return [make_task(graph, cpus) for _ in range(np.random.randint(1, 20))]
+def gridcat(count):
+    g = TaskGraph()
+    opens = [g.new_task("input{}".format(i), duration=normal(0.01, 0.001),
+                        output_size=normal(300, 25)) for i in range(count)]
+    hashes = []
+    for i in range(count):
+        o1 = opens[i]
+        for j in range(i + 1, count):
+            o2 = opens[j]
+            sz = o1.output.size + o2.output.size
+            d = normal(0.2, 0.01) + sz / 1000.0
+            cat = g.new_task("cat", duration=d, output_size=sz)
+            cat.add_input(o1)
+            cat.add_input(o2)
+            d = normal(0.2, 0.01) + sz / 500.0
+            makehash = g.new_task("hash", duration=d, output_size=16 / 1024 / 1024)
+            makehash.add_input(cat)
+            hashes.append(makehash.output)
+    m = g.new_task("merge", duration=0.1, output_size=16 / 1024 / 1024)
+    m.add_inputs(hashes)
+    return g
 
 
-def gen_independent_tasks(graph):
-    cpus = random_cpus()
-    make_independent_tasks(graph, cpus)
-    return graph
+def plain1n(count):
+    g = TaskGraph()
+    for i in range(count):
+        t = np.random.choice([10, 20, 60, 180])
+        g.new_task("t{}".format(i), duration=normal(t, t / 10), expected_duration=t, cpus=1)
+    return g
 
 
-def gen_level(graph):
-    sources = graph.leaf_tasks()
-    counts = np.arange(1, len(sources) + 1)
-    w = np.array([1/(i * 1.2 + 1) for i in range(len(counts))])
-    p = w / w.sum()
-
-    for task in make_independent_tasks(graph):
-        n_inps = np.random.choice(counts, p=p)
-        inps = np.random.choice(sources, n_inps, replace=False)
-        task.add_inputs(inps)
-    return graph
+def plain1e(count):
+    g = TaskGraph()
+    for i in range(count):
+        g.new_task("t{}".format(i), duration=exponential(60), expected_duration=60, cpus=1)
+    return g
 
 
-def gen_uniform_level(graph):
-    sources = graph.leaf_tasks()
-    counts = np.arange(1, len(sources) + 1)
-    w = np.array([1/(i * 1.2 + 1) for i in range(len(counts))])
-    p = w / w.sum()
-    n_inps = np.random.choice(counts, p=p)
-    duration = np.random.random()
-    size = np.random.random()
-    cpus = random_cpus()
-    for task in range(np.random.randint(4, 30)):
-        task = graph.new_task(size=size, duration=duration, cpus=cpus)
-        inps = np.random.choice(sources, n_inps, replace=False)
-        task.add_inputs(inps)
-        add_noise(task)
+def plain1cpus(count):
+    g = TaskGraph()
+    for i in range(count):
+        t = np.random.choice([10, 20, 60, 180])
+        g.new_task("t{}".format(i), duration=normal(t, t / 10), expected_duration=t,
+                   cpus=np.random.randint(1, 4))
+    return g
 
-    return graph
-
-
-def gen_random_links(graph):
-    if graph.task_count < 2:
-        return graph
-
-    for _ in range(int(np.ceil(graph.task_count / 20))):
-        t1, t2 = np.random.choice(graph.tasks, 2, replace=False)
-        if t1.is_predecessor_of(t2):
-            continue
-        t1.add_input(t2)
-    return graph
+"""
+def plain2(count):
+    g = TaskGraph()
+    for i in range(count):
+        t1 = g.new_task("a{}".format(i), duration=normal(5, 2), output_size=40)
+        t2 = g.new_task("b{}".format(i), duration=normal(120, 20), output_size=120, cpus=4)
+        t2.add_input(t1)
+        t3 = g.new_task("c{}".format(i), duration=normal(30, 1))
+        t3.add_input(t2)
+    return g
 
 
-def add_noise(task):
-    task.size += max(0.000001, np.random.normal(0, task.size / 20))
-    task.duration += max(0.000001, np.random.normal(0, task.duration / 20))
+def merges1(count):
+    g = TaskGraph()
+
+    tasks1 = g.new_task("a{}".format(i), duration=normal(15, 3), output_size=normal(10, 3))
+    for i in range(count):
+        t = g.new_task("b{}".format(i), duration=normal(15, 2), output_size=normal(20, 3))
+        t.add_input(tasks1[i])
+        t.add_input(tasks1[(i + 1) % count])
+
+def merges2(count):
+    g = TaskGraph()
+
+    tasks1 = g.new_task("a{}".format(i), duration=normal(15, 3), output_size=normal(10, 3))
+    for i in range(count):
+        t = g.new_task("b{}".format(i), duration=normal(15, 2), output_size=normal(20, 3))
+        t.add_input(tasks1[i])
+        t.add_input(tasks1[(i + 1) % count])
+"""
 
 
-def gen_noisy_duplicate(graph):
-    graph2 = graph.copy()
-    for task in graph2.tasks:
-        add_noise(task)
-    return TaskGraph.merge([graph, graph2])
+def gen_graphs(graph_defs, output):
+    result = []
+    for graph_def in graph_defs:
+        fn = graph_def[0]
+        args = graph_def[1:]
+        result.append([fn.__name__, str(uuid.uuid4()), fn(*args)])
+    f = pandas.DataFrame(result, columns=["graph_name", "graph_id", "graph"])
+    f.to_pickle(output)
 
 
-actions = [
-    (gen_independent_tasks, 10),
-    (gen_level, 40),
-    (gen_uniform_level, 20),
-    (gen_random_links, 10),
-    (gen_noisy_duplicate, 5),
-    (None, 5)
+elementary_graphs = [
+    (plain1n, 380),
+    (plain1e, 380),
+    (plain1cpus, 380),
+
 ]
 
-
-def generate_graph(steps):
-    graph = TaskGraph()
-    gen_independent_tasks(graph)
-
-    gen_ops, weights = zip(*actions)
-    weights = np.array(weights)
-    p = weights / weights.sum()
-    for i in range(steps):
-        op = np.random.choice(gen_ops, p=p)
-        if op is None:
-            graph2 = generate_graph(i)
-            graph = TaskGraph.merge([graph, graph2])
-        else:
-            graph = op(graph)
-
-    gen_random_links(graph)
-    graph.write_dot("/tmp/x.dot")
-    return graph
+gen_graphs(elementary_graphs, "elementary.xz")

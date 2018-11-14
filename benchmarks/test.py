@@ -1,16 +1,24 @@
 import argparse
 import multiprocessing
 import sys
+import os
 
 import numpy as np
 import pandas as pd
 
-from schedsim.communication import SimpleConnector
-from schedsim.schedulers import AllOnOneScheduler, Camp2Scheduler, \
-    RandomAssignScheduler, RandomGtScheduler, BlevelGtScheduler, DLSScheduler
-from schedsim.schedulers.others import K1hScheduler
 from schedsim.simulator import Simulator
 from schedsim.worker import Worker
+from schedsim.communication import MaxMinFlowNetModel
+from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
+from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler
+from schedsim.schedulers.camp import Camp2Scheduler
+
+from schedsim.schedulers.others import \
+    DLSScheduler, K1hScheduler
+
+import collections
+import itertools
+from tqdm import tqdm
 
 sys.setrecursionlimit(2500)
 
@@ -25,82 +33,121 @@ SCHEDULERS = {
 }
 
 
-def run_single_instance(task_graph, workers, scheduler, bandwidth):
-    workers = [Worker(**wargs) for wargs in workers]
-    connector = SimpleConnector(bandwidth)
-    simulator = Simulator(task_graph, workers, scheduler, connector)
+CLUSTERS = {
+    "2x8": [{"cpus": 8}] * 2,
+    "4x4": [{"cpus": 4}] * 4,
+    "stairs16": [{"cpus": i} for i in range(1, 6)] + [{"cpus": 1}]
+}
+
+BANDWIDTHS = [
+    10240.0,  # 10GB/s
+    1024.0,   # 1GB/s
+    102.4,  # 0.1GB/s
+    10.24,  # 0.01GB/s
+]
+
+
+
+Instance = collections.namedtuple("Instance",
+    ("graph_name", "graph_id", "graph",
+     "cluster_name", "bandwidth",
+     "scheduler_name"))
+
+
+def run_single_instance(instance):
+    workers = [Worker(**wargs) for wargs in CLUSTERS[instance.cluster_name]]
+    netmodel = MaxMinFlowNetModel(instance.bandwidth)
+    scheduler = SCHEDULERS[instance.scheduler_name]()
+    simulator = Simulator(instance.graph, workers, scheduler, netmodel)
     return simulator.run()
 
 
-def benchmark_scheduler(task_graph, scheduler_class, workers, bandwidth, count):
-    return np.array(
-        [run_single_instance(task_graph, workers, scheduler_class(), bandwidth)
-         for _ in range(count)])
+def benchmark_scheduler(instance, count):
+    return [run_single_instance(instance)
+            for _ in range(count)]
 
 
-def process(instance):
-    scheduler_name, count, row = instance
-    scheduler = SCHEDULERS[scheduler_name]
-    workers = row.cluster_def
-    #row.task_graph.write_dot("/tmp/xx.dot")
-    times = benchmark_scheduler(row.task_graph, scheduler, workers, row.bandwidth, count)
-    row.task_graph.cleanup()
-    return np.average(times), np.std(times), times.min()
+def process(conf):
+    return benchmark_scheduler(*conf)
 
 
-def data_iter(scheduler_name, count, data):
-    for _, row in data.iterrows():
-        yield scheduler_name, count, row
+def instance_iter(graphs, cluster_names, bandwidths, scheduler_names):
+    for graph_def, cluster_name, bandwidth, scheduler_name \
+            in itertools.product(graphs, cluster_names, bandwidths, scheduler_names):
+        g = graph_def[1]
+        instance = Instance(
+            g["graph_name"], g["graph_id"], g["graph"],
+            cluster_name, bandwidth,
+            scheduler_name)
+        yield instance
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("dataset")
+    parser.add_argument("graphset")
+    parser.add_argument("resultfile")
     parser.add_argument("scheduler", choices=tuple(SCHEDULERS.keys()))
     parser.add_argument("repeat", type=int)
-    parser.add_argument("--output")
-    parser.add_argument("--limit", type=int)
+    parser.add_argument("--new", action="store_true")
+    #parser.add_argument("--limit", type=int)
     return parser.parse_args()
 
 
 def main():
+    COLUMNS = ["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name", "time"]
+
     args = parse_args()
-    data = pd.read_pickle(args.dataset)
+    graphset = pd.read_pickle(args.graphset)
+    if not args.new:
+        if not os.path.isfile(args.resultfile):
+            print("Result file '{}' does not exists or it is not a file\n"
+                "Use --new for create a new one\n".format(args.resultfile),
+                file=sys.stderr)
+            return
+        oldframe = pd.read_pickle(args.resultfile)
+        assert list(oldframe.columns) == COLUMNS
+    else:
+        if os.path.isfile(args.resultfile):
+            print("Result file '{}' already exists\n", args.resultfile, file=sys.stderr)
+            return
+        oldframe = pd.DataFrame([], columns=COLUMNS)
 
-    if args.limit:
-        data = data[:args.limit]
+    rows = []
 
-    pool = multiprocessing.Pool()
-    results = []
+    schedulers = (args.scheduler,)
 
-    # Single therad
-    #for i, r in enumerate(data_iter(args.scheduler, args.repeat, data)):
-    #    results.append(process(r))
-
-    for r in pool.imap(process, data_iter(args.scheduler, args.repeat, data)):
-        results.append(r)
-        if len(results) % 50 == 0:
-            print(len(results))
+    instances = list(instance_iter(
+            graphset.iterrows(),
+            list(CLUSTERS.keys()),
+            BANDWIDTHS,
+            schedulers))
 
     print("Testing scheduler: {}".format(args.scheduler))
 
-    frame = pd.DataFrame(results, columns=[args.scheduler + "_avg", args.scheduler + "_std", args.scheduler + "_min"])
-    mc = [c for c in data.columns if c.endswith("_min")]
-    if mc:
-        old_min = data[mc].min(axis=1)
+    pool = multiprocessing.Pool()
+    #tqdm = lambda x, total: x
+    for instance, result in tqdm(zip(instances, pool.imap(process, ((i, args.repeat) for i in instances))), total=len(instances)):
+        for r in result:
+            rows.append((
+                instance.graph_name,
+                instance.graph_id,
+                instance.cluster_name,
+                instance.bandwidth,
+                instance.scheduler_name,
+                r
+            ))
 
-    for c in frame.columns:
-        if c in data.columns:
-            del data[c]
-    result_data = pd.concat([data, frame], axis=1)
+    frame = pd.DataFrame(rows, columns=COLUMNS)
+    print(frame.groupby(["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name"]).mean())
+    if not args.new:
+        oldframe.to_pickle(args.resultfile + ".backup")
 
-    if args.output:
-        result_data.to_pickle(args.output)
+    # Remove old results
+    oldframe = oldframe[~oldframe.scheduler_name.isin(schedulers)]
 
-    avg_name = args.scheduler + "_avg"
-    if mc:
-        result_data["rr"] = result_data[avg_name] / old_min
-        print(result_data.groupby(["bandwidth", "cluster_name"])["rr"].mean())
+    newframe = pd.concat([oldframe, frame], ignore_index=True)
+    newframe.to_pickle(args.resultfile)
+    print("{} entries in new {}".format(newframe["time"].count(), args.resultfile))
 
 if __name__ == "__main__":
     main()
