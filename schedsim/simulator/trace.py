@@ -20,9 +20,9 @@ def merge_trace_events(trace_events, start_pred, end_pred, key_fn, start_map=Non
     open_events = {}
 
     if not start_map:
-        start_map = lambda e: e
+        def start_map(e): return e
     if not end_map:
-        end_map = lambda s, e: (s, e)
+        def end_map(e): return e
 
     for event in trace_events:
         if start_pred(event):
@@ -100,6 +100,31 @@ def build_worker_usage(trace_events, worker):
     ))
 
     return rectangles
+
+
+def build_worker_bandwidth(trace_events, worker):
+    bandwidths = (  # in, out
+        [(0, 0)],
+        [(0, 0)]
+    )
+
+    def map_end(start_event, end_event):
+        bw_index = 0 if start_event.target_worker == worker else 1
+        bandwidths[bw_index].append((end_event.time,
+                                     bandwidths[bw_index][-1][1] + start_event.output.size))
+
+    def check_worker(event):
+        return worker in (event.target_worker, event.source_worker)
+
+    list(merge_trace_events(
+        trace_events,
+        lambda t: isinstance(t, FetchStartTraceEvent) and check_worker(t),
+        lambda t: isinstance(t, FetchEndTraceEvent) and check_worker(t),
+        lambda e: (e.output, e.target_worker, e.source_worker),
+        end_map=map_end
+    ))
+
+    return bandwidths
 
 
 def plot_task_communication(trace_events, workers, show_communication=True):
@@ -214,6 +239,41 @@ def plot_worker_usage(trace_events, workers):
         plot.xaxis.axis_label = 'Time'
 
         render_rectangles(plot, rectangles, fill_color="blue", line_color="blue")
+        plots.append(plot)
+
+    return gridplot(plots, ncols=2)
+
+
+def plot_worker_bandwidth(trace_events, workers):
+    """
+    Plots cumulative worker in/out bandwidth usage into a grid chart (one chart per worker).
+    """
+    from bokeh.plotting import figure
+    from bokeh.layouts import gridplot
+
+    plots = []
+
+    end_time = math.ceil(max([e.time for e in trace_events]))
+
+    for index, worker in enumerate(workers):
+        (bandwidth_in, bandwidth_out) = list(build_worker_bandwidth(trace_events, worker))
+
+        bandwidth_in.append((end_time, bandwidth_in[-1][1]))
+        bandwidth_out.append((end_time, bandwidth_out[-1][1]))
+
+        plot = figure(plot_width=600,
+                      plot_height=300,
+                      x_range=(0, end_time),
+                      title='Worker {} bandwidth usage'.format(index))
+        plot.yaxis.axis_label = 'Bandwidth'
+        plot.xaxis.axis_label = 'Time'
+
+        plot.step([s[0] for s in bandwidth_in], [s[1] for s in bandwidth_in],
+                  line_color="green",
+                  legend="In")
+        plot.step([s[0] for s in bandwidth_out], [s[1] for s in bandwidth_out],
+                  line_color="red",
+                  legend="Out")
         plots.append(plot)
 
     return gridplot(plots, ncols=2)
