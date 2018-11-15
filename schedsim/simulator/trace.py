@@ -127,7 +127,7 @@ def build_worker_bandwidth(trace_events, worker):
     return bandwidths
 
 
-def plot_task_communication(trace_events, workers, show_communication=True):
+def plot_task_communication(trace_events, workers, show_communication=False):
     """
     Plots individual tasks on workers into a grid chart (one chart per worker).
 
@@ -137,9 +137,13 @@ def plot_task_communication(trace_events, workers, show_communication=True):
     from bokeh.layouts import gridplot
     from pandas import DataFrame
 
+    end_time = math.ceil(max([e.time for e in trace_events]))
+
     plots = []
     if show_communication:
-        plot = plotting.figure(plot_width=1200, plot_height=850, title='CPU schedules')
+        plot = plotting.figure(plot_width=1200, plot_height=850,
+                               x_range=(0, end_time),
+                               title='CPU schedules')
         plot.yaxis.axis_label = 'Worker'
         plot.xaxis.axis_label = 'Time'
         plots.append(plot)
@@ -148,7 +152,9 @@ def plot_task_communication(trace_events, workers, show_communication=True):
         if show_communication:
             return plot
         else:
-            p = plotting.figure(plot_width=600, plot_height=300, title='Worker task execution')
+            p = plotting.figure(plot_width=600, plot_height=300,
+                                x_range=(0, end_time),
+                                title='Worker task execution')
             p.yaxis.axis_label = 'Task'
             p.xaxis.axis_label = 'Time'
             plots.append(p)
@@ -161,7 +167,9 @@ def plot_task_communication(trace_events, workers, show_communication=True):
         locations = list(build_task_locations(trace_events, worker))
 
         def normalize_height(height):
-            return height / (worker.cpus * 2) + index
+            if show_communication:
+                return height / (worker.cpus * 2) + index
+            return height
 
         worker_plot = get_worker_plot()
         rectangles = [(
@@ -174,15 +182,17 @@ def plot_task_communication(trace_events, workers, show_communication=True):
 
         render_rectangles(worker_plot, rectangles)
 
-        for index, (task, _) in enumerate(locations):
-            task_to_loc[task] = rectangles[index]
+        for i, (task, _) in enumerate(locations):
+            task_to_loc[task] = rectangles[i]
 
         frame = DataFrame()
         frame["label"] = [t[0].name for t in locations]
         frame["bottom"] = [normalize_height(t[1][2]) for t in locations]
         frame["left"] = [t[1][0] for t in locations]
+
         source = models.ColumnDataSource(frame)
-        labels = models.LabelSet(x='left', y='bottom', x_offset=2, y_offset=2,
+        labels = models.LabelSet(x='left', y='bottom',
+                                 x_offset=2, y_offset=2,
                                  text='label', source=source,
                                  text_color="white", render_mode='canvas')
         worker_plot.add_layout(labels)
@@ -277,6 +287,21 @@ def plot_worker_bandwidth(trace_events, workers):
         plots.append(plot)
 
     return gridplot(plots, ncols=2)
+
+
+def plot_tabs(trace_events, workers, plot_fns, labels):
+    from bokeh.models import Panel, Tabs
+    return Tabs(tabs=[Panel(child=fn(trace_events, workers), title=label)
+                      for (fn, label) in zip(plot_fns, labels)])
+
+
+def plot_all(trace_events, workers):
+    return plot_tabs(trace_events, workers,
+                    [plot_task_communication,
+                     lambda *arg: plot_task_communication(*arg, show_communication=True),
+                     plot_worker_usage,
+                     plot_worker_bandwidth],
+                    ["Tasks", "Tasks + communication", "Core usage", "Bandwidth usage"])
 
 
 def build_trace_html(trace_events, workers, filename, plot_fn):
