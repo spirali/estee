@@ -102,16 +102,16 @@ def build_worker_usage(trace_events, worker):
     return rectangles
 
 
-def build_worker_bandwidth(trace_events, worker):
-    bandwidths = (  # in, out
+def build_worker_transfer_size(trace_events, worker):
+    transfers = (  # in, out
         [(0, 0)],
         [(0, 0)]
     )
 
     def map_end(start_event, end_event):
         bw_index = 0 if start_event.target_worker == worker else 1
-        bandwidths[bw_index].append((end_event.time,
-                                     bandwidths[bw_index][-1][1] + start_event.output.size))
+        transfers[bw_index].append((end_event.time,
+                                     transfers[bw_index][-1][1] + start_event.output.size))
 
     def check_worker(event):
         return worker in (event.target_worker, event.source_worker)
@@ -124,7 +124,7 @@ def build_worker_bandwidth(trace_events, worker):
         end_map=map_end
     ))
 
-    return bandwidths
+    return transfers
 
 
 def plot_task_communication(trace_events, workers, show_communication=False):
@@ -254,9 +254,9 @@ def plot_worker_usage(trace_events, workers):
     return gridplot(plots, ncols=2)
 
 
-def plot_worker_bandwidth(trace_events, workers):
+def plot_worker_transfer_size(trace_events, workers):
     """
-    Plots cumulative worker in/out bandwidth usage into a grid chart (one chart per worker).
+    Plots cumulative worker in/out transfer size into a grid chart (one chart per worker).
     """
     from bokeh.plotting import figure
     from bokeh.layouts import gridplot
@@ -266,7 +266,7 @@ def plot_worker_bandwidth(trace_events, workers):
     end_time = math.ceil(max([e.time for e in trace_events]))
 
     for index, worker in enumerate(workers):
-        (bandwidth_in, bandwidth_out) = list(build_worker_bandwidth(trace_events, worker))
+        (bandwidth_in, bandwidth_out) = list(build_worker_transfer_size(trace_events, worker))
 
         bandwidth_in.append((end_time, bandwidth_in[-1][1]))
         bandwidth_out.append((end_time, bandwidth_out[-1][1]))
@@ -274,8 +274,8 @@ def plot_worker_bandwidth(trace_events, workers):
         plot = figure(plot_width=600,
                       plot_height=300,
                       x_range=(0, end_time),
-                      title='Worker {} bandwidth usage'.format(index))
-        plot.yaxis.axis_label = 'Bandwidth'
+                      title='Worker {} transfer usage'.format(index))
+        plot.yaxis.axis_label = 'Transfer'
         plot.xaxis.axis_label = 'Time'
 
         plot.step([s[0] for s in bandwidth_in], [s[1] for s in bandwidth_in],
@@ -297,11 +297,11 @@ def plot_tabs(trace_events, workers, plot_fns, labels):
 
 def plot_all(trace_events, workers):
     return plot_tabs(trace_events, workers,
-                    [plot_task_communication,
-                     lambda *arg: plot_task_communication(*arg, show_communication=True),
-                     plot_worker_usage,
-                     plot_worker_bandwidth],
-                    ["Tasks", "Tasks + communication", "Core usage", "Bandwidth usage"])
+                     [plot_task_communication,
+                      lambda *arg: plot_task_communication(*arg, show_communication=True),
+                      plot_worker_usage,
+                      plot_worker_transfer_size],
+                     ["Tasks", "Tasks + communication", "Core usage", "Transfer size"])
 
 
 def build_trace_html(trace_events, workers, filename, plot_fn):
