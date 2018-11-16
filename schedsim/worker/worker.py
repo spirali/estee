@@ -46,7 +46,7 @@ class Download:
     def naive_remaining_time_estimate(self, simulator):
         if self.start_time is None:
             return None
-        return (self.output.size / simulator.connector.bandwidth +
+        return (self.output.size / simulator.netmodel.bandwidth +
                 self.start_time - simulator.env.now)
 
 
@@ -171,17 +171,17 @@ class Worker:
                     d.start_time = self.env.now
                     d.source = worker
                     self.running_downloads.append(d)
-                    event = self.connector.download(worker, self, d.output.size, d)
+                    event = self.netmodel.download(worker, self, d.output.size, d)
                     events.append(event)
                     self.simulator.add_trace_event(
                         FetchStartTraceEvent(self.env.now, self, worker, d.output))
                     if len(self.running_downloads) >= self.max_downloads:
                         break
 
-    def run(self, env, simulator, connector):
+    def run(self, env, simulator, netmodel):
         self.env = env
         self.simulator = simulator
-        self.connector = connector
+        self.netmodel = netmodel
         self.ready_store = Store(env)
         self.download_wakeup = Event(self.simulator.env)
 

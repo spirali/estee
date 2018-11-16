@@ -58,7 +58,7 @@ def test_trace_task_fetch():
         (0, a, 0),
         (1, b, 0),
         (0, c, 0)
-    ]), connector=SimpleNetModel(1), trace=True, return_simulator=True)
+    ]), netmodel=SimpleNetModel(1), trace=True, return_simulator=True)
 
     workers = simulator.workers
     fetch_start_events = [e for e in simulator.trace_events if isinstance(e, FetchStartTraceEvent)]

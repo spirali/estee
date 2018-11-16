@@ -67,10 +67,10 @@ def plan_reverse_cherry1():
 
 
 def do_sched_test(task_graph, workers, scheduler,
-                  connector=None, trace=False, return_simulator=False):
+                  netmodel=None, trace=False, return_simulator=False):
 
-    if connector is None:
-        connector = InstantNetModel()
+    if netmodel is None:
+        netmodel = InstantNetModel()
 
     if isinstance(workers, int):
         workers = [Worker() for _ in range(workers)]
@@ -78,7 +78,7 @@ def do_sched_test(task_graph, workers, scheduler,
         workers = [Worker(cpus=cpus) for cpus in workers]
     else:
         assert isinstance(workers[0], Worker)
-    simulator = Simulator(task_graph, workers, scheduler, connector, trace=trace)
+    simulator = Simulator(task_graph, workers, scheduler, netmodel, trace=trace)
     result = simulator.run()
     if return_simulator:
         return simulator

@@ -28,7 +28,7 @@ class K1hScheduler(SchedulerBase):
         return sum(t.duration for t in worker.assigned_tasks)
 
     def calculate_transfer(self, worker, task):
-        bandwidth = self.simulator.connector.bandwidth
+        bandwidth = self.simulator.netmodel.bandwidth
         cost = transfer_cost_parallel(self.simulator, worker, task)
 
         for c in task.consumers:
@@ -85,7 +85,7 @@ class DLSScheduler(SchedulerBase):
 
     def calculate_transfer(self, worker, task):
         return self.simulator.env.now + (transfer_cost_parallel(
-            self.simulator, worker, task) / self.simulator.connector.bandwidth)
+            self.simulator, worker, task) / self.simulator.netmodel.bandwidth)
 
 
 class LASTScheduler(SchedulerBase):
@@ -98,7 +98,7 @@ class LASTScheduler(SchedulerBase):
     with small sizes and small neighbours.
     """
     def schedule(self, new_ready, new_finished):
-        bandwidth = self.simulator.connector.bandwidth
+        bandwidth = self.simulator.netmodel.bandwidth
         workers = self.simulator.workers[:]
         simulator = self.simulator
 
@@ -153,14 +153,14 @@ class MCPScheduler(SchedulerBase):
 
     def init(self, simulator):
         super().init(simulator)
-        bandwidth = simulator.connector.bandwidth
+        bandwidth = simulator.netmodel.bandwidth
         self.alap = compute_alap(self.simulator.task_graph, bandwidth)
 
     def schedule(self, new_ready, new_finished):
         tasks = sorted(new_ready,
                        key=lambda t: [self.alap[t]] +
                                      [self.alap[c] for c in t.consumers()])
-        bandwidth = self.simulator.connector.bandwidth
+        bandwidth = self.simulator.netmodel.bandwidth
 
         def cost(w, t):
             if t.cpus > w.cpus:
@@ -205,5 +205,5 @@ class ETFScheduler(SchedulerBase):
         if task.cpus > worker.cpus:
             return 10e10
 
-        bandwidth = self.simulator.connector.bandwidth
+        bandwidth = self.simulator.netmodel.bandwidth
         return transfer_cost_parallel(self.simulator, worker, task) / bandwidth

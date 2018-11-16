@@ -8,10 +8,10 @@ from .trace import TaskAssignTraceEvent
 
 class Simulator:
 
-    def __init__(self, task_graph, workers, scheduler, connector, trace=False):
+    def __init__(self, task_graph, workers, scheduler, netmodel, trace=False):
         self.workers = workers
         self.task_graph = task_graph
-        self.connector = connector
+        self.netmodel = netmodel
         self.scheduler = scheduler
         scheduler.simulator = self
         self.new_finished = []
@@ -20,7 +20,7 @@ class Simulator:
         self.env = None
         if trace:
             self.trace_events = []
-            connector.set_event_listener(lambda e: self.trace_events.append(e))
+            netmodel.set_event_listener(lambda e: self.trace_events.append(e))
         else:
             self.trace_events = None
 
@@ -125,10 +125,10 @@ class Simulator:
 
         env = Environment()
         self.env = env
-        self.connector.init(self.env, self.workers)
+        self.netmodel.init(self.env, self.workers)
 
         for worker in self.workers:
-            env.process(worker.run(env, self, self.connector))
+            env.process(worker.run(env, self, self.netmodel))
 
         master_process = env.process(self._master_process(env))
         self.scheduler.init(self)

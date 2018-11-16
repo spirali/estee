@@ -78,7 +78,7 @@ class Camp2Scheduler(StaticScheduler):
         score = self.compute_input_score(placement, task)
         for t in task.consumers():
             score += self.compute_input_score(placement, t)
-        score /= self.simulator.connector.bandwidth
+        score /= self.simulator.netmodel.bandwidth
         p = placement[task.id]
         for t_id, v in self.repulse_score[task]:
             if placement[t_id] == p:
@@ -92,7 +92,7 @@ class Camp2Scheduler(StaticScheduler):
     """
     def placement_cost(self, placement):
         s = 0
-        bandwidth = self.simulator.connector.bandwidth
+        bandwidth = self.simulator.netmodel.bandwidth
 
         for t in self.simulator.task_graph.tasks:
             p = placement[t.id]

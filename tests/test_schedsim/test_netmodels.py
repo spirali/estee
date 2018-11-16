@@ -48,29 +48,29 @@ def test_maxmin_flow():
                                np.eye(4, dtype=np.int32)))
 
 
-def create_connector(cclass=MaxMinFlowNetModel):
+def create_netmodel(cclass=MaxMinFlowNetModel):
     env = simpy.Environment()
     workers = [Worker() for _ in range(4)]
     for i, w in enumerate(workers):
         w.id = i
-    connector = cclass(100)
-    connector.init(env, workers)
-    return connector, env, workers
+    netmodel = cclass(100)
+    netmodel.init(env, workers)
+    return netmodel, env, workers
 
 
-def test_maxmin_connector_simple():
-    connector, env, workers = create_connector()
-    d = connector.download(workers[0], workers[1], 200)
+def test_maxmin_netmodel_simple():
+    netmodel, env, workers = create_netmodel()
+    d = netmodel.download(workers[0], workers[1], 200)
     env.run(d)
     assert env.now == pytest.approx(2.0)
 
-    d1 = connector.download(workers[0], workers[1], 200)
-    d2 = connector.download(workers[2], workers[3], 300)
+    d1 = netmodel.download(workers[0], workers[1], 200)
+    d2 = netmodel.download(workers[2], workers[3], 300)
     env.run(d1 & d2)
     assert env.now == pytest.approx(5.0)
 
-    d1 = connector.download(workers[0], workers[1], 200)
-    d2 = connector.download(workers[0], workers[1], 300)
+    d1 = netmodel.download(workers[0], workers[1], 200)
+    d2 = netmodel.download(workers[0], workers[1], 300)
     env.run(d1)
     assert env.now == pytest.approx(9.0)
 
@@ -78,14 +78,14 @@ def test_maxmin_connector_simple():
     assert env.now == pytest.approx(10.0)
 
 
-def test_maxmin_connector_mix():
-    connector, env, workers = create_connector()
-    d1 = connector.download(workers[0], workers[1], 200)
+def test_maxmin_netmodel_mix():
+    netmodel, env, workers = create_netmodel()
+    d1 = netmodel.download(workers[0], workers[1], 200)
     # d1 200
     env.run(env.timeout(1))
     assert env.now == pytest.approx(1.0)
-    d2 = connector.download(workers[0], workers[2], 200)
-    d3 = connector.download(workers[3], workers[1], 1000)
+    d2 = netmodel.download(workers[0], workers[2], 200)
+    d3 = netmodel.download(workers[3], workers[1], 1000)
     # env.run(env.timeout(1))
     # d1 100; d2 200; d3 1000
     env.run(d1)
@@ -93,8 +93,8 @@ def test_maxmin_connector_mix():
     # d2 100; d3 900
     env.run(env.timeout(0.5))
     assert env.now == pytest.approx(3.5)
-    d4 = connector.download(workers[0], workers[1], 100)
-    d5 = connector.download(workers[0], workers[1], 100)
+    d4 = netmodel.download(workers[0], workers[1], 100)
+    d5 = netmodel.download(workers[0], workers[1], 100)
 
     env.run(d2)
     assert env.now == pytest.approx(4.5)
@@ -109,7 +109,7 @@ def test_maxmin_connector_mix():
     assert env.now == pytest.approx(14)
 
 
-def test_maxmin_connector():
+def test_maxmin_netmodel():
 
     random.seed(42)
     COUNT = 50
@@ -121,22 +121,22 @@ def test_maxmin_connector():
         diffs = [random.random() / 10.0 + 0.00001 for i in range(COUNT)]
 
         events = []
-        connector, env, workers = create_connector()
+        netmodel, env, workers = create_netmodel()
         for p, s, d in zip(pairs, sizes, diffs):
-            ev = connector.download(workers[p[0]], workers[p[1]], s)
+            ev = netmodel.download(workers[p[0]], workers[p[1]], s)
             env.run(env.timeout(d))
             events.append(ev)
         env.run(env.all_of(events))
         tm1 = env.now
 
         events = []
-        connector, env, workers = create_connector(SimpleNetModel)
+        netmodel, env, workers = create_netmodel(SimpleNetModel)
         for p, s, d in zip(pairs, sizes, diffs):
-            ev = connector.download(workers[p[0]], workers[p[1]], s)
+            ev = netmodel.download(workers[p[0]], workers[p[1]], s)
             env.run(env.timeout(d))
             events.append(ev)
         env.run(env.all_of(events))
         tm2 = env.now
 
         assert tm1 > tm2
-        assert tm1 < sum(diffs) + sum(sizes) / connector.bandwidth
+        assert tm1 < sum(diffs) + sum(sizes) / netmodel.bandwidth

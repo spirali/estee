@@ -15,8 +15,8 @@ import multiprocessing
 
 def run_single_instance(task_graph, n_workers, scheduler, bandwidth):
     workers = [Worker() for _ in range(n_workers)]
-    connector = MaxMinNetModel(bandwidth)
-    simulator = Simulator(task_graph, workers, scheduler, connector)
+    netmodel = MaxMinNetModel(bandwidth)
+    simulator = Simulator(task_graph, workers, scheduler, netmodel)
     return simulator.run()
 
 
