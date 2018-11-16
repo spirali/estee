@@ -340,8 +340,10 @@ def plot_all(trace_events, workers):
                      [plot_task_communication,
                       lambda *arg: plot_task_communication(*arg, show_communication=True),
                       plot_worker_usage,
+                      plot_worker_bandwidth,
                       plot_worker_transfer_size],
-                     ["Tasks", "Tasks + communication", "Core usage", "Transfer size"])
+                     ["Tasks", "Tasks + communication", "Core usage", "Bandwidth usage",
+                      "Transfer size"])
 
 
 def build_trace_html(trace_events, workers, filename, plot_fn):

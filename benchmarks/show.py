@@ -11,75 +11,62 @@ def parse_args():
     parser.add_argument("--violin", action="store_true")
     parser.add_argument("--boxplot", action="store_true")
     parser.add_argument("--lineplot", action="store_true")
-    parser.add_argument('--ignore', action='append')
     return parser.parse_args()
 
 
 def draw_heatmap(*args, **kw):
-    df = kw["data"].groupby(["bandwidth"])[kw["avg_columns"]].mean()
+    df = kw["data"].groupby(["bandwidth", "scheduler_name"])["score"].mean()
+    df = df.unstack()
     seaborn.heatmap(df, cmap='RdYlGn_r', linewidths=0.5, annot=True)
 
 
 def draw_violin(*args, **kw):
-    df = kw["data"][kw["avg_columns"]]
-    df = df.melt(var_name='groups', value_name='vals')
-    g = seaborn.violinplot(data=df, x="groups", y="vals")
-    #g.set_yscale('log')
+    seaborn.violinplot(data=kw["data"], x="scheduler_name", y="score")
 
 
 def draw_boxplot(*args, **kw):
-    df = kw["data"][kw["avg_columns"]]
-    df = df.melt(var_name='groups', value_name='vals')
-    g = seaborn.boxplot(data=df, x="groups", y="vals")
+    g = seaborn.boxplot(data=kw["data"], x="scheduler_name", y="score")
+    g.set(ylabel="Makespan")
 
 
 def draw_lineplot(*args, **kw):
-    line = kw["data"].melt(id_vars=['bandwidth'], value_vars=kw["avg_columns"])
-    line = line.rename(index=str, columns={"variable": "scheduler"})
-    line['scheduler'] = line['scheduler'].map(
-        lambda x: x[:-4] if x.endswith("_avg") else x)
-
-    line['bandwidth'] = line['bandwidth'].astype(str)
-    g = seaborn.lineplot(x="bandwidth", y="value", hue="scheduler", data=line)
+    data = kw["data"]
+    data['bandwidth'] = data['bandwidth'].astype(str)
+    g = seaborn.lineplot(data=data, x="bandwidth", y="score", hue="scheduler_name")
     g.set(yscale="log", xlabel="Bandwidth", ylabel="Makespan")
 
 
 def main():
     args = parse_args()
-
     data = pd.read_pickle(args.dataset)
 
-    if args.ignore:
-        for c in args.ignore:
-            del data[c]
+    # normalize by minimum schedule found for each graph/cluster/bandwidth combination
+    data["score"] = data\
+        .groupby(["graph_id", "cluster_name", "bandwidth"])\
+        .transform(lambda g: g / g.min())
 
-    avg_columns = [c for c in data.columns if c.endswith("_avg")]
-    min_columns = [c for c in data.columns if c.endswith("_min")]
-
-    m = data[min_columns].min(axis=1)
-
-    for c in avg_columns:
-        data[c] /= m
-
-    df = data.groupby(["cluster_name", "bandwidth"])[avg_columns].mean()
+    # calculate average for each graph/cluster/bandwidth/scheduler/imode combination
+    data = data.groupby(["graph_id", "cluster_name", "bandwidth", "scheduler_name", "imode"])\
+        ["score"].mean().reset_index()
 
     if args.heatmap:
         fg = seaborn.FacetGrid(data, col='cluster_name')
-        fg.map_dataframe(draw_heatmap, avg_columns=avg_columns)
+        fg.map_dataframe(draw_heatmap)
 
     if args.violin:
         fg = seaborn.FacetGrid(data, col='cluster_name', row='bandwidth')
-        fg.map_dataframe(draw_violin, avg_columns=avg_columns)
+        fg.map_dataframe(draw_violin)
 
     if args.boxplot:
         fg = seaborn.FacetGrid(data, col='cluster_name', row='bandwidth')
-        fg.map_dataframe(draw_boxplot, avg_columns=avg_columns)
+        fg.map_dataframe(draw_boxplot)
 
     if args.lineplot:
         fg = seaborn.FacetGrid(data, col='cluster_name')
-        fg.map_dataframe(draw_lineplot, avg_columns=avg_columns).add_legend()
+        fg.map_dataframe(draw_lineplot).add_legend()
 
     plt.show()
+
 
 if __name__ == "__main__":
     main()

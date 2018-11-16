@@ -97,7 +97,8 @@ def fixed_scheduler(assignments):
         def static_schedule(self):
             workers = self.simulator.workers
             return [
-                TaskAssignment(workers[definition[0]], *definition[1:]) for definition in assignments
+                TaskAssignment(workers[definition[0]], *definition[1:])
+                for definition in assignments
             ]
 
     return FixScheduler()
