@@ -35,9 +35,10 @@ class AllOnOneScheduler(SchedulerBase):
     def init(self, simulator):
         super().init(simulator)
         self.worker = max_cpus_worker(self.simulator.workers)
+        self.b_level = compute_b_level_duration(self.simulator.task_graph)
 
     def schedule(self, new_ready, new_finished):
         worker = self.worker
-        b_level = compute_b_level_duration(self.simulator.task_graph)
+        b_level = self.b_level
         return [TaskAssignment(worker, task, b_level[task])
                 for task in new_ready]

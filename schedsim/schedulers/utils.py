@@ -50,7 +50,7 @@ def compute_b_level(task_graph, cost_fn):
             b_level[task] = 0
 
     graph_dist_crawl(b_level,
-                     task_graph.leaf_tasks(),
+                     {t: sum(len(o.consumers) for o in t.outputs) for t in task_graph.tasks},
                      lambda t: t.pretasks,
                      lambda task, next: max(b_level[next],
                                             b_level[task] +
@@ -79,7 +79,7 @@ def compute_t_level(task_graph, cost_fn):
         t_level[task] = 0
 
     graph_dist_crawl(t_level,
-                     task_graph.source_tasks(),
+                     {t: len(t.inputs) for t in task_graph.tasks},
                      lambda t: t.consumers(),
                      lambda task, next: max(t_level[next],
                                             t_level[task] +
@@ -99,15 +99,15 @@ def compute_t_level_duration_size(simulator, task_graph, bandwidth=1):
     )
 
 
-def graph_dist_crawl(values, initial_tasks, nexts_fn, aggregate):
-    tasks = initial_tasks
+def graph_dist_crawl(values, backlinks, nexts_fn, aggregate):
+    tasks = [t for t, v in backlinks.items() if v == 0]
     while tasks:
         new_tasks = set()
         for task in tasks:
             for next in nexts_fn(task):
-                new_value = aggregate(task, next)
-                if new_value != values[next]:
-                    values[next] = new_value
+                values[next] = aggregate(task, next)
+                backlinks[next] -= 1
+                if backlinks[next] == 0:
                     new_tasks.add(next)
         tasks = new_tasks
 
