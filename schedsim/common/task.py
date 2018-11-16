@@ -12,7 +12,7 @@ class Task:
                  expected_duration=None):
         assert cpus >= 0
         assert duration >= 0
-        assert expected_duration is None or duration >= 0
+        assert expected_duration is None or expected_duration >= 0
 
         self.inputs = []
 
