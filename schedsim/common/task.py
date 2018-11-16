@@ -84,10 +84,6 @@ class Task:
         for t in tasks:
             self.add_input(t)
 
-    def add_dependency(self, task):
-        assert isinstance(task, Task)
-        self.dependencies.append(task)
-
     def __repr__(self):
         if self.name:
             name = " '" + self.name + "'"
