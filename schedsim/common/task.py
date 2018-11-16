@@ -38,6 +38,8 @@ class Task:
     def simple_copy(self):
         t = Task(self.name, duration=self.duration, cpus=self.cpus)
         t.outputs = [TaskOutput(o.size, o.expected_size) for o in self.outputs]
+        for o in t.outputs:
+            o.parent = t
         return t
 
     @property
