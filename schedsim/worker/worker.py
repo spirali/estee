@@ -211,7 +211,10 @@ class Worker:
                     self.data.add(output)
                 simulator.on_task_finished(self, task)
 
+            block = float("-inf")
             for assignment in prepared_assignments[:]:
+                if assignment.priority < block:
+                    continue
                 task = assignment.task
                 if task.cpus <= self.free_cpus:
                     self.free_cpus -= task.cpus
@@ -219,6 +222,8 @@ class Worker:
                     simulator.add_trace_event(TaskStartTraceEvent(self.env.now, self, task))
                     events.append(env.timeout(task.duration, assignment))
                     prepared_assignments.remove(assignment)
+                else:
+                    block = max(block, assignment.block)
 
     def __repr__(self):
         return "<Worker {}>".format(self.id)

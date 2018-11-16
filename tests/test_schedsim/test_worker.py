@@ -114,6 +114,42 @@ def test_worker_execute_priorities():
         assert simulator.task_info(t).end_time == pytest.approx((SIZE - p - 1) // 2 + 1)
 
 
+def test_worker_priority_block():
+    SIZE = 20
+    g = TaskGraph()
+
+    a = g.new_task("a", duration=1)
+    b = g.new_task("b", duration=1, cpus=3)
+    c = g.new_task("c", duration=1)
+
+    s = fixed_scheduler(
+        [(0, a, 3),
+         (0, b, 2),
+         (0, c, 1),
+        ])
+
+    w = [Worker(cpus=3)]
+    simulator = do_sched_test(g, w, s, SimpleNetModel(), return_simulator=True)
+
+    assert simulator.task_info(a).end_time == pytest.approx(1)
+    assert simulator.task_info(b).end_time == pytest.approx(2)
+    assert simulator.task_info(c).end_time == pytest.approx(1)
+
+    s = fixed_scheduler(
+        [(0, a, 3),
+         (0, b, 2, 2),
+         (0, c, 1),
+        ])
+
+    w = [Worker(cpus=3)]
+    simulator = do_sched_test(g, w, s, SimpleNetModel(), return_simulator=True)
+
+    assert simulator.task_info(a).end_time == pytest.approx(1)
+    assert simulator.task_info(b).end_time == pytest.approx(2)
+    assert simulator.task_info(c).end_time == pytest.approx(3)
+
+
+
 def test_worker_freecpus():
     test_graph = TaskGraph()
     test_graph.new_task("A", duration=10, cpus=2, output_size=1)
