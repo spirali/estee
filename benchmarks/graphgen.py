@@ -1,5 +1,5 @@
 
-from schedsim.common.taskgraph import TaskGraph
+from schedsim.common import TaskGraph, TaskOutput
 
 from clusters import clusters
 
@@ -7,6 +7,9 @@ import itertools
 import pandas
 import numpy as np
 import uuid
+import sys
+
+sys.setrecursionlimit(3500)
 
 def normal(loc, scale):
     return max(0.00000001, np.random.normal(loc, scale))
@@ -62,44 +65,99 @@ def plain1cpus(count):
                    cpus=np.random.randint(1, 4))
     return g
 
-"""
-def plain2(count):
+
+def triplets(count):
     g = TaskGraph()
     for i in range(count):
-        t1 = g.new_task("a{}".format(i), duration=normal(5, 2), output_size=40)
-        t2 = g.new_task("b{}".format(i), duration=normal(120, 20), output_size=120, cpus=4)
+        t1 = g.new_task("a{}".format(i), duration=normal(5, 1.5), expected_duration=5, output_size=40)
+        t2 = g.new_task("b{}".format(i), duration=normal(118, 20), expected_duration=120, output_size=120, cpus=4)
         t2.add_input(t1)
-        t3 = g.new_task("c{}".format(i), duration=normal(30, 1))
+        t3 = g.new_task("c{}".format(i), duration=normal(32, 3), expected_duration=30)
         t3.add_input(t2)
     return g
 
 
-def merges1(count):
+def merge_neighbours(count):
     g = TaskGraph()
 
-    tasks1 = g.new_task("a{}".format(i), duration=normal(15, 3), output_size=normal(10, 3))
+    tasks1 = [g.new_task("a{}".format(i), duration=normal(15, 3),
+                                         expected_duration=15,
+                                         outputs=[TaskOutput(normal(99, 2.5), 100)])
+              for i in range(count)]
     for i in range(count):
-        t = g.new_task("b{}".format(i), duration=normal(15, 2), output_size=normal(20, 3))
+        t = g.new_task("b{}".format(i), duration=normal(15, 2), expected_duration=15)
         t.add_input(tasks1[i])
         t.add_input(tasks1[(i + 1) % count])
+    return g
 
-def merges2(count):
+def merge_triplets(count):
     g = TaskGraph()
 
-    tasks1 = g.new_task("a{}".format(i), duration=normal(15, 3), output_size=normal(10, 3))
-    for i in range(count):
-        t = g.new_task("b{}".format(i), duration=normal(15, 2), output_size=normal(20, 3))
+    tasks1 = [g.new_task("a{}".format(i), duration=normal(15, 3),
+                                         expected_duration=15,
+                                         outputs=[TaskOutput(normal(99, 2.5), 100)])
+              for i in range(count)]
+    for i in range(0, count, 3):
+        t = g.new_task("b{}".format(i), duration=normal(15, 2), expected_duration=15)
         t.add_input(tasks1[i])
-        t.add_input(tasks1[(i + 1) % count])
-"""
+        t.add_input(tasks1[i + 1])
+        t.add_input(tasks1[i + 2])
+    return g
 
+def merge_small_big(count):
+    g = TaskGraph()
+    tasks1 = [g.new_task("a{}".format(i), duration=normal(11, 3),
+                                         expected_duration=11,
+                                         output_size=0.5)
+              for i in range(count)]
+
+    tasks2 = [g.new_task("b{}".format(i), duration=normal(15, 3),
+                                          expected_duration=15,
+                                          outputs=[TaskOutput(normal(99, 2.5), 100)])
+              for i in range(count)]
+
+    for i, (t1, t2) in enumerate(zip(tasks1, tasks2)):
+        t = g.new_task("b{}".format(i), duration=normal(10, 1), expected_duration=10)
+        t.add_input(t1)
+        t.add_input(t2)
+    return g
+
+def fork1(count):
+    g = TaskGraph()
+    tasks1 = [g.new_task("a{}".format(i), duration=normal(17, 3),
+                                         expected_duration=17,
+                                         output_size=100)
+              for i in range(count)]
+
+    for i in range(count):
+        t = g.new_task("b{}".format(i), duration=normal(15, 2), expected_duration=15)
+        t.add_input(tasks1[i])
+        t = g.new_task("c{}".format(i), duration=normal(15, 2), expected_duration=15)
+        t.add_input(tasks1[i])
+    return g
+
+def fork2(count):
+    g = TaskGraph()
+    tasks1 = [g.new_task("a{}".format(i), duration=normal(17, 3),
+                                         expected_duration=17,
+                                         outputs=[100, 100])
+              for i in range(count)]
+
+    for i in range(count):
+        t = g.new_task("b{}".format(i), duration=normal(15, 2), expected_duration=15)
+        t.add_input(tasks1[i].outputs[0])
+        t = g.new_task("c{}".format(i), duration=normal(15, 2), expected_duration=15)
+        t.add_input(tasks1[i].outputs[1])
+    return g
 
 def gen_graphs(graph_defs, output):
     result = []
     for graph_def in graph_defs:
         fn = graph_def[0]
         args = graph_def[1:]
-        result.append([fn.__name__, str(uuid.uuid4()), fn(*args)])
+        g = fn(*args)
+        assert isinstance(g, TaskGraph)
+        result.append([fn.__name__, str(uuid.uuid4()), g])
     f = pandas.DataFrame(result, columns=["graph_name", "graph_id", "graph"])
     f.to_pickle(output)
 
@@ -108,7 +166,12 @@ elementary_graphs = [
     (plain1n, 380),
     (plain1e, 380),
     (plain1cpus, 380),
-
+    (triplets, 110),
+    (merge_neighbours, 107),
+    (merge_triplets, 111),
+    (merge_small_big, 80),
+    (fork1, 100),
+    (fork2, 100),
 ]
 
 gen_graphs(elementary_graphs, "elementary.xz")
