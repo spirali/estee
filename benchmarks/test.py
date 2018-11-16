@@ -46,6 +46,10 @@ BANDWIDTHS = [
     10.24,  # 0.01GB/s
 ]
 
+IMODES = [
+    "exact"
+]
+
 
 
 Instance = collections.namedtuple("Instance",
@@ -88,16 +92,21 @@ def parse_args():
     parser.add_argument("resultfile")
     parser.add_argument("scheduler", choices=tuple(SCHEDULERS.keys()))
     parser.add_argument("repeat", type=int)
+    parser.add_argument("imode", choices=IMODES)
     parser.add_argument("--new", action="store_true")
     #parser.add_argument("--limit", type=int)
     return parser.parse_args()
 
 
 def main():
-    COLUMNS = ["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name", "time"]
+    COLUMNS = ["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name", "imode", "time"]
 
     args = parse_args()
     graphset = pd.read_pickle(args.graphset)
+
+    for g in graphset["graph"]:
+        g.set_imode_exact()
+
     if not args.new:
         if not os.path.isfile(args.resultfile):
             print("Result file '{}' does not exists or it is not a file\n"
@@ -108,7 +117,7 @@ def main():
         assert list(oldframe.columns) == COLUMNS
     else:
         if os.path.isfile(args.resultfile):
-            print("Result file '{}' already exists\n", args.resultfile, file=sys.stderr)
+            print("Result file '{}' already exists\n".format(args.resultfile), file=sys.stderr)
             return
         oldframe = pd.DataFrame([], columns=COLUMNS)
 
@@ -134,6 +143,7 @@ def main():
                 instance.cluster_name,
                 instance.bandwidth,
                 instance.scheduler_name,
+                args.imode,
                 r
             ))
 
