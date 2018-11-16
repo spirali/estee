@@ -1,5 +1,5 @@
-from schedsim.simulator.runtimeinfo import TaskState
 from ..simulator import TaskAssignment
+from ..simulator.runtimeinfo import TaskState
 
 
 def compute_alap(simulator, task_graph, bandwidth):
