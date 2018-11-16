@@ -1,9 +1,9 @@
 
 from simpy import Environment, Event
-from .trace import TaskAssignTraceEvent, build_trace_html
 
 from .commands import TaskAssignment
-from .runtimeinfo import TaskState, TaskRuntimeInfo, OutputRuntimeInfo
+from .runtimeinfo import OutputRuntimeInfo, TaskRuntimeInfo, TaskState
+from .trace import TaskAssignTraceEvent
 
 
 class Simulator:
@@ -20,6 +20,7 @@ class Simulator:
         self.env = None
         if trace:
             self.trace_events = []
+            connector.set_event_listener(lambda e: self.trace_events.append(e))
         else:
             self.trace_events = None
 
@@ -113,9 +114,6 @@ class Simulator:
             w.update_tasks(worker_updates[w])
         if not self.wakeup_event.triggered:
             self.wakeup_event.succeed()
-
-    def make_trace_report(self, filename):
-        build_trace_html(self.trace_events or [], self.workers, filename)
 
     def run(self):
         assert not self.trace_events

@@ -12,35 +12,35 @@ logger = logging.getLogger(__name__)
 class NetModel:
     """
         bandwidth - maximal bandwidth between two nodes
-                    (this is what network annoucess publicaly,
-                    not necessery how it really behaves)
+                    (this is what the network announces publicly,
+                    not necessary how it really behaves)
     """
 
-    def __init__(self, bandwidth=1.0, trace=False):
+    def __init__(self, bandwidth=1.0):
         self.bandwidth = float(bandwidth)
-        self.trace = trace
         self.worker_bandwidth = {}
-        self.trace_events = []
+        self.event_listener = None
 
     def init(self, env, workers):
         self.env = env
         self.workers = workers
         for worker in workers:
             assert worker.id is not None
-        if self.trace:
-            self.worker_bandwidth = {worker: {
-                True: 0,    # out
-                False: 0    # in
-            } for worker in workers}
-            self.trace_events = []
+        self.worker_bandwidth = {worker: {
+            True: 0,    # out
+            False: 0    # in
+        } for worker in workers}
+
+    def set_event_listener(self, listener):
+        self.event_listener = listener
 
     def update_bandwidth(self, worker, out, bandwidth):
-        if not self.trace:
+        if not self.event_listener:
             return
 
         if self.worker_bandwidth[worker][out] != bandwidth:
             self.worker_bandwidth[worker][out] = bandwidth
-            self.trace_events.append(BandwidthChangeEvent(self.env.now, out, worker, bandwidth))
+            self.event_listener(BandwidthChangeEvent(self.env.now, out, worker, bandwidth))
 
     def get_bandwidth(self, worker, out):
         return self.worker_bandwidth[worker][out]
@@ -48,8 +48,8 @@ class NetModel:
 
 class InstantNetModel(NetModel):
 
-    def __init__(self, **kwargs):
-        super().__init__(float("inf"), **kwargs)
+    def __init__(self):
+        super().__init__(float("inf"))
 
     def download(self, source, target, size, value=None):
         assert source != target
@@ -65,7 +65,7 @@ class SimpleNetModel(NetModel):
 
         e = self.env.timeout(size / self.bandwidth, value)
 
-        if self.trace:
+        if self.event_listener:
             self.add_bandwidth(source, target, self.bandwidth)
             e.callbacks.append(lambda _: self.add_bandwidth(source, target, -self.bandwidth))
         return e
@@ -189,7 +189,7 @@ class MaxMinFlowNetModel(NetModel):
         self._trace_flows()
 
     def _trace_flows(self):
-        if self.trace:
+        if self.event_listener:
             for w in range(len(self.workers)):
                 bw_out = np.sum(self.flows[w, :])
                 bw_in = np.sum(self.flows[:, w])
