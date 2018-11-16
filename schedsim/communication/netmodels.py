@@ -4,6 +4,8 @@ import logging
 import numpy as np
 from simpy import Event
 
+from ..simulator.trace import BandwidthChangeEvent
+
 logger = logging.getLogger(__name__)
 
 
@@ -14,20 +16,40 @@ class NetModel:
                     not necessery how it really behaves)
     """
 
-    def __init__(self, bandwidth=1.0):
+    def __init__(self, bandwidth=1.0, trace=False):
         self.bandwidth = float(bandwidth)
+        self.trace = trace
+        self.worker_bandwidth = {}
+        self.trace_events = []
 
     def init(self, env, workers):
         self.env = env
         self.workers = workers
         for worker in workers:
             assert worker.id is not None
+        if self.trace:
+            self.worker_bandwidth = {worker: {
+                True: 0,    # out
+                False: 0    # in
+            } for worker in workers}
+            self.trace_events = []
+
+    def update_bandwidth(self, worker, out, bandwidth):
+        if not self.trace:
+            return
+
+        if self.worker_bandwidth[worker][out] != bandwidth:
+            self.worker_bandwidth[worker][out] = bandwidth
+            self.trace_events.append(BandwidthChangeEvent(self.env.now, out, worker, bandwidth))
+
+    def get_bandwidth(self, worker, out):
+        return self.worker_bandwidth[worker][out]
 
 
 class InstantNetModel(NetModel):
 
-    def __init__(self):
-        super().__init__(float("inf"))
+    def __init__(self, **kwargs):
+        super().__init__(float("inf"), **kwargs)
 
     def download(self, source, target, size, value=None):
         assert source != target
@@ -40,7 +62,17 @@ class SimpleNetModel(NetModel):
 
     def download(self, source, target, size, value=None):
         assert source != target
-        return self.env.timeout(size / self.bandwidth, value)
+
+        e = self.env.timeout(size / self.bandwidth, value)
+
+        if self.trace:
+            self.add_bandwidth(source, target, self.bandwidth)
+            e.callbacks.append(lambda _: self.add_bandwidth(source, target, -self.bandwidth))
+        return e
+
+    def add_bandwidth(self, source, target, amount):
+        self.update_bandwidth(source, True, self.get_bandwidth(source, True) + amount)
+        self.update_bandwidth(target, False, self.get_bandwidth(target, False) + amount)
 
 
 """
@@ -98,6 +130,24 @@ class MaxMinFlowNetModel(NetModel):
                     self.recompute_event = Event(env)
         env.process(network_process())
 
+    def download(self, source, target, size, value=None):
+        assert source != target
+        event = Event(self.env)
+        rd = RunningDownload(size, event, value)
+        logger.info("New download %s; %s-%s size=%s", rd, source, target, size)
+        key = (source, target)
+        lst = self.downloads.get(key)
+        if lst is None:
+            lst = []
+            self.downloads[key] = lst
+        if not lst:
+            logger.info("Link %s-%s opened, need recompute flows", source, target)
+            self.recompute_flows = True
+        lst.append(rd)
+        if not self.recompute_event.triggered:
+            self.recompute_event.succeed()
+        return event
+
     def _update_speeds(self):
         timeout = None
         for (source, target), lst in self.downloads.items():
@@ -136,24 +186,15 @@ class MaxMinFlowNetModel(NetModel):
         send_capacities = np.full(len(self.workers), self.bandwidth)
         recv_capacities = send_capacities.copy()
         self.flows = compute_maxmin_flow(send_capacities, recv_capacities, connections)
+        self._trace_flows()
 
-    def download(self, source, target, size, value=None):
-        assert source != target
-        event = Event(self.env)
-        rd = RunningDownload(size, event, value)
-        logger.info("New download %s; %s-%s size=%s", rd, source, target, size)
-        key = (source, target)
-        lst = self.downloads.get(key)
-        if lst is None:
-            lst = []
-            self.downloads[key] = lst
-        if not lst:
-            logger.info("Link %s-%s opened, need recompute flows", source, target)
-            self.recompute_flows = True
-        lst.append(rd)
-        if not self.recompute_event.triggered:
-            self.recompute_event.succeed()
-        return event
+    def _trace_flows(self):
+        if self.trace:
+            for w in range(len(self.workers)):
+                bw_out = np.sum(self.flows[w, :])
+                bw_in = np.sum(self.flows[:, w])
+                self.update_bandwidth(self.workers[w], True, bw_out)
+                self.update_bandwidth(self.workers[w], False, bw_in)
 
 
 def compute_maxmin_flow(send_capacities, recv_capacities, connections):

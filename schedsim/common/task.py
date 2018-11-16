@@ -5,11 +5,11 @@ class Task:
     __slots__ = ("inputs", "outputs", "duration", "expected_duration", "name", "id", "cpus")
 
     def __init__(self, name=None,
-                       outputs=(),
-                       duration=1,
-                       cpus=1,
-                       output_size=None,
-                       expected_duration=None):
+                 outputs=(),
+                 duration=1,
+                 cpus=1,
+                 output_size=None,
+                 expected_duration=None):
         assert cpus >= 0
         assert duration >= 0
         assert expected_duration is None or duration >= 0
@@ -21,8 +21,8 @@ class Task:
                 raise Exception("Cannot set 'output_size' and 'outputs' at once")
             self.outputs = (TaskOutput(output_size, output_size),)
         else:
-            self.outputs = tuple(TaskOutput(s, s) if (isinstance(s, float) or isinstance(s, int)) else s
-                                 for s in outputs)
+            self.outputs = tuple(TaskOutput(s, s) if (isinstance(s, float) or isinstance(s, int))
+                                 else s for s in outputs)
 
         for output in self.outputs:
             assert output.parent is None

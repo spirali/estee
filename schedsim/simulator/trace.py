@@ -11,6 +11,9 @@ FetchStartTraceEvent = collections.namedtuple(
 FetchEndTraceEvent = collections.namedtuple(
     "FetchEnd", ["time", "target_worker", "source_worker", "output"])
 
+BandwidthChangeEvent = collections.namedtuple("BandwidthChange",
+                                              ["time", "out", "worker", "value"])
+
 
 def merge_trace_events(trace_events, start_pred, end_pred, key_fn, start_map=None, end_map=None):
     """
@@ -111,7 +114,7 @@ def build_worker_transfer_size(trace_events, worker):
     def map_end(start_event, end_event):
         bw_index = 0 if start_event.target_worker == worker else 1
         transfers[bw_index].append((end_event.time,
-                                     transfers[bw_index][-1][1] + start_event.output.size))
+                                    transfers[bw_index][-1][1] + start_event.output.size))
 
     def check_worker(event):
         return worker in (event.target_worker, event.source_worker)
@@ -279,11 +282,48 @@ def plot_worker_transfer_size(trace_events, workers):
         plot.xaxis.axis_label = 'Time'
 
         plot.step([s[0] for s in bandwidth_in], [s[1] for s in bandwidth_in],
+                  mode="after",
                   line_color="green",
                   legend="In")
         plot.step([s[0] for s in bandwidth_out], [s[1] for s in bandwidth_out],
+                  mode="after",
                   line_color="red",
                   legend="Out")
+        plots.append(plot)
+
+    return gridplot(plots, ncols=2)
+
+
+def plot_worker_bandwidth(trace_events, workers):
+    """
+    Plots network bandwidth usage into a grid chart (one chart per worker).
+    """
+    from bokeh.plotting import figure
+    from bokeh.layouts import gridplot
+
+    plots = []
+
+    end_time = math.ceil(max([e.time for e in trace_events]))
+
+    for index, worker in enumerate(workers):
+        events = [e for e in trace_events if isinstance(e, BandwidthChangeEvent)
+                  and e.worker == worker]
+
+        plot = figure(plot_width=600,
+                      plot_height=300,
+                      x_range=(0, end_time),
+                      title='Worker {} bandwidth usage'.format(index))
+        plot.yaxis.axis_label = 'Bandwidth'
+        plot.xaxis.axis_label = 'Time'
+
+        plot.step([e.time for e in events if not e.out], [e.value for e in events if not e.out],
+                  mode="after",
+                  legend="In",
+                  line_color="green")
+        plot.step([e.time for e in events if e.out], [e.value for e in events if e.out],
+                  mode="after",
+                  legend="Out",
+                  line_color="red")
         plots.append(plot)
 
     return gridplot(plots, ncols=2)
