@@ -98,7 +98,7 @@ def test_compute_indepndent_tasks(plan1):
 
 
 def test_compute_t_level(plan1):
-    t = compute_t_level_duration_size(plan1)
+    t = compute_t_level_duration_size(None, plan1)
 
     assert t[task_by_name(plan1, "a1")] == 0
     assert t[task_by_name(plan1, "a2")] == 0
@@ -111,7 +111,7 @@ def test_compute_t_level(plan1):
 
 
 def test_compute_b_level_plan1(plan1):
-    b = compute_b_level_duration_size(plan1)
+    b = compute_b_level_duration_size(None, plan1)
 
     assert b[task_by_name(plan1, "a1")] == 9
     assert b[task_by_name(plan1, "a2")] == 9
@@ -125,16 +125,16 @@ def test_compute_b_level_plan1(plan1):
 
 def test_compute_b_level_multiple_outputs():
     tg = TaskGraph()
-    a = tg.new_task(outputs=[2, 4], duration=0)
-    b = tg.new_task(outputs=[5], duration=0)
-    c = tg.new_task(outputs=[2], duration=0)
-    d = tg.new_task(duration=0)
+    a = tg.new_task(outputs=[2, 4], expected_duration=0)
+    b = tg.new_task(outputs=[5], expected_duration=0)
+    c = tg.new_task(outputs=[2], expected_duration=0)
+    d = tg.new_task(expected_duration=0)
 
     b.add_input(a.outputs[0])
     c.add_input(a.outputs[1])
     d.add_inputs((b, c))
 
-    blevel = compute_b_level_duration_size(tg)
+    blevel = compute_b_level_duration_size(None, tg)
 
     assert blevel[a] == 7
     assert blevel[b] == 5
@@ -143,7 +143,7 @@ def test_compute_b_level_multiple_outputs():
 
 
 def test_compute_alap(plan1):
-    alap = compute_alap(plan1, 1)
+    alap = compute_alap(None, plan1, 1)
 
     assert alap[task_by_name(plan1, "a1")] == 6
     assert alap[task_by_name(plan1, "a2")] == 9

@@ -4,9 +4,9 @@ import random
 import numpy as np
 
 from . import StaticScheduler
+from .utils import compute_b_level_duration, compute_independent_tasks, get_duration_estimate, \
+    get_size_estimate, max_cpus_worker
 from ..simulator import TaskAssignment
-from .utils import compute_independent_tasks, max_cpus_worker, \
-    compute_b_level_duration
 
 
 class Camp2Scheduler(StaticScheduler):
@@ -30,9 +30,9 @@ class Camp2Scheduler(StaticScheduler):
             self.repulse_score[task] = lst
             if not indeps:
                 continue
-            task_value = task.duration / len(indeps) * task.cpus / cpu_factor
+            task_value = get_duration_estimate(task) / len(indeps) * task.cpus / cpu_factor
             for t in indeps:
-                score = task_value + t.duration / len(independencies[t])\
+                score = task_value + get_duration_estimate(t) / len(independencies[t]) \
                         * t.cpus / cpu_factor
                 lst.append((t.id, score))
 
@@ -70,8 +70,9 @@ class Camp2Scheduler(StaticScheduler):
         old_worker = placement[task.id]
         score = 0
         for inp in task.inputs:
-            if inp.size > score and placement[inp.id] != old_worker:
-                score = inp.size
+            size = get_size_estimate(self.simulator, inp)
+            if size > score and placement[inp.id] != old_worker:
+                score = size
         return score
 
     def compute_task_score(self, placement, task):
@@ -98,8 +99,9 @@ class Camp2Scheduler(StaticScheduler):
             p = placement[t.id]
             m = 0
             for inp in t.inputs:
-                if p != placement[inp.id] and inp.size > m:
-                    m = inp.size
+                size = get_expected_size(self.simulator, inp)
+                if p != placement[inp.id] and size > m:
+                    m = size
             s += m
 
         s /= bandwidth

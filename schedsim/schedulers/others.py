@@ -1,8 +1,8 @@
 import itertools
 
 from .scheduler import SchedulerBase
-from .utils import schedule_all, transfer_cost_parallel, \
-    compute_alap, compute_b_level_duration
+from .utils import compute_alap, compute_b_level_duration, get_duration_estimate, \
+    get_size_estimate, schedule_all, transfer_cost_parallel
 from ..simulator import TaskAssignment
 
 
@@ -19,13 +19,13 @@ class K1hScheduler(SchedulerBase):
         if task.cpus > worker.cpus:
             return 10e10
         transfer = self.calculate_transfer(worker, task)
-        cpu = task.duration
+        cpu = get_duration_estimate(task)
         worker_cost = self.worker_cost(worker)
 
         return transfer + cpu + worker_cost
 
     def worker_cost(self, worker):
-        return sum(t.duration for t in worker.assigned_tasks)
+        return sum(get_duration_estimate(t) for t in worker.assigned_tasks)
 
     def calculate_transfer(self, worker, task):
         bandwidth = self.simulator.netmodel.bandwidth
@@ -34,7 +34,7 @@ class K1hScheduler(SchedulerBase):
         for c in task.consumers:
             for i in c.inputs:
                 if i != task and worker not in i.info.assigned_workers:
-                    cost += i.size
+                    cost += get_size_estimate(self.simulator, i)
 
         return cost / bandwidth
 
@@ -114,10 +114,12 @@ class LASTScheduler(SchedulerBase):
             if not task.inputs:
                 d_nodes[task] = 1
             else:
-                input_weighted = sum((i.size / bandwidth) * edge_cost(i, task)
-                                     for i in task.inputs)
-                input = sum((i.size / bandwidth) for i in task.inputs)
-                output = sum((output.size / bandwidth)
+                sizes = tuple((get_size_estimate(self.simulator, i) / bandwidth)
+                              for i in task.inputs)
+                input_weighted = sum([s * edge_cost(i, task)
+                                      for (s, i) in zip(sizes, task.inputs)])
+                input = sum(sizes)
+                output = sum((get_size_estimate(self.simulator, output) / bandwidth)
                              for output in task.outputs)
                 d_nodes[task] = (input_weighted + output) / (input + output)
 
@@ -154,7 +156,7 @@ class MCPScheduler(SchedulerBase):
     def init(self, simulator):
         super().init(simulator)
         bandwidth = simulator.netmodel.bandwidth
-        self.alap = compute_alap(self.simulator.task_graph, bandwidth)
+        self.alap = compute_alap(self.simulator, self.simulator.task_graph, bandwidth)
 
     def schedule(self, new_ready, new_finished):
         tasks = sorted(new_ready,
