@@ -28,8 +28,8 @@ SCHEDULERS = {
     "random-s": RandomAssignScheduler,
     "random-gt": RandomGtScheduler,
     "blevel": BlevelGtScheduler,
-    "k1h": K1hScheduler,
-    "dls": DLSScheduler
+    #"k1h": K1hScheduler,
+    #"dls": DLSScheduler
 }
 
 
@@ -90,7 +90,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("graphset")
     parser.add_argument("resultfile")
-    parser.add_argument("scheduler", choices=tuple(SCHEDULERS.keys()))
+    parser.add_argument("scheduler", choices=["all"] + list(SCHEDULERS.keys()))
     parser.add_argument("repeat", type=int)
     parser.add_argument("imode", choices=IMODES)
     parser.add_argument("--new", action="store_true")
@@ -123,7 +123,10 @@ def main():
 
     rows = []
 
-    schedulers = (args.scheduler,)
+    if args.scheduler == "all":
+        schedulers = list(SCHEDULERS)
+    else:
+        schedulers = (args.scheduler,)
 
     instances = list(instance_iter(
             graphset.iterrows(),
