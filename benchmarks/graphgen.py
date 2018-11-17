@@ -9,7 +9,7 @@ import numpy as np
 import uuid
 import sys
 
-sys.setrecursionlimit(3500)
+sys.setrecursionlimit(4500)
 
 def normal(loc, scale):
     return max(0.00000001, np.random.normal(loc, scale))
@@ -150,6 +150,106 @@ def fork2(count):
         t.add_input(tasks1[i].outputs[1])
     return g
 
+def bigmerge(count):
+    g = TaskGraph()
+    tasks1 = [g.new_task("a{}".format(i), duration=normal(17, 3),
+                                         expected_duration=17,
+                                         outputs=[100])
+              for i in range(count)]
+
+    t = g.new_task("m1", duration=40, expected_duration=40)
+    t.add_inputs(tasks1)
+
+    g.write_dot("/tmp/g.dot")
+
+    return g
+
+
+def duration_stairs(count):
+    g = TaskGraph()
+    for i in range(count):
+        g.new_task("a{}".format(i), duration=i,
+                                    expected_duration=i)
+        g.new_task("b{}".format(i), duration=i,
+                                    expected_duration=i)
+    return g
+
+
+def size_stairs(count):
+    g = TaskGraph()
+    tasks = []
+
+    t = g.new_task("a", duration=0.1,
+                        expected_duration=0.1,
+                        outputs=list(range(count)))
+
+    for i, o in enumerate(t.outputs):
+        t = g.new_task("b{}".format(i), duration=20,
+                                        expected_duration=20)
+        t.add_input(o)
+    g.write_dot("/tmp/g.dot")
+    return g
+
+
+def splitters(depth):
+    g = TaskGraph()
+    tasks = [g.new_task("root", duration=1, expected_duration=1, output_size=512)]
+    for i in range(depth):
+        new = [g.new_task("a{}-{}".format(i, j), duration=normal(20, 1),
+               expected_duration=20,
+               output_size=128)
+               for j in range(len(tasks) * 2)]
+        for j, t in enumerate(new):
+            t.add_input(tasks[j // 2])
+        tasks = new
+    return g
+
+
+def conflux(depth):
+    g = TaskGraph()
+    tasks = [g.new_task("top{}".format(j), duration=normal(20, 1.5),
+             expected_duration=20,
+             output_size=128)
+             for j in range(2 ** depth)]
+    for i in range(depth):
+        new = [g.new_task("a{}-{}".format(i, j), duration=normal(20, 1),
+               expected_duration=20,
+               output_size=128)
+               for j in range(len(tasks) // 2)]
+        for j, t in enumerate(new):
+            t.add_input(tasks[j * 2])
+            t.add_input(tasks[j * 2 + 1])
+        tasks = new
+    return g
+
+
+def grid(size):
+    g = TaskGraph()
+    tasks = [g.new_task("a".format(j), duration=normal(20, 1),
+             expected_duration=20,
+             output_size=128)
+             for j in range(size)]
+    prev = tasks[0]
+    for t in tasks[1:]:
+        t.add_input(prev)
+        prev = t
+
+
+    for i in range(size - 1):
+        new = [g.new_task("a{}-{}".format(i, j), duration=normal(20, 1),
+               expected_duration=20,
+               output_size=128)
+               for j in range(size)]
+        for t1, t2 in zip(tasks, new):
+            t2.add_input(t1)
+        prev = new[0]
+        for t in new[1:]:
+            t.add_input(prev)
+            prev = t
+        tasks = new
+    return g
+
+
 def gen_graphs(graph_defs, output):
     result = []
     for graph_def in graph_defs:
@@ -157,6 +257,7 @@ def gen_graphs(graph_defs, output):
         args = graph_def[1:]
         g = fn(*args)
         assert isinstance(g, TaskGraph)
+        assert len(g.tasks) < 800  # safety check
         result.append([fn.__name__, str(uuid.uuid4()), g])
     f = pandas.DataFrame(result, columns=["graph_name", "graph_id", "graph"])
     f.to_pickle(output)
@@ -172,6 +273,12 @@ elementary_graphs = [
     (merge_small_big, 80),
     (fork1, 100),
     (fork2, 100),
+    (bigmerge, 320),
+    (duration_stairs, 190),
+    (size_stairs, 190),
+    (splitters, 7),
+    (conflux, 7),
+    (grid, 19),
 ]
 
 gen_graphs(elementary_graphs, "elementary.xz")

@@ -125,7 +125,6 @@ class Worker:
                 else:
                     not_complete = True
             else:
-                print("UPDATE")
                 d.update_priority(priority)
                 deps.append(d.event)
 

@@ -20,7 +20,7 @@ import collections
 import itertools
 from tqdm import tqdm
 
-sys.setrecursionlimit(2500)
+sys.setrecursionlimit(5500)
 
 SCHEDULERS = {
     "single": AllOnOneScheduler,
