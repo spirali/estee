@@ -74,7 +74,7 @@ def test_worker_max_downloads_global():
         g, make_workers(3, 1), s, SimpleNetModel()) == pytest.approx(2)
 
 
-def test_worker_download_priorities():
+def test_worker_download_priorities1():
     SIZE = 20
     g = TaskGraph()
 
@@ -95,6 +95,35 @@ def test_worker_download_priorities():
 
     for t, p in zip(b, priorities):
         assert simulator.task_info(t).end_time == pytest.approx((SIZE - p - 1) // 2 + 1)
+
+
+def test_worker_download_priorities2():
+    g = TaskGraph()
+
+    a = g.new_task("a", duration=0, outputs=[2,2])
+    b = g.new_task("b", duration=4, output_size=2)
+    d = g.new_task("d", duration=1)
+
+    a2 = g.new_task("a2", duration=1)
+    a2.add_input(a.outputs[0])
+
+    b2 = g.new_task("b", duration=1, output_size=1)
+    b2.add_input(a.outputs[1])
+    b2.add_input(b)
+
+    s = fixed_scheduler(
+        [(0, a),
+         (0, b),
+         (1, d, 3),
+         (1, a2, 1),
+         (1, b2, 2),
+        ])
+
+    w = [Worker(cpus=3), Worker(cpus=1, max_downloads=1)]
+    simulator = do_sched_test(g, w, s, SimpleNetModel(), return_simulator=True)
+
+    assert simulator.task_info(a2).end_time == pytest.approx(3)
+    assert simulator.task_info(b2).end_time == pytest.approx(7)
 
 
 def test_worker_execute_priorities():

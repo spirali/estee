@@ -98,8 +98,6 @@ class Simulator:
                             t_info.unfinished_inputs, t
                         ))
                     assert t_info.unfinished_inputs == 0
-                    if t_info.state == TaskState.Waiting:
-                        t_info.state = TaskState.Ready
                     self.new_ready.append(t)
 
             for t in tasks:

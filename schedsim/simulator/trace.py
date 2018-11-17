@@ -361,6 +361,10 @@ def build_trace_html(trace_events, workers, filename, plot_fn):
     bokeh.io.save(plot)
 
 
+def simulator_trace_to_html(simulator, filename):
+    build_trace_html(simulator.trace_events, simulator.workers, filename, plot_all)
+
+
 def render_rectangles(plot, locations, fill_color="blue", line_color="black"):
     left = [r[0] for r in locations]
     right = [r[1] for r in locations]

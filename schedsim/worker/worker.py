@@ -52,6 +52,8 @@ class Download:
 
 class Worker:
 
+    DOWNLOAD_PRIORITY_BOOST_FOR_READY_TASK = 100000
+
     def __init__(self, cpus=1, max_downloads=4, max_downloads_per_worker=2):
         self.cpus = cpus
         self.assignments = []
@@ -107,7 +109,9 @@ class Worker:
         for input in assignment.task.inputs:
             if input in self.data:
                 continue
-
+            priority = assignment.priority
+            if self.simulator.task_info(assignment.task).is_ready:
+                priority += self.DOWNLOAD_PRIORITY_BOOST_FOR_READY_TASK
             d = self.scheduled_downloads.get(input)
             if d is None:
                 info = self.simulator.output_info(input)
@@ -115,12 +119,14 @@ class Worker:
                     if input.size == 0:
                         self.data.add(input)
                         continue
-                    d = self._download(input, assignment.priority)
+
+                    d = self._download(input, priority)
                     deps.append(d.event)
                 else:
                     not_complete = True
             else:
-                d.update_priority(assignment.priority)
+                print("UPDATE")
+                d.update_priority(priority)
                 deps.append(d.event)
 
         def _helper():
@@ -160,7 +166,7 @@ class Worker:
                 downloads = list(o for o in self.scheduled_downloads.values()
                                  if o not in self.running_downloads)
                 downloads.sort(key=lambda d: d.priority, reverse=True)
-                for d in downloads[:]:
+                for d in downloads:
                     count = 0
                     worker = self.simulator.output_info(d.output).placing[0]
                     for rd in self.running_downloads:

@@ -4,9 +4,8 @@ from enum import Enum
 
 class TaskState(Enum):
     Waiting = 1
-    Ready = 2
-    Assigned = 3
-    Finished = 4
+    Assigned = 2
+    Finished = 3
 
 
 class TaskRuntimeInfo:
@@ -30,7 +29,7 @@ class TaskRuntimeInfo:
 
     @property
     def is_ready(self):
-        return self.state == TaskState.Ready
+        return self.unfinished_inputs == 0
 
     @property
     def is_finished(self):
