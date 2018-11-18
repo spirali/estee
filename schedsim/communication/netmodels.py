@@ -168,7 +168,7 @@ class MaxMinFlowNetModel(NetModel):
                 if download.speed is None:  # Freshly scheduled
                     continue
                 size = download.size - time * download.speed
-                if size < 0.00000001:
+                if size < 0.000002:
                     logger.info("Download finished %s", download)
                     lst.remove(download)
                     download.event.succeed(download.value)
