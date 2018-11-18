@@ -266,7 +266,7 @@ def gridcat(count):
     return g
 
 
-def crossv(inner_count):
+def crossv(inner_count, factor=1.0):
     g = TaskGraph()
 
     CHUNK_SIZE=320
@@ -285,9 +285,9 @@ def crossv(inner_count):
     for i in range(inner_count):
         results = []
         for i in range(CHUNK_COUNT):
-            train = g.new_task("train{}".format(i), duration=exponential(680), expected_duration=660, output_size=18, cpus=4)
+            train = g.new_task("train{}".format(i), duration=exponential(680 * factor), expected_duration=660 * factor, output_size=18, cpus=4)
             train.add_input(merges[i])
-            evaluate = g.new_task("eval{}".format(i), duration=normal(36, 6), expected_duration=30, output_size=0.0001, cpus=4)
+            evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3), expected_duration=30 * factor, output_size=0.0001, cpus=4)
             evaluate.add_input(train)
             evaluate.add_input(chunks[i])
             results.append(evaluate.output)
@@ -296,9 +296,14 @@ def crossv(inner_count):
         t.add_inputs(results)
     return g
 
+
 def crossv4(inner_count):
     graphs = [crossv(inner_count) for _ in range(4)]
     return TaskGraph.merge(graphs)
+
+
+def fastcrossv(inner_count):
+    return crossv(inner_count, 0.02)
 
 ## Utils
 
@@ -339,6 +344,7 @@ irw_generators = [
     (gridcat, 20),
     (crossv, 8),
     (crossv4, 4),
+    (fastcrossv, 8),
 ]
 
 def main():
