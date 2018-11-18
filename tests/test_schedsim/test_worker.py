@@ -238,3 +238,18 @@ def test_worker_running_tasks():
         [[1], []],
         [[], []]
     ]
+
+
+def test_more_outputs_from_same_source():
+    test_graph = TaskGraph()
+    a = test_graph.new_task("A", duration=1, outputs=[1,1,1])
+    b = test_graph.new_task("B", duration=1)
+    b.add_input(a.outputs[0])
+    b.add_input(a.outputs[2])
+
+    s = fixed_scheduler([
+        (0, a, 0),
+        (0, b, 0),
+    ])
+
+    assert do_sched_test(test_graph, [1], s) == 2

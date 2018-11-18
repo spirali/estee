@@ -102,11 +102,11 @@ class Simulator:
 
             for t in tasks:
                 for w in self.task_info(t).assigned_workers:
-                    lst = worker_updates.get(w)
-                    if lst is None:
-                        lst = []
-                        worker_updates[w] = lst
-                    lst.append(t)
+                    task_set = worker_updates.get(w)
+                    if task_set is None:
+                        task_set = set()
+                        worker_updates[w] = task_set
+                    task_set.add(t)
 
         for w in worker_updates:
             w.update_tasks(worker_updates[w])
