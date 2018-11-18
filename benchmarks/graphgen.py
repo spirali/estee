@@ -8,39 +8,26 @@ import pandas
 import numpy as np
 import uuid
 import sys
+import argparse
 
 sys.setrecursionlimit(4500)
 
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("filename")
+    parser.add_argument("type", choices=["elementary", "irw"])
+    return parser.parse_args()
+
+
 def normal(loc, scale):
-    return max(0.00000001, np.random.normal(loc, scale))
+    return max(0.0000001, np.random.normal(loc, scale))
 
 
 def exponential(scale):
-    return max(0.00000001, np.random.exponential(scale))
+    return max(0.0000001, np.random.exponential(scale))
 
-
-def gridcat(count):
-    g = TaskGraph()
-    opens = [g.new_task("input{}".format(i), duration=normal(0.01, 0.001),
-                        output_size=normal(300, 25)) for i in range(count)]
-    hashes = []
-    for i in range(count):
-        o1 = opens[i]
-        for j in range(i + 1, count):
-            o2 = opens[j]
-            sz = o1.output.size + o2.output.size
-            d = normal(0.2, 0.01) + sz / 1000.0
-            cat = g.new_task("cat", duration=d, output_size=sz)
-            cat.add_input(o1)
-            cat.add_input(o2)
-            d = normal(0.2, 0.01) + sz / 500.0
-            makehash = g.new_task("hash", duration=d, output_size=16 / 1024 / 1024)
-            makehash.add_input(cat)
-            hashes.append(makehash.output)
-    m = g.new_task("merge", duration=0.1, output_size=16 / 1024 / 1024)
-    m.add_inputs(hashes)
-    return g
-
+## Elementary generators
 
 def plain1n(count):
     g = TaskGraph()
@@ -90,6 +77,7 @@ def merge_neighbours(count):
         t.add_input(tasks1[(i + 1) % count])
     return g
 
+
 def merge_triplets(count):
     g = TaskGraph()
 
@@ -103,6 +91,7 @@ def merge_triplets(count):
         t.add_input(tasks1[i + 1])
         t.add_input(tasks1[i + 2])
     return g
+
 
 def merge_small_big(count):
     g = TaskGraph()
@@ -122,6 +111,7 @@ def merge_small_big(count):
         t.add_input(t2)
     return g
 
+
 def fork1(count):
     g = TaskGraph()
     tasks1 = [g.new_task("a{}".format(i), duration=normal(17, 3),
@@ -136,6 +126,7 @@ def fork1(count):
         t.add_input(tasks1[i])
     return g
 
+
 def fork2(count):
     g = TaskGraph()
     tasks1 = [g.new_task("a{}".format(i), duration=normal(17, 3),
@@ -149,6 +140,7 @@ def fork2(count):
         t = g.new_task("c{}".format(i), duration=normal(15, 2), expected_duration=15)
         t.add_input(tasks1[i].outputs[1])
     return g
+
 
 def bigmerge(count):
     g = TaskGraph()
@@ -249,21 +241,83 @@ def grid(size):
         tasks = new
     return g
 
+## IRW (Inspired by Real World)
+
+def gridcat(count):
+    g = TaskGraph()
+    opens = [g.new_task("input{}".format(i), duration=normal(0.01, 0.001),
+                        output_size=normal(300, 25)) for i in range(count)]
+    hashes = []
+    for i in range(count):
+        o1 = opens[i]
+        for j in range(i + 1, count):
+            o2 = opens[j]
+            sz = o1.output.size + o2.output.size
+            d = normal(0.2, 0.01) + sz / 1000.0
+            cat = g.new_task("cat", duration=d, output_size=sz)
+            cat.add_input(o1)
+            cat.add_input(o2)
+            d = normal(0.2, 0.01) + sz / 500.0
+            makehash = g.new_task("hash", duration=d, output_size=16 / 1024 / 1024)
+            makehash.add_input(cat)
+            hashes.append(makehash.output)
+    m = g.new_task("merge", duration=0.1, output_size=16 / 1024 / 1024)
+    m.add_inputs(hashes)
+    return g
+
+
+def crossv(inner_count):
+    g = TaskGraph()
+
+    CHUNK_SIZE=320
+    CHUNK_COUNT=5
+
+    generator = g.new_task("generator", duration=normal(5, 0.5), expected_duration=5,
+                        outputs=[CHUNK_SIZE for _ in range(CHUNK_COUNT)])
+    chunks = generator.outputs
+
+    merges = []
+    for i in range(CHUNK_COUNT):
+        merge = g.new_task("merge{}".format(i), duration=normal(1.1, 0.02), expected_duration=1, output_size=CHUNK_SIZE * (CHUNK_COUNT - 1))
+        merge.add_inputs([c for j, c in enumerate(chunks) if i != j])
+        merges.append(merge)
+
+    for i in range(inner_count):
+        results = []
+        for i in range(CHUNK_COUNT):
+            train = g.new_task("train{}".format(i), duration=exponential(680), expected_duration=660, output_size=18, cpus=4)
+            train.add_input(merges[i])
+            evaluate = g.new_task("eval{}".format(i), duration=normal(36, 6), expected_duration=30, output_size=0.0001, cpus=4)
+            evaluate.add_input(train)
+            evaluate.add_input(chunks[i])
+            results.append(evaluate.output)
+
+        t = g.new_task("final", duration=0.2, expected_duration=0.2)
+        t.add_inputs(results)
+    return g
+
+def crossv4(inner_count):
+    graphs = [crossv(inner_count) for _ in range(4)]
+    return TaskGraph.merge(graphs)
+
+## Utils
 
 def gen_graphs(graph_defs, output):
     result = []
     for graph_def in graph_defs:
         fn = graph_def[0]
+        name = fn.__name__
         args = graph_def[1:]
         g = fn(*args)
-        assert isinstance(g, TaskGraph)
-        assert len(g.tasks) < 800  # safety check
-        result.append([fn.__name__, str(uuid.uuid4()), g])
+        g.validate()
+        print(name, g.task_count)
+        assert g.task_count < 800  # safety check
+        result.append([name, str(uuid.uuid4()), g])
     f = pandas.DataFrame(result, columns=["graph_name", "graph_id", "graph"])
     f.to_pickle(output)
 
 
-elementary_graphs = [
+elementary_generators = [
     (plain1n, 380),
     (plain1e, 380),
     (plain1cpus, 380),
@@ -281,4 +335,24 @@ elementary_graphs = [
     (grid, 19),
 ]
 
-gen_graphs(elementary_graphs, "elementary.xz")
+irw_generators = [
+    (gridcat, 20),
+    (crossv, 8),
+    (crossv4, 4),
+]
+
+def main():
+    args = parse_args()
+
+    if args.type == "elementary":
+        generators = elementary_generators
+    elif args.type == "irw":
+        generators = irw_generators
+    else:
+        assert 0
+
+    gen_graphs(generators, args.filename)
+
+
+if __name__ == "__main__":
+    main()

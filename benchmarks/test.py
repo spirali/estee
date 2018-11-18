@@ -94,7 +94,7 @@ def parse_args():
     parser.add_argument("repeat", type=int)
     parser.add_argument("imode", choices=IMODES)
     parser.add_argument("--new", action="store_true")
-    #parser.add_argument("--limit", type=int)
+    parser.add_argument("--graph", action="append")
     return parser.parse_args()
 
 
@@ -103,6 +103,9 @@ def main():
 
     args = parse_args()
     graphset = pd.read_pickle(args.graphset)
+
+    if args.graph:
+        graphset = graphset[graphset["graph_name"].isin(args.graph)].reset_index()
 
     for g in graphset["graph"]:
         g.set_imode_exact()
@@ -137,8 +140,11 @@ def main():
     print("Testing scheduler: {}".format(args.scheduler))
 
     pool = multiprocessing.Pool()
-    #tqdm = lambda x, total: x
-    for instance, result in tqdm(zip(instances, pool.imap(process, ((i, args.repeat) for i in instances))), total=len(instances)):
+
+    iterator = pool.imap(process, ((i, args.repeat) for i in instances))
+    #iterator = (process((x, args.repeat)) for x in instances)
+
+    for instance, result in tqdm(zip(instances, iterator), total=len(instances)):
         for r in result:
             rows.append((
                 instance.graph_name,

@@ -11,6 +11,7 @@ def parse_args():
     parser.add_argument("--violin", action="store_true")
     parser.add_argument("--boxplot", action="store_true")
     parser.add_argument("--lineplot", action="store_true")
+    parser.add_argument("--graph", action="append")
     return parser.parse_args()
 
 
@@ -26,19 +27,23 @@ def draw_violin(*args, **kw):
 
 def draw_boxplot(*args, **kw):
     g = seaborn.boxplot(data=kw["data"], x="scheduler_name", y="score")
-    g.set(ylabel="Makespan")
+    g.set(ylabel="Score")
 
 
 def draw_lineplot(*args, **kw):
     data = kw["data"]
     data['bandwidth'] = data['bandwidth'].astype(str)
     g = seaborn.lineplot(data=data, x="bandwidth", y="score", hue="scheduler_name")
-    g.set(yscale="log", xlabel="Bandwidth", ylabel="Makespan")
+    g.set(ylim=(1, 4), xlabel="Bandwidth", ylabel="Score")
 
 
 def main():
     args = parse_args()
     data = pd.read_pickle(args.dataset)
+
+    if args.graph:
+        data = data[data["graph_name"].isin(args.graph)].reset_index(drop=True)
+        print(data)
 
     # normalize by minimum schedule found for each graph/cluster/bandwidth combination
     data["score"] = data\
