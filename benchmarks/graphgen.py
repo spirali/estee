@@ -305,6 +305,28 @@ def crossv4(inner_count):
 def fastcrossv(inner_count):
     return crossv(inner_count, 0.02)
 
+def mapreduce(count):
+    g = TaskGraph()
+    splitter = g.new_task("splitter", duration=10, expected_duration=10,
+                          outputs=[2.5 * 1024 for _ in range(count)])
+    maps = [g.new_task("map{}".format(i),
+                       duration=normal(49, 10),
+                       expected_duration=60,
+                       outputs=[TaskOutput(size=normal(250 / count, 20 / count), expected_size=250 / count)
+                                for _ in range(count)])
+            for i in range(count)]
+    for t, o in zip(maps, splitter.outputs):
+        t.add_input(o)
+
+    for i in range(count):
+        outputs = [m.outputs[i] for m in maps]
+        t = g.new_task("reduce{}".format(i), duration=normal(sum(o.size / 25 for o in outputs), 5), expected_duration=10)
+        t.add_inputs(outputs)
+
+    g.write_dot("/tmp/g.dot")
+    return g
+
+
 ## Utils
 
 def gen_graphs(graph_defs, output):
@@ -345,6 +367,7 @@ irw_generators = [
     (crossv, 8),
     (crossv4, 4),
     (fastcrossv, 8),
+    (mapreduce, 160),
 ]
 
 def main():

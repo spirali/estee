@@ -37,7 +37,7 @@ class Camp2Scheduler(StaticScheduler):
                 lst.append((t.id, score))
 
         tasks = self.simulator.task_graph.tasks
-        placement = np.empty(self.simulator.task_graph.task_count,
+        placement = np.empty(len(self.simulator.task_graph.outputs),
                              dtype=np.int32)
         placement[:] = workers.index(max_cpus_worker(workers))
         # score_cache = np.empty_like(placement, dtype=np.float)
