@@ -5,6 +5,7 @@ import numpy as np
 from simpy import Event
 
 from ..simulator.trace import BandwidthChangeEvent
+from ..common.utils import LruCache
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,8 @@ class RunningDownload:
 
 class MaxMinFlowNetModel(NetModel):
 
+    CACHE_SIZE = 64
+
     def init(self, env, workers):
         super().init(env, workers)
         self.downloads = {}
@@ -108,6 +111,7 @@ class MaxMinFlowNetModel(NetModel):
         self.flows = np.zeros((len(workers), len(workers)))
 
         self.recompute_flows = False
+        self.flow_cache = LruCache(self.CACHE_SIZE)
 
         def network_process():
             while True:
@@ -183,9 +187,14 @@ class MaxMinFlowNetModel(NetModel):
         for (source, target), lst in self.downloads.items():
             if lst:
                 connections[source.id, target.id] = 1
-        send_capacities = np.full(len(self.workers), self.bandwidth)
-        recv_capacities = send_capacities.copy()
-        self.flows = compute_maxmin_flow(send_capacities, recv_capacities, connections)
+        key = connections.tobytes()
+        f = self.flow_cache.get(key)
+        if f is None:
+            send_capacities = np.full(len(self.workers), self.bandwidth)
+            recv_capacities = send_capacities.copy()
+            f = compute_maxmin_flow(send_capacities, recv_capacities, connections)
+            self.flow_cache.set(key, f)
+        self.flows = f
         self._trace_flows()
 
     def _trace_flows(self):
