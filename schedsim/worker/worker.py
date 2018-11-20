@@ -152,6 +152,7 @@ class Worker:
                 if event == events[0]:
                     self.download_wakeup = Event(self.simulator.env)
                     events[0] = self.download_wakeup
+                    downloads = None
                     continue
                 events.remove(event)
                 download = event.value
@@ -165,10 +166,13 @@ class Worker:
 
             if len(self.running_downloads) < self.max_downloads:
                 # We need to sort any time, as it priority may changed in background
-                downloads = list(o for o in self.scheduled_downloads.values()
-                                 if o not in self.running_downloads)
-                downloads.sort(key=lambda d: d.priority, reverse=True)
-                for d in downloads:
+
+                if downloads is None:
+                    downloads = list(o for o in self.scheduled_downloads.values()
+                                    if o not in self.running_downloads)
+                    downloads.sort(key=lambda d: d.priority, reverse=True)
+
+                for d in downloads[:]:
                     count = 0
                     worker = self.simulator.output_info(d.output).placing[0]
                     for rd in self.running_downloads:
@@ -176,6 +180,7 @@ class Worker:
                             count += 1
                     if count >= self.max_downloads_per_worker:
                         continue
+                    downloads.remove(d)
                     d.start_time = self.env.now
                     d.source = worker
                     self.running_downloads.append(d)
