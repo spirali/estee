@@ -4,8 +4,6 @@ from lxml import etree as ET
 
 from ..common.taskgraph import TaskGraph
 
-XMLNS_PREFIX = ""
-
 
 def dax_deserialize(file):
     tasks = {}
@@ -23,8 +21,10 @@ def dax_deserialize(file):
 
     root = ET.parse(file).getroot()
 
-    for job in root.findall("{}job".format(XMLNS_PREFIX)):
-        files = job.findall("{}uses".format(XMLNS_PREFIX))
+    xmlns_prefix = "{{{}}}".format(root.nsmap[None]) if None in root.nsmap else ""
+
+    for job in root.findall("{}job".format(xmlns_prefix)):
+        files = job.findall("{}uses".format(xmlns_prefix))
 
         outputs = [
             {"name": f.get("file"),
@@ -55,10 +55,10 @@ def dax_deserialize(file):
             "inputs": inputs
         }
 
-    for child in root.findall("{}child".format(XMLNS_PREFIX)):
+    for child in root.findall("{}child".format(xmlns_prefix)):
         child_task = tasks[child.get("ref")]
 
-        parents = [tasks[p.get("ref")] for p in child.findall("{}parent".format(XMLNS_PREFIX))]
+        parents = [tasks[p.get("ref")] for p in child.findall("{}parent".format(xmlns_prefix))]
         for parent in parents:
             if not set(child_task["inputs"]).intersection([o["name"] for o in parent["outputs"]]):
                 name = uuid.uuid4().hex
