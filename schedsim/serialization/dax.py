@@ -11,13 +11,26 @@ def dax_deserialize(file):
     tasks = {}
     ids = []
 
+    def parse_value(val, convert=None, default=None):
+        if val is None:         # value is not present
+            if default is not None:
+                return default
+        elif val == 'None':     # value is present, but unset
+            return None
+        elif convert:
+            return convert(val)
+        return val
+
     root = ET.parse(file).getroot()
 
     for job in root.findall("{}job".format(XMLNS_PREFIX)):
         files = job.findall("{}uses".format(XMLNS_PREFIX))
 
         outputs = [
-            {"name": f.get("file"), "size": float(f.get("size"))}
+            {"name": f.get("file"),
+             "size": parse_value(f.get("size"), float, 1),
+             "expected_size": parse_value(f.get("expectedSize"), float, None)
+             }
             for f in files if f.get("link") == "output"
         ]
         inputs = [f.get("file") for f in files if f.get("link") == "input"]
@@ -28,12 +41,15 @@ def dax_deserialize(file):
 
         name = job.get("name", id)
 
-        cpus = int(job.get("cores", 1))
-        runtime = float(job.get("runtime"))
+        cpus = parse_value(job.get("cores", 1), int, 1)
+        duration = parse_value(job.get("runtime"), float, 1)
+        expected_duration = parse_value(job.get("expectedRuntime"), float, None)
+
         assert id not in tasks
         tasks[id] = {
             "name": name,
-            "duration": runtime,
+            "duration": duration,
+            "expected_duration": expected_duration,
             "cpus": cpus,
             "outputs": outputs,
             "inputs": inputs
@@ -48,7 +64,8 @@ def dax_deserialize(file):
                 name = uuid.uuid4().hex
                 parent["outputs"].append({
                     "name": name,
-                    "size": 0.0
+                    "size": 0.0,
+                    "expected_size": 0.0
                 })
                 child_task["inputs"].append(name)
 
@@ -60,8 +77,12 @@ def dax_deserialize(file):
         definition = tasks[id]
         task = tg.new_task(name=definition["name"],
                            duration=definition["duration"],
+                           expected_duration=definition["expected_duration"],
                            cpus=definition["cpus"],
                            outputs=[o["size"] for o in definition["outputs"]])
+        for (output, parsed_output) in zip(task.outputs, definition["outputs"]):
+            output.expected_size = parsed_output["expected_size"]
+
         for (index, o) in enumerate(definition["outputs"]):
             assert o["name"] not in task_outputs
             task_outputs[o["name"]] = task.outputs[index]
@@ -89,10 +110,15 @@ def dax_serialize(task_graph, file):
                                   id=id,
                                   name=task.name,
                                   runtime=str(task.duration),
+                                  expectedRuntime=str(task.expected_duration),
                                   cores=str(task.cpus))
         for (index, output) in enumerate(task.outputs):
             name = "{}-o{}".format(id, index)
-            ET.SubElement(task_tree, "uses", link="output", size=str(output.size), file=name)
+            ET.SubElement(task_tree, "uses",
+                          link="output",
+                          size=str(output.size),
+                          expectedSize=str(output.expected_size),
+                          file=name)
         task_to_id[task] = (id, task_tree)
 
     for task in task_graph.tasks:
@@ -102,7 +128,11 @@ def dax_serialize(task_graph, file):
             parent = input.parent
             (id, _) = task_to_id[parent]
             name = "{}-o{}".format(id, parent.outputs.index(input))
-            ET.SubElement(tree, "uses", link="input", size=str(input.size), file=name)
+            ET.SubElement(tree, "uses",
+                          link="input",
+                          size=str(input.size),
+                          expectedSize=str(input.expected_size),
+                          file=name)
 
     for task in task_graph.tasks:
         if task.inputs:

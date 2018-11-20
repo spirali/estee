@@ -79,7 +79,7 @@ class Worker:
     def assign_tasks(self, assignments):
         for assignment in assignments:
             assert assignment.worker == self
-            #assert assignment not in self.assignments
+            # assert assignment not in self.assignments
 
             if assignment.task.cpus > self.cpus:
                 raise Exception("Task {} allocated on worker with {} cpus"

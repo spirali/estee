@@ -242,7 +242,7 @@ def test_worker_running_tasks():
 
 def test_more_outputs_from_same_source():
     test_graph = TaskGraph()
-    a = test_graph.new_task("A", duration=1, outputs=[1,1,1])
+    a = test_graph.new_task("A", duration=1, outputs=[1, 1, 1])
     b = test_graph.new_task("B", duration=1)
     b.add_input(a.outputs[0])
     b.add_input(a.outputs[2])

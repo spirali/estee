@@ -17,14 +17,28 @@ def test_load_graph():
 
     assert tasks["SpatialClustering"].name == "SpatialClustering"
     assert tasks["SpatialClustering"].duration == 129
+    assert tasks["SpatialClustering"].expected_duration is None
     assert tasks["SpatialClustering"].cpus == 4
 
     assert tasks["RemoveAttributes"].name == "RemoveAttributes"
     assert tasks["RemoveAttributes"].duration == 66
+    assert tasks["RemoveAttributes"].expected_duration is None
     assert tasks["RemoveAttributes"].cpus == 1
+
+    inputs = tasks["RemoveAttributes"].inputs
+    assert len(inputs) == 1
+    assert inputs[0].parent == tasks["StormDetection"]
+    assert inputs[0].size == 1024
+    assert inputs[0].expected_size is None
+
+    outputs = tasks["RemoveAttributes"].outputs
+    assert len(outputs) == 1
+    assert outputs[0].size == 1024
+    assert outputs[0].expected_size == 6028
 
     assert tasks["StormDetection"].name == "StormDetection"
     assert tasks["StormDetection"].duration == 35
+    assert tasks["StormDetection"].expected_duration == 30
     assert tasks["StormDetection"].cpus == 1
 
     assert set(tasks["StormDetection"].consumers()) == {tasks["RemoveAttributes"],
@@ -49,38 +63,38 @@ def test_serialize_plan1(plan1):
     xml = f.read().decode()
     assert xml == """<?xml version='1.0' encoding='UTF-8'?>
 <adag>
-  <job cores="1" id="task-0" name="a1" runtime="2">
-    <uses file="task-0-o0" link="output" size="1"/>
+  <job cores="1" expectedRuntime="2" id="task-0" name="a1" runtime="2">
+    <uses expectedSize="1" file="task-0-o0" link="output" size="1"/>
   </job>
-  <job cores="1" id="task-1" name="a2" runtime="3">
-    <uses file="task-1-o0" link="output" size="3"/>
+  <job cores="1" expectedRuntime="3" id="task-1" name="a2" runtime="3">
+    <uses expectedSize="3" file="task-1-o0" link="output" size="3"/>
   </job>
-  <job cores="1" id="task-2" name="a3" runtime="2">
-    <uses file="task-2-o0" link="output" size="1"/>
-    <uses file="task-2-o1" link="output" size="1"/>
-    <uses file="task-0-o0" link="input" size="1"/>
+  <job cores="1" expectedRuntime="2" id="task-2" name="a3" runtime="2">
+    <uses expectedSize="1" file="task-2-o0" link="output" size="1"/>
+    <uses expectedSize="1" file="task-2-o1" link="output" size="1"/>
+    <uses expectedSize="1" file="task-0-o0" link="input" size="1"/>
   </job>
-  <job cores="1" id="task-3" name="a4" runtime="1">
-    <uses file="task-3-o0" link="output" size="6"/>
+  <job cores="1" expectedRuntime="1" id="task-3" name="a4" runtime="1">
+    <uses expectedSize="6" file="task-3-o0" link="output" size="6"/>
   </job>
-  <job cores="1" id="task-4" name="a5" runtime="1">
-    <uses file="task-4-o0" link="output" size="1"/>
-    <uses file="task-1-o0" link="input" size="3"/>
-    <uses file="task-2-o0" link="input" size="1"/>
-    <uses file="task-3-o0" link="input" size="6"/>
+  <job cores="1" expectedRuntime="1" id="task-4" name="a5" runtime="1">
+    <uses expectedSize="1" file="task-4-o0" link="output" size="1"/>
+    <uses expectedSize="3" file="task-1-o0" link="input" size="3"/>
+    <uses expectedSize="1" file="task-2-o0" link="input" size="1"/>
+    <uses expectedSize="6" file="task-3-o0" link="input" size="6"/>
   </job>
-  <job cores="1" id="task-5" name="a6" runtime="6">
-    <uses file="task-5-o0" link="output" size="1"/>
-    <uses file="task-3-o0" link="input" size="6"/>
+  <job cores="1" expectedRuntime="6" id="task-5" name="a6" runtime="6">
+    <uses expectedSize="1" file="task-5-o0" link="output" size="1"/>
+    <uses expectedSize="6" file="task-3-o0" link="input" size="6"/>
   </job>
-  <job cores="1" id="task-6" name="a7" runtime="1">
-    <uses file="task-6-o0" link="output" size="2"/>
+  <job cores="1" expectedRuntime="1" id="task-6" name="a7" runtime="1">
+    <uses expectedSize="2" file="task-6-o0" link="output" size="2"/>
   </job>
-  <job cores="1" id="task-7" name="a8" runtime="1">
-    <uses file="task-2-o1" link="input" size="1"/>
-    <uses file="task-4-o0" link="input" size="1"/>
-    <uses file="task-5-o0" link="input" size="1"/>
-    <uses file="task-6-o0" link="input" size="2"/>
+  <job cores="1" expectedRuntime="1" id="task-7" name="a8" runtime="1">
+    <uses expectedSize="1" file="task-2-o1" link="input" size="1"/>
+    <uses expectedSize="1" file="task-4-o0" link="input" size="1"/>
+    <uses expectedSize="1" file="task-5-o0" link="input" size="1"/>
+    <uses expectedSize="2" file="task-6-o0" link="input" size="2"/>
   </job>
   <child ref="task-2">
     <parent ref="task-0"/>
