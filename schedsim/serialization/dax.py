@@ -47,18 +47,21 @@ def dax_deserialize(file):
 
         assert id not in tasks
         tasks[id] = {
+            "id": id,
             "name": name,
             "duration": duration,
             "expected_duration": expected_duration,
             "cpus": cpus,
             "outputs": outputs,
-            "inputs": inputs
+            "inputs": inputs,
+            "parents": []
         }
 
     for child in root.findall("{}child".format(xmlns_prefix)):
         child_task = tasks[child.get("ref")]
 
         parents = [tasks[p.get("ref")] for p in child.findall("{}parent".format(xmlns_prefix))]
+        child_task["parents"] = parents
         for parent in parents:
             if not set(child_task["inputs"]).intersection([o["name"] for o in parent["outputs"]]):
                 name = uuid.uuid4().hex
@@ -73,6 +76,9 @@ def dax_deserialize(file):
     task_outputs = {}
     task_by_id = {}
 
+    def get_output_name(id, name):
+        return "{}-{}".format(id, name)
+
     for id in ids:
         definition = tasks[id]
         task = tg.new_task(name=definition["name"],
@@ -84,15 +90,19 @@ def dax_deserialize(file):
             output.expected_size = parsed_output["expected_size"]
 
         for (index, o) in enumerate(definition["outputs"]):
-            assert o["name"] not in task_outputs
-            task_outputs[o["name"]] = task.outputs[index]
+            name = get_output_name(id, o["name"])
+            assert name not in task_outputs
+            task_outputs[name] = task.outputs[index]
         task_by_id[id] = task
 
     for id in ids:
         task = task_by_id[id]
-        for input in tasks[id]["inputs"]:
-            if input in task_outputs:
-                task.add_input(task_outputs[input])
+        for input_name in tasks[id]["inputs"]:
+            parent_outputs = [get_output_name(p["id"], input_name) for p in tasks[id]["parents"]]
+            parent_outputs = [o for o in parent_outputs if o in task_outputs]
+
+            for o in parent_outputs:
+                task.add_input(task_outputs[o])
 
     tg.validate()
 
