@@ -19,6 +19,11 @@ def dax_deserialize(file):
             return convert(val)
         return val
 
+    def normalize_size(size):
+        if size is None:
+            return None
+        return size / (1024 * 1024)
+
     root = ET.parse(file).getroot()
 
     xmlns_prefix = "{{{}}}".format(root.nsmap[None]) if None in root.nsmap else ""
@@ -28,8 +33,8 @@ def dax_deserialize(file):
 
         outputs = [
             {"name": f.get("file"),
-             "size": parse_value(f.get("size"), float, 1),
-             "expected_size": parse_value(f.get("expectedSize"), float, None)
+             "size": normalize_size(parse_value(f.get("size"), float, 1)),
+             "expected_size": normalize_size(parse_value(f.get("expectedSize"), float, None))
              }
             for f in files if f.get("link") == "output"
         ]
@@ -114,6 +119,8 @@ def dax_serialize(task_graph, file):
 
     task_to_id = {}
 
+    MiB = 1024 * 1024
+
     for task in task_graph.tasks:
         id = "task-{}".format(len(task_to_id))
         task_tree = ET.SubElement(doc, "job",
@@ -126,8 +133,8 @@ def dax_serialize(task_graph, file):
             name = "{}-o{}".format(id, index)
             ET.SubElement(task_tree, "uses",
                           link="output",
-                          size=str(output.size),
-                          expectedSize=str(output.expected_size),
+                          size=str(output.size * MiB),
+                          expectedSize=str(output.expected_size * MiB),
                           file=name)
         task_to_id[task] = (id, task_tree)
 
@@ -140,8 +147,8 @@ def dax_serialize(task_graph, file):
             name = "{}-o{}".format(id, parent.outputs.index(input))
             ET.SubElement(tree, "uses",
                           link="input",
-                          size=str(input.size),
-                          expectedSize=str(input.expected_size),
+                          size=str(input.size * MiB),
+                          expectedSize=str(input.expected_size * MiB),
                           file=name)
 
     for task in task_graph.tasks:

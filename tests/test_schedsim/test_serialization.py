@@ -1,6 +1,8 @@
 import io
 import os
 
+import pytest
+
 from schedsim.common import TaskGraph
 from schedsim.serialization.dax import dax_deserialize, dax_serialize
 
@@ -28,13 +30,13 @@ def test_load_graph():
     inputs = tasks["RemoveAttributes"].inputs
     assert len(inputs) == 1
     assert inputs[0].parent == tasks["StormDetection"]
-    assert inputs[0].size == 1024
+    assert inputs[0].size == pytest.approx(0.9765625)
     assert inputs[0].expected_size is None
 
     outputs = tasks["RemoveAttributes"].outputs
     assert len(outputs) == 1
-    assert outputs[0].size == 1024
-    assert outputs[0].expected_size == 6028
+    assert outputs[0].size == pytest.approx(0.9765625)
+    assert outputs[0].expected_size == pytest.approx(0.0057487487)
 
     assert tasks["StormDetection"].name == "StormDetection"
     assert tasks["StormDetection"].duration == 35
