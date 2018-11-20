@@ -53,7 +53,7 @@ class SimpleNetModel(NetModel):
 
         if self.event_listener:
             self.event_listener(NetModelFlowChangeEvent(self.env.now, source, target, value))
-            e.callbacks.append(lambda _: NetModelFlowChangeEvent(self.env.now, source, target, value))
+            e.callbacks.append(lambda _: NetModelFlowChangeEvent(self.env.now, source, target, -value))
         return e
 
 
