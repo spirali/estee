@@ -11,8 +11,11 @@ FetchStartTraceEvent = collections.namedtuple(
 FetchEndTraceEvent = collections.namedtuple(
     "FetchEnd", ["time", "target_worker", "source_worker", "output"])
 
-BandwidthChangeEvent = collections.namedtuple("BandwidthChange",
-                                              ["time", "out", "worker", "value"])
+NetModelFlowEvent = collections.namedtuple(
+    "NetModelFlow", ["time", "source_worker", "target_worker", "value"])
+
+NetModelFlowChangeEvent = collections.namedtuple(
+    "NetModelFlowChange", ["time", "source_worker", "target_worker", "value"])
 
 
 def merge_trace_events(trace_events, start_pred, end_pred, key_fn, start_map=None, end_map=None):

@@ -4,7 +4,7 @@ import logging
 import numpy as np
 from simpy import Event
 
-from ..simulator.trace import BandwidthChangeEvent
+from ..simulator.trace import NetModelFlowEvent, NetModelFlowChangeEvent
 from ..common.utils import LruCache
 
 logger = logging.getLogger(__name__)
@@ -27,24 +27,9 @@ class NetModel:
         self.workers = workers
         for worker in workers:
             assert worker.id is not None
-        self.worker_bandwidth = {worker: {
-            True: 0,    # out
-            False: 0    # in
-        } for worker in workers}
 
     def set_event_listener(self, listener):
         self.event_listener = listener
-
-    def update_bandwidth(self, worker, out, bandwidth):
-        if not self.event_listener:
-            return
-
-        if self.worker_bandwidth[worker][out] != bandwidth:
-            self.worker_bandwidth[worker][out] = bandwidth
-            self.event_listener(BandwidthChangeEvent(self.env.now, out, worker, bandwidth))
-
-    def get_bandwidth(self, worker, out):
-        return self.worker_bandwidth[worker][out]
 
 
 class InstantNetModel(NetModel):
@@ -67,23 +52,9 @@ class SimpleNetModel(NetModel):
         e = self.env.timeout(size / self.bandwidth, value)
 
         if self.event_listener:
-            self.add_bandwidth(source, target, self.bandwidth)
-            e.callbacks.append(lambda _: self.add_bandwidth(source, target, -self.bandwidth))
+            self.event_listener(NetModelFlowChangeEvent(self.env.now, source, target, value))
+            e.callbacks.append(lambda _: NetModelFlowChangeEvent(self.env.now, source, target, value))
         return e
-
-    def add_bandwidth(self, source, target, amount):
-        self.update_bandwidth(source, True, self.get_bandwidth(source, True) + amount)
-        self.update_bandwidth(target, False, self.get_bandwidth(target, False) + amount)
-
-
-"""
-class Download:
-
-    def __init__(self, size, event):
-        self.source = source
-        self.target = target
-        self.size = size
-"""
 
 
 class RunningDownload:
@@ -194,16 +165,18 @@ class MaxMinFlowNetModel(NetModel):
             recv_capacities = send_capacities.copy()
             f = compute_maxmin_flow(send_capacities, recv_capacities, connections)
             self.flow_cache.set(key, f)
+        self._trace_flows(self.flows, f)
         self.flows = f
-        self._trace_flows()
 
-    def _trace_flows(self):
-        if self.event_listener:
-            for w in range(len(self.workers)):
-                bw_out = np.sum(self.flows[w, :])
-                bw_in = np.sum(self.flows[:, w])
-                self.update_bandwidth(self.workers[w], True, bw_out)
-                self.update_bandwidth(self.workers[w], False, bw_in)
+    def _trace_flows(self, old_flows, new_flows):
+        if not self.event_listener:
+            return
+        now = self.env.now
+        for s in self.workers:
+            for t in self.workers:
+                f = new_flows[s.id, t.id]
+                if old_flows[s.id, t.id] != f:
+                    self.event_listener(NetModelFlowEvent(now, s, t, f))
 
 
 def compute_maxmin_flow(send_capacities, recv_capacities, connections):
