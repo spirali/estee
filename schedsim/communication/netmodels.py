@@ -102,7 +102,7 @@ class RunningDownload:
 
 class MaxMinFlowNetModel(NetModel):
 
-    CACHE_SIZE = 64
+    CACHE_SIZE = 256
 
     def init(self, env, workers):
         super().init(env, workers)

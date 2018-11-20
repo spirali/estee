@@ -20,5 +20,5 @@ class LruCache:
 
     def set(self, key, value):
         self.cache[key] = value
-        if len(self.cache) >= self.size:
+        if len(self.cache) > self.size:
             self.cache.popitem(last=False)
