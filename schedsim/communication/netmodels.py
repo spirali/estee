@@ -17,7 +17,7 @@ class NetModel:
                     not necessary how it really behaves)
     """
 
-    def __init__(self, bandwidth=1.0):
+    def __init__(self, bandwidth=1.0, latency=0):
         self.bandwidth = float(bandwidth)
         self.worker_bandwidth = {}
         self.event_listener = None
@@ -50,7 +50,7 @@ class NetModel:
 class InstantNetModel(NetModel):
 
     def __init__(self):
-        super().__init__(float("inf"))
+        super().__init__(float("inf"), 0)
 
     def download(self, source, target, size, value=None):
         assert source != target
@@ -64,7 +64,7 @@ class SimpleNetModel(NetModel):
     def download(self, source, target, size, value=None):
         assert source != target
 
-        e = self.env.timeout(size / self.bandwidth, value)
+        e = self.env.timeout(size / self.bandwidth + self.latency, value)
 
         if self.event_listener:
             self.add_bandwidth(source, target, self.bandwidth)
@@ -137,19 +137,21 @@ class MaxMinFlowNetModel(NetModel):
     def download(self, source, target, size, value=None):
         assert source != target
         event = Event(self.env)
-        rd = RunningDownload(size, event, value)
-        logger.info("New download %s; %s-%s size=%s", rd, source, target, size)
-        key = (source, target)
-        lst = self.downloads.get(key)
-        if lst is None:
-            lst = []
-            self.downloads[key] = lst
-        if not lst:
-            logger.info("Link %s-%s opened, need recompute flows", source, target)
-            self.recompute_flows = True
-        lst.append(rd)
-        if not self.recompute_event.triggered:
-            self.recompute_event.succeed()
+
+        def start_download(_):
+            rd = RunningDownload(size, event, value)
+            logger.info("New download %s; %s-%s size=%s", rd, source, target, size)
+            key = (source, target)
+            lst = self.downloads.get(key)
+            if lst is None:
+                lst = []
+                self.downloads[key] = lst
+            if not lst:
+                logger.info("Link %s-%s opened, need recompute flows", source, target)
+                self.recompute_flows = True
+            lst.append(rd)
+            if not self.recompute_event.triggered:
+                self.recompute_event.succeed()
         return event
 
     def _update_speeds(self):
