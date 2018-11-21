@@ -7,6 +7,10 @@ def normal(loc, scale):
     return max(0.0000001, np.random.normal(loc, scale))
 
 
+def exponential(scale):
+    return max(0.0000001, np.random.exponential(scale))
+
+
 def listify(value):
     if not isinstance(value, collections.Iterable):
         return (value, )
