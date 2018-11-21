@@ -5,6 +5,61 @@ from lxml import etree as ET
 from ..common.taskgraph import TaskGraph
 
 
+def add_artificial_outputs(root, xmlns_prefix, tasks):
+    for child in root.findall("{}child".format(xmlns_prefix)):
+        child_task = tasks[child.get("ref")]
+
+        parents = [tasks[p.get("ref")] for p in child.findall("{}parent".format(xmlns_prefix))]
+        child_task["parents"] = parents
+        for parent in parents:
+            if not set(child_task["inputs"]).intersection([o["name"] for o in parent["outputs"]]):
+                name = uuid.uuid4().hex
+                parent["outputs"].append({
+                    "name": name,
+                    "size": 0.0,
+                    "expected_size": 0.0
+                })
+                child_task["inputs"].append(name)
+
+
+def get_output_name(id, name):
+    return "{}-{}".format(id, name)
+
+
+def add_inputs(ids, task_by_id, task_outputs, tasks):
+    for id in ids:
+        task = task_by_id[id]
+        for input_name in tasks[id]["inputs"]:
+            parent_outputs = [get_output_name(p["id"], input_name) for p in tasks[id]["parents"]]
+            parent_outputs = [o for o in parent_outputs if o in task_outputs]
+
+            for o in parent_outputs:
+                task.add_input(task_outputs[o])
+
+
+def create_tasks(ids, tasks):
+    tg = TaskGraph()
+    task_by_id = {}
+    task_outputs = {}
+
+    for id in ids:
+        definition = tasks[id]
+        task = tg.new_task(name=definition["name"],
+                           duration=definition["duration"],
+                           expected_duration=definition["expected_duration"],
+                           cpus=definition["cpus"],
+                           outputs=[o["size"] for o in definition["outputs"]])
+        for (output, parsed_output) in zip(task.outputs, definition["outputs"]):
+            output.expected_size = parsed_output["expected_size"]
+
+        for (index, o) in enumerate(definition["outputs"]):
+            name = get_output_name(id, o["name"])
+            assert name not in task_outputs
+            task_outputs[name] = task.outputs[index]
+        task_by_id[id] = task
+    return (tg, task_by_id, task_outputs)
+
+
 def dax_deserialize(file):
     tasks = {}
     ids = []
@@ -62,52 +117,11 @@ def dax_deserialize(file):
             "parents": []
         }
 
-    for child in root.findall("{}child".format(xmlns_prefix)):
-        child_task = tasks[child.get("ref")]
+    add_artificial_outputs(root, xmlns_prefix, tasks)
 
-        parents = [tasks[p.get("ref")] for p in child.findall("{}parent".format(xmlns_prefix))]
-        child_task["parents"] = parents
-        for parent in parents:
-            if not set(child_task["inputs"]).intersection([o["name"] for o in parent["outputs"]]):
-                name = uuid.uuid4().hex
-                parent["outputs"].append({
-                    "name": name,
-                    "size": 0.0,
-                    "expected_size": 0.0
-                })
-                child_task["inputs"].append(name)
+    (tg, task_by_id, task_outputs) = create_tasks(ids, tasks)
 
-    tg = TaskGraph()
-    task_outputs = {}
-    task_by_id = {}
-
-    def get_output_name(id, name):
-        return "{}-{}".format(id, name)
-
-    for id in ids:
-        definition = tasks[id]
-        task = tg.new_task(name=definition["name"],
-                           duration=definition["duration"],
-                           expected_duration=definition["expected_duration"],
-                           cpus=definition["cpus"],
-                           outputs=[o["size"] for o in definition["outputs"]])
-        for (output, parsed_output) in zip(task.outputs, definition["outputs"]):
-            output.expected_size = parsed_output["expected_size"]
-
-        for (index, o) in enumerate(definition["outputs"]):
-            name = get_output_name(id, o["name"])
-            assert name not in task_outputs
-            task_outputs[name] = task.outputs[index]
-        task_by_id[id] = task
-
-    for id in ids:
-        task = task_by_id[id]
-        for input_name in tasks[id]["inputs"]:
-            parent_outputs = [get_output_name(p["id"], input_name) for p in tasks[id]["parents"]]
-            parent_outputs = [o for o in parent_outputs if o in task_outputs]
-
-            for o in parent_outputs:
-                task.add_input(task_outputs[o])
+    add_inputs(ids, task_by_id, task_outputs, tasks)
 
     tg.validate()
 

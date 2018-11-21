@@ -66,37 +66,37 @@ def test_serialize_plan1(plan1):
     assert xml == """<?xml version='1.0' encoding='UTF-8'?>
 <adag>
   <job cores="1" expectedRuntime="2" id="task-0" name="a1" runtime="2">
-    <uses expectedSize="1" file="task-0-o0" link="output" size="1"/>
+    <uses expectedSize="1048576" file="task-0-o0" link="output" size="1048576"/>
   </job>
   <job cores="1" expectedRuntime="3" id="task-1" name="a2" runtime="3">
-    <uses expectedSize="3" file="task-1-o0" link="output" size="3"/>
+    <uses expectedSize="3145728" file="task-1-o0" link="output" size="3145728"/>
   </job>
   <job cores="1" expectedRuntime="2" id="task-2" name="a3" runtime="2">
-    <uses expectedSize="1" file="task-2-o0" link="output" size="1"/>
-    <uses expectedSize="1" file="task-2-o1" link="output" size="1"/>
-    <uses expectedSize="1" file="task-0-o0" link="input" size="1"/>
+    <uses expectedSize="1048576" file="task-2-o0" link="output" size="1048576"/>
+    <uses expectedSize="1048576" file="task-2-o1" link="output" size="1048576"/>
+    <uses expectedSize="1048576" file="task-0-o0" link="input" size="1048576"/>
   </job>
   <job cores="1" expectedRuntime="1" id="task-3" name="a4" runtime="1">
-    <uses expectedSize="6" file="task-3-o0" link="output" size="6"/>
+    <uses expectedSize="6291456" file="task-3-o0" link="output" size="6291456"/>
   </job>
   <job cores="1" expectedRuntime="1" id="task-4" name="a5" runtime="1">
-    <uses expectedSize="1" file="task-4-o0" link="output" size="1"/>
-    <uses expectedSize="3" file="task-1-o0" link="input" size="3"/>
-    <uses expectedSize="1" file="task-2-o0" link="input" size="1"/>
-    <uses expectedSize="6" file="task-3-o0" link="input" size="6"/>
+    <uses expectedSize="1048576" file="task-4-o0" link="output" size="1048576"/>
+    <uses expectedSize="3145728" file="task-1-o0" link="input" size="3145728"/>
+    <uses expectedSize="1048576" file="task-2-o0" link="input" size="1048576"/>
+    <uses expectedSize="6291456" file="task-3-o0" link="input" size="6291456"/>
   </job>
   <job cores="1" expectedRuntime="6" id="task-5" name="a6" runtime="6">
-    <uses expectedSize="1" file="task-5-o0" link="output" size="1"/>
-    <uses expectedSize="6" file="task-3-o0" link="input" size="6"/>
+    <uses expectedSize="1048576" file="task-5-o0" link="output" size="1048576"/>
+    <uses expectedSize="6291456" file="task-3-o0" link="input" size="6291456"/>
   </job>
   <job cores="1" expectedRuntime="1" id="task-6" name="a7" runtime="1">
-    <uses expectedSize="2" file="task-6-o0" link="output" size="2"/>
+    <uses expectedSize="2097152" file="task-6-o0" link="output" size="2097152"/>
   </job>
   <job cores="1" expectedRuntime="1" id="task-7" name="a8" runtime="1">
-    <uses expectedSize="1" file="task-2-o1" link="input" size="1"/>
-    <uses expectedSize="1" file="task-4-o0" link="input" size="1"/>
-    <uses expectedSize="1" file="task-5-o0" link="input" size="1"/>
-    <uses expectedSize="2" file="task-6-o0" link="input" size="2"/>
+    <uses expectedSize="1048576" file="task-2-o1" link="input" size="1048576"/>
+    <uses expectedSize="1048576" file="task-4-o0" link="input" size="1048576"/>
+    <uses expectedSize="1048576" file="task-5-o0" link="input" size="1048576"/>
+    <uses expectedSize="2097152" file="task-6-o0" link="input" size="2097152"/>
   </job>
   <child ref="task-2">
     <parent ref="task-0"/>
