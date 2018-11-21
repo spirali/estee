@@ -8,7 +8,14 @@ from .trace import TaskAssignTraceEvent
 
 class Simulator:
 
-    def __init__(self, task_graph, workers, scheduler, netmodel, trace=False):
+    def __init__(self,
+                 task_graph,
+                 workers,
+                 scheduler,
+                 netmodel,
+                 min_scheduling_interval=None,
+                 scheduling_time=None,
+                 trace=False):
         self.workers = workers
         self.task_graph = task_graph
         self.netmodel = netmodel
@@ -18,6 +25,9 @@ class Simulator:
         self.new_ready = []
         self.wakeup_event = None
         self.env = None
+        self.min_scheduling_interval = min_scheduling_interval
+        self.scheduling_time = scheduling_time
+
         if trace:
             self.trace_events = []
             netmodel.set_event_listener(lambda e: self.trace_events.append(e))
@@ -39,11 +49,14 @@ class Simulator:
             self.trace_events.append(trace_event)
 
     def schedule(self, ready_tasks, finished_tasks):
-        worker_loads = {}
         schedule = self.scheduler.schedule(ready_tasks, finished_tasks)
         if not schedule:
-            return
+            return None
         schedule.sort(key=lambda a: a.priority, reverse=True)
+        return schedule
+
+    def apply_schedule(self, schedule):
+        worker_loads = {}
         for assignment in schedule:
             assert isinstance(assignment, TaskAssignment)
             info = self.task_info(assignment.task)
@@ -67,14 +80,29 @@ class Simulator:
             worker.assign_tasks(worker_loads[worker])
 
     def _master_process(self, env):
-        self.schedule(self.task_graph.source_tasks(), [])
+        timeout = self.env.timeout
+        min_scheduling_interval = self.min_scheduling_interval
+        scheduling_time = self.scheduling_time
+
+        schedule = self.schedule(self.task_graph.source_tasks(), [])
+        if scheduling_time:
+            yield timeout(scheduling_time)
+        if schedule:
+            self.apply_schedule(schedule)
 
         while self.unprocessed_tasks > 0:
             self.wakeup_event = Event(env)
-            yield self.wakeup_event
-            self.schedule(self.new_ready, self.new_finished)
+            if min_scheduling_interval:
+                yield self.wakeup_event & timeout(min_scheduling_interval)
+            else:
+                yield self.wakeup_event
+            schedule = self.schedule(self.new_ready, self.new_finished)
             self.new_finished = []
             self.new_ready = []
+            if scheduling_time:
+                yield timeout(scheduling_time)
+            if schedule:
+                self.apply_schedule(schedule)
 
     def on_task_finished(self, worker, task):
         info = self.task_info(task)
@@ -116,8 +144,10 @@ class Simulator:
     def run(self):
         assert not self.trace_events
 
-        self.task_infos = [TaskRuntimeInfo(task) for task in self.task_graph.tasks]
-        self.output_infos = [OutputRuntimeInfo(task) for task in self.task_graph.outputs]
+        self.task_infos = [TaskRuntimeInfo(task)
+                           for task in self.task_graph.tasks]
+        self.output_infos = [OutputRuntimeInfo(
+            task) for task in self.task_graph.outputs]
 
         self.unprocessed_tasks = self.task_graph.task_count
 
