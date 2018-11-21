@@ -131,16 +131,13 @@ class Worker:
                 d.update_priority(priority)
                 deps.append(d.event)
 
-        def _helper():
-            yield self.env.all_of(deps)
-            self.ready_store.put(assignment)
-
         if not_complete:
             return
         if not deps:
             self.ready_store.put(assignment)
         else:
-            self.env.process(_helper())
+            e = self.env.all_of(deps)
+            e.callbacks.append(lambda _: self.ready_store.put(assignment))
 
     def _download_process(self):
         events = [self.download_wakeup]
