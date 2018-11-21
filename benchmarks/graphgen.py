@@ -1,14 +1,12 @@
+import argparse
+import sys
+import uuid
+
+import numpy as np
+import pandas
 
 from schedsim.common import TaskGraph, TaskOutput
-
-from clusters import clusters
-
-import itertools
-import pandas
-import numpy as np
-import uuid
-import sys
-import argparse
+from schedsim.generators.pegasus import cybershake, epigenomics, ligo, montage, sipht
 
 sys.setrecursionlimit(4500)
 
@@ -16,7 +14,7 @@ sys.setrecursionlimit(4500)
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("filename")
-    parser.add_argument("type", choices=["elementary", "irw"])
+    parser.add_argument("type", choices=["elementary", "irw", "pegasus"])
     return parser.parse_args()
 
 
@@ -27,7 +25,8 @@ def normal(loc, scale):
 def exponential(scale):
     return max(0.0000001, np.random.exponential(scale))
 
-## Elementary generators
+
+# Elementary generators
 
 def plain1n(count):
     g = TaskGraph()
@@ -56,8 +55,10 @@ def plain1cpus(count):
 def triplets(count):
     g = TaskGraph()
     for i in range(count):
-        t1 = g.new_task("a{}".format(i), duration=normal(5, 1.5), expected_duration=5, output_size=40)
-        t2 = g.new_task("b{}".format(i), duration=normal(118, 20), expected_duration=120, output_size=120, cpus=4)
+        t1 = g.new_task("a{}".format(i), duration=normal(5, 1.5), expected_duration=5,
+                        output_size=40)
+        t2 = g.new_task("b{}".format(i), duration=normal(118, 20), expected_duration=120,
+                        output_size=120, cpus=4)
         t2.add_input(t1)
         t3 = g.new_task("c{}".format(i), duration=normal(32, 3), expected_duration=30)
         t3.add_input(t2)
@@ -68,8 +69,8 @@ def merge_neighbours(count):
     g = TaskGraph()
 
     tasks1 = [g.new_task("a{}".format(i), duration=normal(15, 3),
-                                         expected_duration=15,
-                                         outputs=[TaskOutput(normal(99, 2.5), 100)])
+                         expected_duration=15,
+                         outputs=[TaskOutput(normal(99, 2.5), 100)])
               for i in range(count)]
     for i in range(count):
         t = g.new_task("b{}".format(i), duration=normal(15, 2), expected_duration=15)
@@ -82,8 +83,8 @@ def merge_triplets(count):
     g = TaskGraph()
 
     tasks1 = [g.new_task("a{}".format(i), duration=normal(15, 3),
-                                         expected_duration=15,
-                                         outputs=[TaskOutput(normal(99, 2.5), 100)])
+                         expected_duration=15,
+                         outputs=[TaskOutput(normal(99, 2.5), 100)])
               for i in range(count)]
     for i in range(0, count, 3):
         t = g.new_task("b{}".format(i), duration=normal(15, 2), expected_duration=15)
@@ -96,13 +97,13 @@ def merge_triplets(count):
 def merge_small_big(count):
     g = TaskGraph()
     tasks1 = [g.new_task("a{}".format(i), duration=normal(11, 3),
-                                         expected_duration=11,
-                                         output_size=0.5)
+                         expected_duration=11,
+                         output_size=0.5)
               for i in range(count)]
 
     tasks2 = [g.new_task("b{}".format(i), duration=normal(15, 3),
-                                          expected_duration=15,
-                                          outputs=[TaskOutput(normal(99, 2.5), 100)])
+                         expected_duration=15,
+                         outputs=[TaskOutput(normal(99, 2.5), 100)])
               for i in range(count)]
 
     for i, (t1, t2) in enumerate(zip(tasks1, tasks2)):
@@ -115,8 +116,8 @@ def merge_small_big(count):
 def fork1(count):
     g = TaskGraph()
     tasks1 = [g.new_task("a{}".format(i), duration=normal(17, 3),
-                                         expected_duration=17,
-                                         output_size=100)
+                         expected_duration=17,
+                         output_size=100)
               for i in range(count)]
 
     for i in range(count):
@@ -130,8 +131,8 @@ def fork1(count):
 def fork2(count):
     g = TaskGraph()
     tasks1 = [g.new_task("a{}".format(i), duration=normal(17, 3),
-                                         expected_duration=17,
-                                         outputs=[100, 100])
+                         expected_duration=17,
+                         outputs=[100, 100])
               for i in range(count)]
 
     for i in range(count):
@@ -145,14 +146,12 @@ def fork2(count):
 def bigmerge(count):
     g = TaskGraph()
     tasks1 = [g.new_task("a{}".format(i), duration=normal(17, 3),
-                                         expected_duration=17,
-                                         outputs=[100])
+                         expected_duration=17,
+                         outputs=[100])
               for i in range(count)]
 
     t = g.new_task("m1", duration=40, expected_duration=40)
     t.add_inputs(tasks1)
-
-    g.write_dot("/tmp/g.dot")
 
     return g
 
@@ -161,9 +160,9 @@ def duration_stairs(count):
     g = TaskGraph()
     for i in range(count):
         g.new_task("a{}".format(i), duration=i,
-                                    expected_duration=i)
+                   expected_duration=i)
         g.new_task("b{}".format(i), duration=i,
-                                    expected_duration=i)
+                   expected_duration=i)
     return g
 
 
@@ -172,14 +171,13 @@ def size_stairs(count):
     tasks = []
 
     t = g.new_task("a", duration=0.1,
-                        expected_duration=0.1,
-                        outputs=list(range(count)))
+                   expected_duration=0.1,
+                   outputs=list(range(count)))
 
     for i, o in enumerate(t.outputs):
         t = g.new_task("b{}".format(i), duration=20,
-                                        expected_duration=20)
+                       expected_duration=20)
         t.add_input(o)
-    g.write_dot("/tmp/g.dot")
     return g
 
 
@@ -188,8 +186,8 @@ def splitters(depth):
     tasks = [g.new_task("root", duration=1, expected_duration=1, output_size=512)]
     for i in range(depth):
         new = [g.new_task("a{}-{}".format(i, j), duration=normal(20, 1),
-               expected_duration=20,
-               output_size=128)
+                          expected_duration=20,
+                          output_size=128)
                for j in range(len(tasks) * 2)]
         for j, t in enumerate(new):
             t.add_input(tasks[j // 2])
@@ -200,13 +198,13 @@ def splitters(depth):
 def conflux(depth):
     g = TaskGraph()
     tasks = [g.new_task("top{}".format(j), duration=normal(20, 1.5),
-             expected_duration=20,
-             output_size=128)
+                        expected_duration=20,
+                        output_size=128)
              for j in range(2 ** depth)]
     for i in range(depth):
         new = [g.new_task("a{}-{}".format(i, j), duration=normal(20, 1),
-               expected_duration=20,
-               output_size=128)
+                          expected_duration=20,
+                          output_size=128)
                for j in range(len(tasks) // 2)]
         for j, t in enumerate(new):
             t.add_input(tasks[j * 2])
@@ -218,19 +216,18 @@ def conflux(depth):
 def grid(size):
     g = TaskGraph()
     tasks = [g.new_task("a".format(j), duration=normal(20, 1),
-             expected_duration=20,
-             output_size=128)
+                        expected_duration=20,
+                        output_size=128)
              for j in range(size)]
     prev = tasks[0]
     for t in tasks[1:]:
         t.add_input(prev)
         prev = t
 
-
     for i in range(size - 1):
         new = [g.new_task("a{}-{}".format(i, j), duration=normal(20, 1),
-               expected_duration=20,
-               output_size=128)
+                          expected_duration=20,
+                          output_size=128)
                for j in range(size)]
         for t1, t2 in zip(tasks, new):
             t2.add_input(t1)
@@ -241,7 +238,8 @@ def grid(size):
         tasks = new
     return g
 
-## IRW (Inspired by Real World)
+
+# IRW (Inspired by Real World)
 
 def gridcat(count):
     g = TaskGraph()
@@ -269,25 +267,28 @@ def gridcat(count):
 def crossv(inner_count, factor=1.0):
     g = TaskGraph()
 
-    CHUNK_SIZE=320
-    CHUNK_COUNT=5
+    CHUNK_SIZE = 320
+    CHUNK_COUNT = 5
 
     generator = g.new_task("generator", duration=normal(5, 0.5), expected_duration=5,
-                        outputs=[CHUNK_SIZE for _ in range(CHUNK_COUNT)])
+                           outputs=[CHUNK_SIZE for _ in range(CHUNK_COUNT)])
     chunks = generator.outputs
 
     merges = []
     for i in range(CHUNK_COUNT):
-        merge = g.new_task("merge{}".format(i), duration=normal(1.1, 0.02), expected_duration=1, output_size=CHUNK_SIZE * (CHUNK_COUNT - 1))
+        merge = g.new_task("merge{}".format(i), duration=normal(1.1, 0.02), expected_duration=1,
+                           output_size=CHUNK_SIZE * (CHUNK_COUNT - 1))
         merge.add_inputs([c for j, c in enumerate(chunks) if i != j])
         merges.append(merge)
 
     for i in range(inner_count):
         results = []
         for i in range(CHUNK_COUNT):
-            train = g.new_task("train{}".format(i), duration=exponential(680 * factor), expected_duration=660 * factor, output_size=18, cpus=4)
+            train = g.new_task("train{}".format(i), duration=exponential(680 * factor),
+                               expected_duration=660 * factor, output_size=18, cpus=4)
             train.add_input(merges[i])
-            evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3), expected_duration=30 * factor, output_size=0.0001, cpus=4)
+            evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
+                                  expected_duration=30 * factor, output_size=0.0001, cpus=4)
             evaluate.add_input(train)
             evaluate.add_input(chunks[i])
             results.append(evaluate.output)
@@ -305,6 +306,7 @@ def crossv4(inner_count):
 def fastcrossv(inner_count):
     return crossv(inner_count, 0.02)
 
+
 def mapreduce(count):
     g = TaskGraph()
     splitter = g.new_task("splitter", duration=10, expected_duration=10,
@@ -312,7 +314,8 @@ def mapreduce(count):
     maps = [g.new_task("map{}".format(i),
                        duration=normal(49, 10),
                        expected_duration=60,
-                       outputs=[TaskOutput(size=normal(250 / count, 20 / count), expected_size=250 / count)
+                       outputs=[TaskOutput(size=normal(250 / count, 20 / count),
+                                           expected_size=250 / count)
                                 for _ in range(count)])
             for i in range(count)]
     for t, o in zip(maps, splitter.outputs):
@@ -320,14 +323,14 @@ def mapreduce(count):
 
     for i in range(count):
         outputs = [m.outputs[i] for m in maps]
-        t = g.new_task("reduce{}".format(i), duration=normal(sum(o.size / 25 for o in outputs), 5), expected_duration=10)
+        t = g.new_task("reduce{}".format(i), duration=normal(sum(o.size / 25 for o in outputs), 5),
+                       expected_duration=10)
         t.add_inputs(outputs)
 
-    g.write_dot("/tmp/g.dot")
     return g
 
 
-## Utils
+# Utils
 
 def gen_graphs(graph_defs, output):
     result = []
@@ -370,6 +373,15 @@ irw_generators = [
     (mapreduce, 160),
 ]
 
+pegasus_generators = [
+    (montage, 50),
+    (cybershake, 50),
+    (epigenomics, 50),
+    (ligo, (20, 10, 15)),
+    (sipht, 2)
+]
+
+
 def main():
     args = parse_args()
 
@@ -377,6 +389,8 @@ def main():
         generators = elementary_generators
     elif args.type == "irw":
         generators = irw_generators
+    elif args.type == "pegasus":
+        generators = pegasus_generators
     else:
         assert 0
 
