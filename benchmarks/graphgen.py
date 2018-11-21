@@ -10,26 +10,34 @@ from schedsim.generators.elementary import bigmerge, conflux, duration_stairs, f
 from schedsim.generators.irw import crossv, crossv4, fastcrossv, gridcat, mapreduce, nestedcrossv
 from schedsim.generators.pegasus import cybershake, epigenomics, ligo, montage, sipht
 
+import rndgraphgen
+
 sys.setrecursionlimit(4500)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("filename")
-    parser.add_argument("type", choices=["elementary", "irw", "pegasus"])
+    parser.add_argument("type", choices=["elementary", "irw", "pegasus", "rg"])
     return parser.parse_args()
 
 
 def gen_graphs(graph_defs, output):
     result = []
     for graph_def in graph_defs:
-        fn = graph_def[0]
-        name = fn.__name__
-        args = graph_def[1:]
+        first = graph_def[0]
+        if callable(first):
+            fn = first
+            name = fn.__name__
+            args = graph_def[1:]
+        else:
+            name = first
+            fn = graph_def[1]
+            args = graph_def[2:]
         g = fn(*args)
         g.validate()
-        print(name, g.task_count)
-        assert g.task_count < 800  # safety check
+        print("{} #t={} #o={}".format(name, g.task_count, len(g.outputs)))
+        assert g.task_count < 8000  # safety check
         result.append([name, str(uuid.uuid4()), g])
     f = pandas.DataFrame(result, columns=["graph_name", "graph_id", "graph"])
     f.to_pickle(output)
@@ -80,6 +88,8 @@ def main():
         generators = irw_generators
     elif args.type == "pegasus":
         generators = pegasus_generators
+    elif args.type == "rg":
+        generators = [("rg", rndgraphgen.generate_graph, 12) for _ in range(10)]
     else:
         assert 0
 
