@@ -50,12 +50,16 @@ IMODES = [
     "exact"
 ]
 
+SCHED_TIMINGS = [
+    # min_sched_interval, sched_time
+    (0.1, 0.05)
+]
 
 
 Instance = collections.namedtuple("Instance",
     ("graph_name", "graph_id", "graph",
      "cluster_name", "bandwidth",
-     "scheduler_name"))
+     "scheduler_name", "min_sched_interval", "sched_time"))
 
 
 def run_single_instance(instance):
@@ -75,14 +79,15 @@ def process(conf):
     return benchmark_scheduler(*conf)
 
 
-def instance_iter(graphs, cluster_names, bandwidths, scheduler_names):
-    for graph_def, cluster_name, bandwidth, scheduler_name \
-            in itertools.product(graphs, cluster_names, bandwidths, scheduler_names):
+def instance_iter(graphs, cluster_names, bandwidths, scheduler_names, sched_timings):
+    for graph_def, cluster_name, bandwidth, scheduler_name, (min_sched_interval, sched_time) \
+            in itertools.product(graphs, cluster_names, bandwidths, scheduler_names, sched_timings):
         g = graph_def[1]
         instance = Instance(
             g["graph_name"], g["graph_id"], g["graph"],
             cluster_name, bandwidth,
-            scheduler_name)
+            scheduler_name,
+            min_sched_interval, sched_time)
         yield instance
 
 
@@ -99,7 +104,15 @@ def parse_args():
 
 
 def main():
-    COLUMNS = ["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name", "imode", "time"]
+    COLUMNS = ["graph_name",
+               "graph_id",
+               "cluster_name",
+               "bandwidth",
+               "scheduler_name",
+               "imode",
+               "min_sched_interval",
+               "sched_time",
+               "time"]
 
     args = parse_args()
     graphset = pd.read_pickle(args.graphset)
@@ -135,7 +148,8 @@ def main():
             graphset.iterrows(),
             list(CLUSTERS.keys()),
             BANDWIDTHS,
-            schedulers))
+            schedulers,
+            SCHED_TIMINGS))
 
     print("Testing scheduler: {}".format(args.scheduler))
 
@@ -153,6 +167,8 @@ def main():
                 instance.bandwidth,
                 instance.scheduler_name,
                 args.imode,
+                instance.min_sched_interval,
+                instance.sched_time,
                 r
             ))
 
