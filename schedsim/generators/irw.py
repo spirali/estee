@@ -69,6 +69,66 @@ def fastcrossv(inner_count):
     return crossv(inner_count, 0.02)
 
 
+def nestedcrossv(factor=1.0):
+    g = TaskGraph()
+
+    FOLD_SIZE = 320
+    FOLD_COUNT = 5
+    INNER_FOLD_COUNT = FOLD_COUNT - 1
+    PARAMETER_COUNT = 5
+
+    assert FOLD_COUNT >= 3
+
+    generator = g.new_task("generator", duration=normal(5, 0.5), expected_duration=5,
+                           outputs=[FOLD_SIZE for _ in range(FOLD_COUNT)])
+    folds = generator.outputs
+
+    for leave_out_idx in range(FOLD_COUNT):
+        inner_folds = folds[:leave_out_idx] + folds[leave_out_idx+1:]
+        merges = []
+        for i in range(INNER_FOLD_COUNT):
+            merge = g.new_task("merge{}".format(i), duration=normal(1.1, 0.02),
+                               expected_duration=1, output_size=FOLD_SIZE * (INNER_FOLD_COUNT - 1))
+            merge.add_inputs([c for j, c in enumerate(inner_folds) if i != j])
+            merges.append(merge)
+
+        avg_scores = []
+        for p in range(PARAMETER_COUNT):
+            results = []
+            for i in range(INNER_FOLD_COUNT):
+                train = g.new_task("train{}".format(i), duration=exponential(680 * factor * p),
+                                   expected_duration=660 * factor * p, output_size=18, cpus=4)
+                train.add_input(merges[i])
+                evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
+                                      expected_duration=30 * factor, output_size=0.0001, cpus=4)
+                evaluate.add_input(train)
+                evaluate.add_input(inner_folds[i])
+                results.append(evaluate.output)
+
+            t = g.new_task("avg_score", duration=0.2, expected_duration=0.2, output_size=0.0001)
+            t.add_inputs(results)
+            avg_scores.append(t)
+
+        t = g.new_task("best_param", duration=0.2, expected_duration=0.2, output_size=0.0001)
+        t.add_inputs(avg_scores)
+
+        merge = g.new_task("merge{}".format(i), duration=normal(1.1, 0.02),
+                           expected_duration=1, output_size=FOLD_SIZE * INNER_FOLD_COUNT)
+        merge.add_inputs(inner_folds)
+
+        train = g.new_task("train{}".format(i), duration=exponential(680 * factor),
+                           expected_duration=660 * factor, output_size=18, cpus=4)
+        train.add_input(merge)
+        train.add_input(t)
+
+        evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
+                              expected_duration=30 * factor, output_size=0.0001, cpus=4)
+        evaluate.add_input(train)
+        evaluate.add_input(folds[leave_out_idx])
+
+    return g
+
+
 def mapreduce(count):
     g = TaskGraph()
     splitter = g.new_task("splitter", duration=10, expected_duration=10,

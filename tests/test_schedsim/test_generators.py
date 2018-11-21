@@ -3,7 +3,7 @@ from schedsim.generators import random_dependencies, random_levels
 from schedsim.generators.elementary import bigmerge, conflux, duration_stairs, fork1, fork2, \
     grid, merge_neighbours, merge_small_big, merge_triplets, plain1cpus, plain1e, plain1n, \
     size_stairs, splitters, triplets
-from schedsim.generators.irw import crossv, crossv4, fastcrossv, gridcat, mapreduce
+from schedsim.generators.irw import crossv, crossv4, fastcrossv, gridcat, mapreduce, nestedcrossv
 from schedsim.generators.pegasus import cybershake, epigenomics, ligo, montage, sipht
 
 
@@ -54,6 +54,7 @@ def test_irw():
         (crossv4, 4),
         (fastcrossv, 8),
         (mapreduce, 160),
+        (nestedcrossv,),
     ]
 
     for gen in generators:
