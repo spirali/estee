@@ -46,9 +46,8 @@ def main():
         print(data)
 
     # normalize by minimum schedule found for each graph/cluster/bandwidth combination
-    data["score"] = data\
-        .groupby(["graph_id", "cluster_name", "bandwidth"])\
-        .transform(lambda g: g / g.min())
+    mins = data.groupby(["graph_id", "cluster_name", "bandwidth"])["time"].transform(pd.Series.min)
+    data["score"] = data["time"] / mins
 
     # calculate average for each graph/cluster/bandwidth/scheduler/imode combination
     data = data.groupby(["graph_id", "cluster_name", "bandwidth", "scheduler_name", "imode"])\

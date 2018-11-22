@@ -21,7 +21,7 @@ class Camp2Scheduler(StaticScheduler):
     def static_schedule(self):
         independencies = compute_independent_tasks(self.simulator.task_graph)
         workers = self.simulator.workers
-        cpu_factor = sum([w.cpus for w in workers]) / len(workers) / 8
+        cpu_factor = sum([w.cpus for w in workers]) / len(workers) / 4
 
         self.repulse_score = {}
 
