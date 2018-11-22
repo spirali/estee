@@ -35,6 +35,7 @@ def gen_graphs(graph_defs, output):
             fn = graph_def[1]
             args = graph_def[2:]
         g = fn(*args)
+        g.normalize()
         g.validate()
         print("{} #t={} #o={}".format(name, g.task_count, len(g.outputs)))
         assert g.task_count < 8000  # safety check

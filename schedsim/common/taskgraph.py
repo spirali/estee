@@ -85,6 +85,10 @@ class TaskGraph:
                 for c in o.consumers:
                     assert c in tasks
 
+    def normalize(self):
+        for t in self.tasks:
+            t.normalize()
+
     def to_dot(self, name, verbose=False):
         stream = ["digraph ", name, " {\n"]
 

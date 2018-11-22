@@ -115,10 +115,17 @@ class Task:
             explore = new
         return False
 
+    def normalize(self):
+        inputs = list(set(self.inputs))
+        inputs.sort(key=lambda o: o.id)
+        self.inputs = inputs
+
     def validate(self):
         assert self.duration >= 0
         assert self.expected_duration is None or self.expected_duration >= 0
         assert not self.is_predecessor_of(self)
+        assert len(self.inputs) == len(set(self.inputs))
+        assert len(self.outputs) == len(set(self.outputs))
         for o in self.outputs:
             assert o.parent == self
             assert o.size >= 0
