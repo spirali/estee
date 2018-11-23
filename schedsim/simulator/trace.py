@@ -133,6 +133,31 @@ def build_worker_transfer_size(trace_events, worker):
     return transfers
 
 
+def build_worker_bandwidth(trace_events, worker):
+    bw = [{}, {}]  # in, out
+    events = [[], []]
+    time = 0
+
+    for event in trace_events:
+        if (isinstance(event, NetModelFlowEvent) and
+                worker in (event.source_worker, event.target_worker)):
+            now = event.time
+
+            if now > time:
+                for i in range(2):
+                    events[i].append((time, sum(bw[i].values())))
+                time = now
+
+            out = event.source_worker == worker
+            target = event.target_worker if out else event.source_worker
+            bw[int(out)][target] = event.value
+
+    for i in range(2):
+        events[i].append((time, sum(bw[i].values())))
+
+    return events
+
+
 def plot_task_communication(trace_events, workers, show_communication=False):
     """
     Plots individual tasks on workers into a grid chart (one chart per worker).
@@ -309,8 +334,7 @@ def plot_worker_bandwidth(trace_events, workers):
     end_time = math.ceil(max([e.time for e in trace_events]))
 
     for index, worker in enumerate(workers):
-        events = [e for e in trace_events if isinstance(e, BandwidthChangeEvent)
-                  and e.worker == worker]
+        (bw_in, bw_out) = build_worker_bandwidth(trace_events, worker)
 
         plot = figure(plot_width=600,
                       plot_height=300,
@@ -319,11 +343,11 @@ def plot_worker_bandwidth(trace_events, workers):
         plot.yaxis.axis_label = 'Bandwidth'
         plot.xaxis.axis_label = 'Time'
 
-        plot.step([e.time for e in events if not e.out], [e.value for e in events if not e.out],
+        plot.step([t for (t, v) in bw_in], [v for (t, v) in bw_in],
                   mode="after",
                   legend="In",
                   line_color="green")
-        plot.step([e.time for e in events if e.out], [e.value for e in events if e.out],
+        plot.step([t for (t, v) in bw_out], [v for (t, v) in bw_out],
                   mode="after",
                   legend="Out",
                   line_color="red")
@@ -356,9 +380,7 @@ def build_trace_html(trace_events, workers, filename, plot_fn):
     """
     import bokeh.io
 
-    # put end events before start events
-    trace_events = sorted(trace_events, key=lambda e: (
-        e.time, 0 if isinstance(e, TaskEndTraceEvent) else 1))
+    trace_events = normalize_events(trace_events)
 
     plot = plot_fn(trace_events, workers)
 
@@ -378,3 +400,48 @@ def render_rectangles(plot, locations, fill_color="blue", line_color="black"):
 
     plot.quad(left=left, right=right, top=top, bottom=bottom, fill_color=fill_color,
               line_color=line_color, line_width=2)
+
+
+def normalize_events(trace_events):
+    print(len(trace_events))
+    trace_events = normalize_flow_change(trace_events)
+    print(len(trace_events))
+
+    return sorted(trace_events,
+                  key=lambda e: (e.time, 0 if isinstance(e, TaskEndTraceEvent) else 1))
+
+
+def normalize_flow_change(trace_events):
+    flow_changes = [e for e in trace_events if isinstance(e, NetModelFlowChangeEvent)]
+    bw = {}
+    events = []
+    time = 0
+    cache = {}
+
+    def flush():
+        for worker in bw:
+            for l in bw[worker]:
+                for neighbour in l:
+                    value = l[neighbour]
+                    key = (worker, neighbour)
+                    entry = cache.get(key)
+                    if entry != value:
+                        events.append(NetModelFlowEvent(time, worker, neighbour, value))
+                        cache[key] = value
+
+    for event in flow_changes:
+        now = event.time
+
+        if now > time:
+            flush()
+            time = now
+
+        src = bw.setdefault(event.source_worker, [{}, {}])
+        src[1][event.target_worker] = src[1].get(event.target_worker, 0) + event.value
+
+        target = bw.setdefault(event.target_worker, [{}, {}])
+        target[0][event.source_worker] = target[0].get(event.source_worker, 0) + event.value
+
+    flush()
+
+    return trace_events + events

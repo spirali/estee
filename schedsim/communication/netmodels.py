@@ -52,8 +52,11 @@ class SimpleNetModel(NetModel):
         e = self.env.timeout(size / self.bandwidth, value)
 
         if self.event_listener:
-            self.event_listener(NetModelFlowChangeEvent(self.env.now, source, target, value))
-            e.callbacks.append(lambda _: NetModelFlowChangeEvent(self.env.now, source, target, -value))
+            self.event_listener(
+                NetModelFlowChangeEvent(self.env.now, source, target, self.bandwidth))
+            e.callbacks.append(
+                lambda _: self.event_listener(
+                    NetModelFlowChangeEvent(self.env.now, source, target, -self.bandwidth)))
         return e
 
 
