@@ -3,10 +3,101 @@ import random
 
 import numpy as np
 
-from . import StaticScheduler
+from . import StaticScheduler, SchedulerBase
 from .utils import compute_b_level_duration, compute_independent_tasks, get_duration_estimate, \
     get_size_estimate, max_cpus_worker
 from ..simulator import TaskAssignment
+
+
+class CampCore:
+
+    def __init__(self, simulator):
+        self.simulator = simulator
+
+        independencies = compute_independent_tasks(simulator.task_graph)
+        self.independecies = independencies
+
+        workers = self.simulator.workers
+
+        placement = np.empty(len(simulator.task_graph.tasks),
+                             dtype=np.int32)
+        placement[:] = workers.index(max_cpus_worker(workers))
+        self.placement = placement
+        self.b_level = compute_b_level_duration(simulator.task_graph)
+
+
+    def compute(self, iterations):
+
+        placement = self.placement
+        workers = self.simulator.workers
+        independencies = self.independecies
+        cpu_factor = sum([w.cpus for w in workers]) / len(workers)
+
+        # Repulse score
+        repulse_score = {}
+        tasks = []
+        self.tasks = tasks
+
+        for task, indeps in independencies.items():
+            if not self.simulator.task_info(task).is_waiting:
+                continue
+            tasks.append(task)
+            lst = []
+            repulse_score[task] = lst
+            if not indeps:
+                continue
+            task_value = get_duration_estimate(task) / len(indeps) * task.cpus / cpu_factor
+            for t in indeps:
+                score = task_value + get_duration_estimate(t) / len(independencies[t]) \
+                        * t.cpus / cpu_factor
+                lst.append((t.id, score))
+
+        if not tasks:
+            return
+
+        for i in range(iterations):
+            t = random.randint(0, len(tasks) - 1)
+            task = tasks[t]
+            old_w = placement[task.id]
+            new_w = random.randint(0, len(workers) - 2)
+            if new_w >= old_w:
+                new_w += 1
+            if workers[new_w].cpus < tasks[t].cpus:
+                continue
+            old_score = self.compute_task_score(repulse_score, placement, task)
+            placement[task.id] = new_w
+            new_score = self.compute_task_score(repulse_score, placement, task)
+            # and np.random.random() > (i / limit) / 100:
+            if new_score > old_score:
+                placement[task.id] = old_w
+
+    def compute_input_score(self, placement, task):
+        old_worker = placement[task.id]
+        score = 0
+        for inp in task.inputs:
+            size = inp.expected_size
+            if size > score and placement[inp.parent.id] != old_worker:
+                score = size
+        return score
+
+    def compute_task_score(self, repulse_score, placement, task):
+        score = self.compute_input_score(placement, task)
+        for t in task.consumers():
+            score += self.compute_input_score(placement, t)
+        score /= self.simulator.netmodel.bandwidth
+        p = placement[task.id]
+        for t_id, v in repulse_score[task]:
+            if placement[t_id] == p:
+                score += v
+        return score
+
+    def make_assignments(self):
+        workers = self.simulator.workers
+        placement = self.placement
+        b_level = self.b_level
+
+        return [TaskAssignment(workers[placement[task.id]], task, b_level[task])
+                for task in self.tasks]
 
 
 class Camp2Scheduler(StaticScheduler):
@@ -19,94 +110,60 @@ class Camp2Scheduler(StaticScheduler):
         super().init(simulator)
 
     def static_schedule(self):
-        independencies = compute_independent_tasks(self.simulator.task_graph)
-        workers = self.simulator.workers
-        cpu_factor = sum([w.cpus for w in workers]) / len(workers) / 4
+        core = CampCore(self.simulator)
+        core.compute(self.iterations)
+        return core.make_assignments()
 
-        self.repulse_score = {}
 
-        for task, indeps in independencies.items():
-            lst = []
-            self.repulse_score[task] = lst
-            if not indeps:
-                continue
-            task_value = get_duration_estimate(task) / len(indeps) * task.cpus / cpu_factor
-            for t in indeps:
-                score = task_value + get_duration_estimate(t) / len(independencies[t]) \
-                        * t.cpus / cpu_factor
-                lst.append((t.id, score))
+class TwoLayerScheduler(SchedulerBase):
 
-        tasks = self.simulator.task_graph.tasks
-        placement = np.empty(len(self.simulator.task_graph.outputs),
-                             dtype=np.int32)
-        placement[:] = workers.index(max_cpus_worker(workers))
-        # score_cache = np.empty_like(placement, dtype=np.float)
+    def compute_schedule(self):
+        raise NotImplementedError()
 
-        # for t in tasks:
-        #    score_cache[t.id] = self.compute_task_score(placement, t)
+    def schedule(self, new_ready, new_finished):
+        assignments = self.compute_schedule()
+        simulator = self.simulator
+        result = []
 
-        for i in range(self.iterations):
-            t = random.randint(0, len(tasks) - 1)
-            old_w = placement[t]
-            new_w = random.randint(0, len(workers) - 2)
-            if new_w >= old_w:
-                new_w += 1
-            if workers[new_w].cpus < tasks[t].cpus:
-                continue
-            old_score = self.compute_task_score(placement, tasks[t])
-            placement[t] = new_w
-            new_score = self.compute_task_score(placement, tasks[t])
-            # and np.random.random() > (i / limit) / 100:
-            if new_score > old_score:
-                placement[t] = old_w
+        task_info = self.simulator.task_info
 
-        b_level = compute_b_level_duration(self.simulator.task_graph)
+        free_cpus = {
+            worker: worker.cpus - sum(t.cpus for t in worker.assigned_tasks)
+            for worker in simulator.workers
+        }
 
-        r = [TaskAssignment(workers[w], task, b_level[task])
-             for task, w in zip(tasks, placement)]
-        return r
+        assignments.sort(key=lambda a: a.priority, reverse=True)
 
-    def compute_input_score(self, placement, task):
-        old_worker = placement[task.id]
-        score = 0
-        for inp in task.inputs:
-            size = get_size_estimate(self.simulator, inp)
-            if size > score and placement[inp.id] != old_worker:
-                score = size
-        return score
+        for assignment in assignments:
+            #info = simulator.task_info(assignment.task)
+            task = assignment.task
+            if free_cpus[assignment.worker] > 0 and task_info(task).is_ready: # or any(task_info(o.parent).is_finished for o in task.inputs):
+                result.append(assignment)
+                free_cpus[assignment.worker] -= task.cpus
 
-    def compute_task_score(self, placement, task):
-        score = self.compute_input_score(placement, task)
-        for t in task.consumers():
-            score += self.compute_input_score(placement, t)
-        score /= self.simulator.netmodel.bandwidth
-        p = placement[task.id]
-        for t_id, v in self.repulse_score[task]:
-            if placement[t_id] == p:
-                score += v
         """
-        tids, scores = self.repulse_score[task]
-        score += (scores * (placement[tids] == p)).sum()
+        result = []
+        for worker in self.simulator.workers:
+            #free_cpus = 2 * worker.cpus - sum(t.cpus for t in worker.assigned_tasks if t.is_ready)
+            #tasks = [self._is_task_prepared(t) for t in worker.s_info]
+            result += [assignment for assignment in worker.s_info
+                       if assignment.task.info.is_ready or (assignment.task.info.is_waiting and
+                          any(t.info.is_ready for t in assignment.task.inputs))]
         """
-        return score
+        return result
 
-    """
-    def placement_cost(self, placement):
-        s = 0
-        bandwidth = self.simulator.netmodel.bandwidth
 
-        for t in self.simulator.task_graph.tasks:
-            p = placement[t.id]
-            m = 0
-            for inp in t.inputs:
-                size = get_expected_size(self.simulator, inp)
-                if p != placement[inp.id] and size > m:
-                    m = size
-            s += m
+class Camp3Scheduler(TwoLayerScheduler):
 
-        s /= bandwidth
+    def __init__(self, iterations=2000):
+        super().__init__()
+        self.iterations = iterations
 
-        a = placement[self.tab[:, 0]]
-        b = placement[self.tab[:, 1]]
-        return (self.costs * (a == b)).sum() + s
-    """
+    def init(self, simulator):
+        super().init(simulator)
+        self.core = CampCore(simulator)
+        self.core.compute(4000)
+
+    def compute_schedule(self):
+        self.core.compute(self.iterations)
+        return self.core.make_assignments()

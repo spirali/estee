@@ -11,7 +11,7 @@ from schedsim.worker import Worker
 from schedsim.communication import MaxMinFlowNetModel
 from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler
-from schedsim.schedulers.camp import Camp2Scheduler
+from schedsim.schedulers.camp import Camp2Scheduler, Camp3Scheduler
 
 from schedsim.schedulers.others import \
     DLSScheduler, K1hScheduler
@@ -25,6 +25,7 @@ sys.setrecursionlimit(5500)
 SCHEDULERS = {
     "single": AllOnOneScheduler,
     "camp2": lambda: Camp2Scheduler(5000),
+    #"camp3": lambda: Camp3Scheduler(500),
     "random-s": RandomAssignScheduler,
     "random-gt": RandomGtScheduler,
     "blevel": BlevelGtScheduler,
