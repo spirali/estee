@@ -14,9 +14,6 @@ FetchEndTraceEvent = collections.namedtuple(
 NetModelFlowEvent = collections.namedtuple(
     "NetModelFlow", ["time", "source_worker", "target_worker", "value"])
 
-NetModelFlowChangeEvent = collections.namedtuple(
-    "NetModelFlowChange", ["time", "source_worker", "target_worker", "value"])
-
 
 def merge_trace_events(trace_events, start_pred, end_pred, key_fn, start_map=None, end_map=None):
     """
@@ -138,22 +135,24 @@ def build_worker_bandwidth(trace_events, worker):
     events = [[], []]
     time = 0
 
+    def flush():
+        for i in range(2):
+            events[i].append((time, sum(bw[i].values())))
+
     for event in trace_events:
         if (isinstance(event, NetModelFlowEvent) and
                 worker in (event.source_worker, event.target_worker)):
             now = event.time
 
             if now > time:
-                for i in range(2):
-                    events[i].append((time, sum(bw[i].values())))
+                flush()
                 time = now
 
             out = event.source_worker == worker
             target = event.target_worker if out else event.source_worker
             bw[int(out)][target] = event.value
 
-    for i in range(2):
-        events[i].append((time, sum(bw[i].values())))
+    flush()
 
     return events
 
@@ -403,45 +402,5 @@ def render_rectangles(plot, locations, fill_color="blue", line_color="black"):
 
 
 def normalize_events(trace_events):
-    print(len(trace_events))
-    trace_events = normalize_flow_change(trace_events)
-    print(len(trace_events))
-
     return sorted(trace_events,
                   key=lambda e: (e.time, 0 if isinstance(e, TaskEndTraceEvent) else 1))
-
-
-def normalize_flow_change(trace_events):
-    flow_changes = [e for e in trace_events if isinstance(e, NetModelFlowChangeEvent)]
-    bw = {}
-    events = []
-    time = 0
-    cache = {}
-
-    def flush():
-        for worker in bw:
-            for l in bw[worker]:
-                for neighbour in l:
-                    value = l[neighbour]
-                    key = (worker, neighbour)
-                    entry = cache.get(key)
-                    if entry != value:
-                        events.append(NetModelFlowEvent(time, worker, neighbour, value))
-                        cache[key] = value
-
-    for event in flow_changes:
-        now = event.time
-
-        if now > time:
-            flush()
-            time = now
-
-        src = bw.setdefault(event.source_worker, [{}, {}])
-        src[1][event.target_worker] = src[1].get(event.target_worker, 0) + event.value
-
-        target = bw.setdefault(event.target_worker, [{}, {}])
-        target[0][event.source_worker] = target[0].get(event.source_worker, 0) + event.value
-
-    flush()
-
-    return trace_events + events

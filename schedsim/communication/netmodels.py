@@ -4,7 +4,7 @@ import logging
 import numpy as np
 from simpy import Event
 
-from ..simulator.trace import NetModelFlowEvent, NetModelFlowChangeEvent
+from ..simulator.trace import NetModelFlowEvent
 from ..common.utils import LruCache
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,9 @@ class InstantNetModel(NetModel):
 
 
 class SimpleNetModel(NetModel):
+    def init(self, env, workers):
+        super().init(env, workers)
+        self.bandwidth_cache = {}
 
     def download(self, source, target, size, value=None):
         assert source != target
@@ -52,12 +55,15 @@ class SimpleNetModel(NetModel):
         e = self.env.timeout(size / self.bandwidth, value)
 
         if self.event_listener:
-            self.event_listener(
-                NetModelFlowChangeEvent(self.env.now, source, target, self.bandwidth))
-            e.callbacks.append(
-                lambda _: self.event_listener(
-                    NetModelFlowChangeEvent(self.env.now, source, target, -self.bandwidth)))
+            self.trace_bandwidth(source, target, self.bandwidth)
+            e.callbacks.append(lambda _: self.trace_bandwidth(source, target, -self.bandwidth))
         return e
+
+    def trace_bandwidth(self, source, target, value):
+        key = (source, target)
+        bandwidth = self.bandwidth_cache.get(key, 0) + value
+        self.event_listener(NetModelFlowEvent(self.env.now, source, target, bandwidth))
+        self.bandwidth_cache[key] = bandwidth
 
 
 class RunningDownload:
