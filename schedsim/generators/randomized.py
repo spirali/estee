@@ -1,7 +1,6 @@
-
-from schedsim.common import TaskGraph, TaskOutput
-
 import numpy as np
+
+from ..common import TaskGraph, TaskOutput
 
 CPUS = np.array([1, 2, 3, 4], dtype=np.int32)
 CPUS_P = np.array([0.50, 0.24, 0.02, 0.24])
@@ -128,7 +127,7 @@ actions = [
 ]
 
 
-def generate_graph(steps):
+def generate_randomized_graph(steps):
     graph = TaskGraph()
     gen_independent_tasks(graph)
 
@@ -138,7 +137,7 @@ def generate_graph(steps):
     for i in range(steps):
         op = np.random.choice(gen_ops, p=p)
         if op is None:
-            graph2 = generate_graph(i)
+            graph2 = generate_randomized_graph(i)
             graph = TaskGraph.merge([graph, graph2])
         else:
             graph = op(graph)

@@ -9,8 +9,7 @@ from schedsim.generators.elementary import bigmerge, conflux, duration_stairs, f
     size_stairs, splitters, triplets, fern
 from schedsim.generators.irw import crossv, crossvx, fastcrossv, gridcat, mapreduce, nestedcrossv
 from schedsim.generators.pegasus import cybershake, epigenomics, ligo, montage, sipht
-
-import rndgraphgen
+from schedsim.generators.randomized import generate_randomized_graph
 
 sys.setrecursionlimit(10000)
 
@@ -102,7 +101,7 @@ def main():
     elif args.type == "pegasus":
         generators = pegasus_generators
     elif args.type == "rg":
-        generators = [("rg", rndgraphgen.generate_graph, 12) for _ in range(10)]
+        generators = [("rg", generate_randomized_graph, 12) for _ in range(10)]
     else:
         assert 0
 
