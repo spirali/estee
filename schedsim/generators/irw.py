@@ -60,8 +60,8 @@ def crossv(inner_count, factor=1.0):
     return g
 
 
-def crossv4(inner_count):
-    graphs = [crossv(inner_count) for _ in range(4)]
+def crossvx(inner_count, outer_count):
+    graphs = [crossv(inner_count) for _ in range(outer_count)]
     return TaskGraph.merge(graphs)
 
 
