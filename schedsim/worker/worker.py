@@ -166,7 +166,7 @@ class Worker:
 
                 if downloads is None:
                     downloads = list(o for o in self.scheduled_downloads.values()
-                                    if o not in self.running_downloads)
+                                     if o not in self.running_downloads)
                     downloads.sort(key=lambda d: d.priority, reverse=True)
 
                 for d in downloads[:]:

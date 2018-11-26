@@ -4,6 +4,7 @@ from .utils import max_cpus_worker, compute_b_level_duration
 from ..simulator import TaskAssignment
 import numpy as np
 
+
 class DoNothingScheduler(SchedulerBase):
     pass
 

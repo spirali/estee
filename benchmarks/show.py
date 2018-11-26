@@ -1,7 +1,8 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn
 import argparse
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn
 
 
 def parse_args():
@@ -12,6 +13,7 @@ def parse_args():
     parser.add_argument("--boxplot", action="store_true")
     parser.add_argument("--lineplot", action="store_true")
     parser.add_argument("--graph", action="append")
+    parser.add_argument("--split-graphs", action="store_true")
     return parser.parse_args()
 
 
@@ -34,23 +36,19 @@ def draw_lineplot(*args, **kw):
     data = kw["data"]
     data['bandwidth'] = data['bandwidth'].astype(str)
     g = seaborn.lineplot(data=data, x="bandwidth", y="score", hue="scheduler_name")
-    g.set(ylim=(1, 4), xlabel="Bandwidth", ylabel="Score")
+
+    maxval = max(data["score"])
+    if maxval > 4:
+        g.set(ylim=(1, 4), xlabel="Bandwidth", ylabel="Score")
 
 
-def main():
-    args = parse_args()
-    data = pd.read_pickle(args.dataset)
-
-    if args.graph:
-        data = data[data["graph_name"].isin(args.graph)].reset_index(drop=True)
-        print(data)
-
+def draw_frame(frame, args, title=None):
     # normalize by minimum schedule found for each graph/cluster/bandwidth combination
-    mins = data.groupby(["graph_id", "cluster_name", "bandwidth"])["time"].transform(pd.Series.min)
-    data["score"] = data["time"] / mins
+    mins = frame.groupby(["graph_id", "cluster_name", "bandwidth"])["time"].transform(pd.Series.min)
+    frame["score"] = frame["time"] / mins
 
     # calculate average for each graph/cluster/bandwidth/scheduler/imode combination
-    data = data.groupby(["graph_id", "cluster_name", "bandwidth", "scheduler_name", "imode"])\
+    data = frame.groupby(["graph_id", "cluster_name", "bandwidth", "scheduler_name", "imode"]) \
         ["score"].mean().reset_index()
 
     if args.heatmap:
@@ -68,6 +66,26 @@ def main():
     if args.lineplot:
         fg = seaborn.FacetGrid(data, col='cluster_name')
         fg.map_dataframe(draw_lineplot).add_legend()
+
+    if title:
+        plt.gcf().canvas.set_window_title(title)
+
+
+def main():
+    args = parse_args()
+    data = pd.read_pickle(args.dataset)
+
+    if args.graph:
+        data = data[data["graph_name"].isin(args.graph)].reset_index(drop=True)
+
+    if args.split_graphs:
+        graphs = data["graph_name"].unique()
+        frames = [data[data["graph_name"] == g] for g in graphs]
+        for (i, frame) in enumerate(frames):
+            draw_frame(frame, args, graphs[i])
+            print(graphs[i])
+    else:
+        draw_frame(data, args)
 
     plt.show()
 
