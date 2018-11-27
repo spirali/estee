@@ -12,7 +12,7 @@ from schedsim.generators.pegasus import cybershake, epigenomics, ligo, montage, 
 
 import rndgraphgen
 
-sys.setrecursionlimit(4500)
+sys.setrecursionlimit(10000)
 
 
 def parse_args():
@@ -68,7 +68,7 @@ irw_generators = [
     (crossvx, 4, 4),
     (fastcrossv, 8),
     (mapreduce, 160),
-    (nestedcrossv,),
+    (nestedcrossv, 5),
 ]
 
 m_irw_generators = [
@@ -77,7 +77,7 @@ m_irw_generators = [
     ("m/crossvx", crossvx, 26, 32),
     ("m/fastcrossv", fastcrossv, 800),
     ("m/mapreduce", mapreduce, 260),
-    ("m/netstercrossv", nestedcrossv,),
+    ("m/netstercrossv", nestedcrossv, 200),
 ]
 
 pegasus_generators = [

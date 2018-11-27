@@ -69,13 +69,12 @@ def fastcrossv(inner_count):
     return crossv(inner_count, 0.02)
 
 
-def nestedcrossv(factor=1.0):
+def nestedcrossv(parameter_count, factor=1.0):
     g = TaskGraph()
 
     FOLD_SIZE = 320
     FOLD_COUNT = 5
     INNER_FOLD_COUNT = FOLD_COUNT - 1
-    PARAMETER_COUNT = 5
 
     assert FOLD_COUNT >= 3
 
@@ -93,11 +92,11 @@ def nestedcrossv(factor=1.0):
             merges.append(merge)
 
         avg_scores = []
-        for p in range(PARAMETER_COUNT):
+        for p in range(1, parameter_count+1):
             results = []
             for i in range(INNER_FOLD_COUNT):
                 train = g.new_task("train{}".format(i), duration=exponential(680 * factor * p),
-                                   expected_duration=660 * factor * p, output_size=18, cpus=4)
+                                   expected_duration=60 * factor * p, output_size=18, cpus=4)
                 train.add_input(merges[i])
                 evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
                                       expected_duration=30 * factor, output_size=0.0001, cpus=4)
