@@ -6,7 +6,7 @@ import pandas
 
 from schedsim.generators.elementary import bigmerge, conflux, duration_stairs, fork1, fork2, \
     grid, merge_neighbours, merge_small_big, merge_triplets, plain1cpus, plain1e, plain1n, \
-    size_stairs, splitters, triplets
+    size_stairs, splitters, triplets, fern
 from schedsim.generators.irw import crossv, crossvx, fastcrossv, gridcat, mapreduce, nestedcrossv
 from schedsim.generators.pegasus import cybershake, epigenomics, ligo, montage, sipht
 
@@ -60,6 +60,7 @@ elementary_generators = [
     (splitters, 7),
     (conflux, 7),
     (grid, 19),
+    (fern, 200),
 ]
 
 irw_generators = [

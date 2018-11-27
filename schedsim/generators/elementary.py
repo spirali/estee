@@ -212,3 +212,22 @@ def grid(size):
             prev = t
         tasks = new
     return g
+
+
+def fern(size):
+    g = TaskGraph()
+    prev = g.new_task("init",
+                      output_size=5,
+                      expected_duration=20, duration=normal(20, 1))
+    for i in range(size):
+        a = g.new_task("a{}".format(i),
+                       outputs=[TaskOutput(normal(5 + i / 10, i / 100), 5 + i / 10)],
+                       expected_duration=17 + i / 10, duration=normal(17 + i / 10, 3))
+        b = g.new_task("b{}".format(i),
+                       outputs=[TaskOutput(normal(42, 2), 42)],
+                       expected_duration=35, duration=normal(35, 3))
+        a.add_input(prev)
+        a.add_input(b)
+        prev = a
+    g.write_dot("/tmp/gg.dot")
+    return g
