@@ -1,10 +1,9 @@
-
 import random
 
 import numpy as np
 
 from .scheduler import SchedulerBase
-from .utils import compute_b_level_duration
+from .utils import compute_b_level_duration, compute_t_level_duration
 from ..simulator import TaskAssignment
 
 
@@ -88,12 +87,19 @@ class RandomGtScheduler(GreedyTransferQueueScheduler):
 
 class BlevelGtScheduler(GreedyTransferQueueScheduler):
 
-    def __init__(self):
-        super().__init__()
-
     def make_queue(self):
         b_level = compute_b_level_duration(self.simulator.task_graph)
         tasks = self.simulator.task_graph.tasks[:]
         random.shuffle(tasks)  # To randomize keys with the same level
         tasks.sort(key=lambda n: b_level[n], reverse=True)
+        return tasks
+
+
+class TlevelGtScheduler(GreedyTransferQueueScheduler):
+
+    def make_queue(self):
+        t_level = compute_t_level_duration(self.simulator.task_graph)
+        tasks = self.simulator.task_graph.tasks[:]
+        random.shuffle(tasks)  # To randomize keys with the same level
+        tasks.sort(key=lambda n: t_level[n], reverse=True)
         return tasks
