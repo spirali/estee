@@ -121,3 +121,13 @@ class TaskGraph:
     def merge(task_graphs):
         tasks = flat_list(tg._copy_tasks() for tg in task_graphs)
         return TaskGraph(tasks=tasks)
+
+    def remove_task(self, task):
+        outputs = self.outputs
+        for o in task.outputs:
+            outputs.remove(o)
+            for t in o.consumers:
+                t.inputs.remove(o)
+        self.tasks.remove(task)
+        for o in task.inputs:
+            o.consumers.remove(task)

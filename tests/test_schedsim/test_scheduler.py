@@ -6,6 +6,7 @@ from schedsim.schedulers import (AllOnOneScheduler, BlevelGtScheduler,
                                  MCPScheduler,
                                  RandomAssignScheduler, RandomGtScheduler,
                                  RandomScheduler)
+
 from schedsim.schedulers.genetic import GeneticScheduler
 from schedsim.schedulers.utils import compute_alap, compute_b_level_duration_size, \
     compute_independent_tasks, compute_t_level_duration_size, topological_sort, \
@@ -13,6 +14,11 @@ from schedsim.schedulers.utils import compute_alap, compute_b_level_duration_siz
 from schedsim.simulator import TaskAssignment
 from schedsim.worker import Worker
 from schedsim.worker.worker import RunningTask
+from schedsim.schedulers.clustering import find_critical_path, critical_path_clustering
+from schedsim.schedulers.utils import (compute_alap,
+                                       compute_independent_tasks)
+from schedsim.schedulers.utils import compute_b_level_duration_size, \
+    compute_t_level_duration_size
 from .test_utils import do_sched_test, task_by_name
 
 
@@ -209,5 +215,15 @@ def test_worker_estimate_earliest_time_offset_now():
 
 def test_topological_sort(plan1):
     tasks = ['a1', 'a2', 'a4', 'a7', 'a3', 'a5', 'a6', 'a8']
-
     assert topological_sort(plan1) == [task_by_name(plan1, t) for t in tasks]
+
+
+def test_find_critical_path(plan1):
+    path = find_critical_path(plan1)
+    _, _, _, a4, _, a6, _, a8 = plan1.tasks
+    assert path == [a4, a6, a8]
+
+
+def test_critical_path_clustering(plan1):
+    assert [] == critical_path_clustering(plan1)
+

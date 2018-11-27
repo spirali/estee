@@ -17,6 +17,7 @@ from schedsim.schedulers.camp import Camp2Scheduler
 from schedsim.schedulers.genetic import GeneticScheduler
 from schedsim.schedulers.others import DLSScheduler, ETFScheduler, MCPScheduler
 from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
+from schedsim.schedulers.clustering import LcScheduler
 from schedsim.serialization.utils import set_recursion_limit
 from schedsim.simulator import Simulator
 from schedsim.worker import Worker
@@ -34,7 +35,9 @@ SCHEDULERS = {
     "mcp": MCPScheduler,
     "genetic": GeneticScheduler,
     #"last": LASTScheduler,
-    "camp2": lambda: Camp2Scheduler(5000)
+    #"mcp": MCPScheduler,
+    "camp2": lambda: Camp2Scheduler(5000),
+    "lc": LcScheduler,
 }
 
 
