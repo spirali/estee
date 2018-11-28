@@ -2,7 +2,8 @@ import pytest
 
 from schedsim.common import TaskGraph
 from schedsim.communication import SimpleNetModel
-from schedsim.schedulers import AllOnOneScheduler, DoNothingScheduler, StaticScheduler, SchedulerBase
+from schedsim.schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase, \
+    StaticScheduler
 from schedsim.simulator import TaskAssignment
 from .test_utils import do_sched_test
 

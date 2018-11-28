@@ -229,5 +229,4 @@ def fern(size):
         a.add_input(prev)
         a.add_input(b)
         prev = a
-    g.write_dot("/tmp/gg.dot")
     return g

@@ -3,9 +3,9 @@ import random
 
 import numpy as np
 
-from . import StaticScheduler, SchedulerBase
+from . import SchedulerBase, StaticScheduler
 from .utils import compute_b_level_duration, compute_independent_tasks, get_duration_estimate, \
-    get_size_estimate, max_cpus_worker
+    max_cpus_worker
 from ..simulator import TaskAssignment
 
 
@@ -24,7 +24,6 @@ class CampCore:
         placement[:] = workers.index(max_cpus_worker(workers))
         self.placement = placement
         self.b_level = compute_b_level_duration(simulator.task_graph)
-
 
     def compute(self, iterations):
 
@@ -135,9 +134,10 @@ class TwoLayerScheduler(SchedulerBase):
         assignments.sort(key=lambda a: a.priority, reverse=True)
 
         for assignment in assignments:
-            #info = simulator.task_info(assignment.task)
+            # info = simulator.task_info(assignment.task)
             task = assignment.task
-            if free_cpus[assignment.worker] > 0 and task_info(task).is_ready: # or any(task_info(o.parent).is_finished for o in task.inputs):
+            # or any(task_info(o.parent).is_finished for o in task.inputs):
+            if free_cpus[assignment.worker] > 0 and task_info(task).is_ready:
                 result.append(assignment)
                 free_cpus[assignment.worker] -= task.cpus
 
