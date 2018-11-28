@@ -9,7 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from schedsim.common.imode import ExactImode, BlindImode
-from schedsim.communication import MaxMinFlowNetModel
+from schedsim.communication import MaxMinFlowNetModel, SimpleNetModel
 from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from schedsim.schedulers.camp import Camp2Scheduler
 from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
@@ -30,6 +30,12 @@ SCHEDULERS = {
     #"last": LASTScheduler,
     #"mcp": MCPScheduler,
     "camp2": lambda: Camp2Scheduler(5000)
+}
+
+
+NETMODELS = {
+    "simple": SimpleNetModel,
+    "maxmin": MaxMinFlowNetModel
 }
 
 
@@ -68,13 +74,13 @@ SCHED_TIMINGS = [
 
 Instance = collections.namedtuple("Instance",
                                   ("graph_name", "graph_id", "graph",
-                                   "cluster_name", "bandwidth",
+                                   "cluster_name", "bandwidth", "netmodel",
                                    "scheduler_name", "imode", "min_sched_interval", "sched_time"))
 
 
 def run_single_instance(instance):
     workers = [Worker(**wargs) for wargs in CLUSTERS[instance.cluster_name]]
-    netmodel = MaxMinFlowNetModel(BANDWIDTHS[instance.bandwidth])
+    netmodel = NETMODELS[instance.netmodel](BANDWIDTHS[instance.bandwidth])
     scheduler = SCHEDULERS[instance.scheduler_name]()
     simulator = Simulator(instance.graph, workers, scheduler, netmodel)
     return simulator.run()
@@ -89,7 +95,8 @@ def process(conf):
     return benchmark_scheduler(*conf)
 
 
-def instance_iter(graphs, cluster_names, bandwidths, scheduler_names, imodes, sched_timings):
+def instance_iter(graphs, cluster_names, bandwidths, netmodels, scheduler_names, imodes,
+                  sched_timings):
     graph_cache = {}
 
     def calculate_imodes(graph):
@@ -100,14 +107,16 @@ def instance_iter(graphs, cluster_names, bandwidths, scheduler_names, imodes, sc
                 graph_cache[graph][imode] = g
                 IMODES[imode](g)
 
-    for graph_def, cluster_name, bandwidth, scheduler_name, imode, (min_sched_interval, sched_time) \
-            in itertools.product(graphs, cluster_names, bandwidths, scheduler_names, imodes, sched_timings):
+    for graph_def, cluster_name, bandwidth, netmodel, scheduler_name, imode,\
+        (min_sched_interval, sched_time) in itertools.product(graphs, cluster_names, bandwidths,
+                                                              netmodels, scheduler_names, imodes,
+                                                              sched_timings):
         g = graph_def[1]
         calculate_imodes(g["graph"])
         graph = graph_cache[g["graph"]][imode]
         instance = Instance(
             g["graph_name"], g["graph_id"], graph,
-            cluster_name, bandwidth,
+            cluster_name, bandwidth, netmodel,
             scheduler_name,
             imode,
             min_sched_interval, sched_time)
@@ -170,6 +179,7 @@ def parse_args():
     parser.add_argument("--scheduler", help=generate_help(list(SCHEDULERS)), default="all")
     parser.add_argument("--cluster", help=generate_help(list(CLUSTERS)), default="all")
     parser.add_argument("--bandwidth", help=generate_help(list(BANDWIDTHS)), default="all")
+    parser.add_argument("--netmodel", help=generate_help(list(NETMODELS)), default="all")
     parser.add_argument("--repeat", type=int, default=5)
     parser.add_argument("--imode", help=generate_help(list(IMODES)), default="all")
     parser.add_argument("--no-append", action="store_true")
@@ -183,6 +193,7 @@ def main():
                "graph_id",
                "cluster_name",
                "bandwidth",
+               "netmodel",
                "scheduler_name",
                "imode",
                "min_sched_interval",
@@ -227,12 +238,14 @@ def main():
     schedulers = select_option(args.scheduler, SCHEDULERS)
     clusters = select_option(args.cluster, CLUSTERS)
     bandwidths = select_option(args.bandwidth, BANDWIDTHS)
+    netmodels = select_option(args.netmodel, NETMODELS)
     imodes = select_option(args.imode, IMODES)
 
     instances = list(instance_iter(
         graphset.iterrows(),
         clusters,
         bandwidths,
+        netmodels,
         schedulers,
         imodes,
         SCHED_TIMINGS))
@@ -256,6 +269,7 @@ def main():
                     instance.graph_id,
                     instance.cluster_name,
                     instance.bandwidth,
+                    instance.netmodel,
                     instance.scheduler_name,
                     instance.imode,
                     instance.min_sched_interval,
@@ -268,7 +282,7 @@ def main():
 
     frame = pd.DataFrame(rows, columns=COLUMNS)
     print(frame.groupby(["graph_name", "graph_id", "cluster_name",
-                         "bandwidth", "scheduler_name"]).mean())
+                         "bandwidth", "netmodel", "scheduler_name"]).mean())
 
     if appending:
         base, ext = os.path.splitext(args.resultfile)
