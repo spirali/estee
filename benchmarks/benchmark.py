@@ -8,6 +8,7 @@ import sys
 import pandas as pd
 from tqdm import tqdm
 
+from schedsim.common.imode import ExactImode, BlindImode
 from schedsim.communication import MaxMinFlowNetModel
 from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from schedsim.schedulers.camp import Camp2Scheduler
@@ -53,7 +54,8 @@ BANDWIDTHS = {
 
 
 IMODES = {
-    "exact": lambda g: g.set_imode_exact()
+    "exact": lambda g: ExactImode().process(g),
+    "blind": lambda g: BlindImode().process(g)
 }
 
 

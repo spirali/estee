@@ -114,13 +114,6 @@ class TaskGraph:
         with open(filename, "w") as f:
             f.write(dot)
 
-    def set_imode_exact(self):
-        for t in self.tasks:
-            t.expected_duration = t.duration
-
-        for o in self.outputs:
-            o.expected_size = o.size
-
     def __repr__(self):
         return "<TaskGraph #t={}>".format(len(self.tasks))
 
