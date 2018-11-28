@@ -13,10 +13,11 @@ from schedsim.communication import MaxMinFlowNetModel
 from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from schedsim.schedulers.camp import Camp2Scheduler
 from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
+from schedsim.serialization.utils import set_recursion_limit
 from schedsim.simulator import Simulator
 from schedsim.worker import Worker
 
-sys.setrecursionlimit(5500)
+set_recursion_limit()
 
 SCHEDULERS = {
     "single": AllOnOneScheduler,
@@ -66,9 +67,9 @@ SCHED_TIMINGS = [
 
 
 Instance = collections.namedtuple("Instance",
-    ("graph_name", "graph_id", "graph",
-     "cluster_name", "bandwidth",
-     "scheduler_name", "imode", "min_sched_interval", "sched_time"))
+                                  ("graph_name", "graph_id", "graph",
+                                   "cluster_name", "bandwidth",
+                                   "scheduler_name", "imode", "min_sched_interval", "sched_time"))
 
 
 def run_single_instance(instance):
@@ -113,6 +114,52 @@ def instance_iter(graphs, cluster_names, bandwidths, scheduler_names, imodes, sc
         yield instance
 
 
+def process_multiprocessing(conf):
+    return benchmark_scheduler(*conf)
+
+
+def run_multiprocessing(pool, instances, args):
+    return pool.imap(process, ((i, args.repeat) for i in instances))
+
+
+def dask_identity(data):
+    return data
+
+
+def dask_serialize(data):
+    return data
+
+
+def dask_deserialize(data):
+    return data
+
+
+def process_dask(conf):
+    (graph, instance, repeat) = conf
+    instance = instance._replace(graph=dask_deserialize(graph))
+    return benchmark_scheduler(instance, repeat)
+
+
+def run_dask(instances, args):
+    from dask.distributed import Client
+
+    client = Client(args.dask_cluster)
+    client.run(set_recursion_limit)
+
+    graphs = {}
+    instance_to_graph = {}
+    instances = list(instances)
+    for (i, instance) in enumerate(instances):
+        if instance.graph not in graphs:
+            graphs[instance.graph] = client.submit(dask_identity, dask_serialize(instance.graph))
+        inst = instance._replace(graph=None)
+        instance_to_graph[inst] = graphs[instance.graph]
+        instances[i] = inst
+
+    results = client.map(process_dask, ((instance_to_graph[i], i, args.repeat) for i in instances))
+    return client.gather(results)
+
+
 def parse_args():
     def generate_help(keys):
         return "all,{}".format(",".join(keys))
@@ -127,6 +174,7 @@ def parse_args():
     parser.add_argument("--imode", help=generate_help(list(IMODES)), default="all")
     parser.add_argument("--no-append", action="store_true")
     parser.add_argument("--graphs")
+    parser.add_argument("--dask-cluster")
     return parser.parse_args()
 
 
@@ -191,8 +239,11 @@ def main():
 
     print("Testing scheduler: {}".format(args.scheduler))
 
-    pool = multiprocessing.Pool()
-    iterator = pool.imap(process, ((i, args.repeat) for i in instances))
+    if args.dask_cluster:
+        iterator = run_dask(instances, args)
+    else:
+        pool = multiprocessing.Pool()
+        iterator = run_multiprocessing(pool, instances, args)
 
     rows = []
     counter = 0
