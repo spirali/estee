@@ -8,19 +8,24 @@ from schedsim.generators.pegasus import cybershake, epigenomics, ligo, montage, 
 from schedsim.generators.randomized import generate_randomized_graph
 
 
+def check_graph(g):
+    g.normalize()
+    g.validate()
+
+
 def test_random_dependencies():
     graph = TaskGraph()
     random_dependencies(10, 0.2, lambda: graph.new_task(output_size=1))
 
     assert graph.task_count == 10
-    graph.validate()
+    check_graph(graph)
 
 
 def test_random_levels():
     graph = TaskGraph()
     random_levels([3, 10, 5, 1], [0, 3, 2, 3], lambda: graph.new_task(output_size=1))
 
-    graph.validate()
+    check_graph(graph)
     assert graph.task_count == 19
     assert len(list(graph.arcs)) == 43
 
@@ -46,7 +51,7 @@ def test_elementary():
     ]
 
     for gen in generators:
-        gen[0](*gen[1:]).validate()
+        check_graph(gen[0](*gen[1:]))
 
 
 def test_irw():
@@ -60,7 +65,7 @@ def test_irw():
     ]
 
     for gen in generators:
-        gen[0](*gen[1:]).validate()
+        check_graph(gen[0](*gen[1:]))
 
 
 def test_pegasus():
@@ -73,8 +78,8 @@ def test_pegasus():
     ]
 
     for gen in generators:
-        gen[0](*gen[1:]).validate()
+        check_graph(gen[0](*gen[1:]))
 
 
 def test_randomized():
-    generate_randomized_graph(10).validate()
+    check_graph(generate_randomized_graph(10))
