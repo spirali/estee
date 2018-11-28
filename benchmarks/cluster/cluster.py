@@ -1,0 +1,102 @@
+import argparse
+import os
+import socket
+import subprocess
+import time
+
+from distributed import Client
+
+
+HOSTNAME = socket.gethostname()
+
+
+def get_nodes():
+    with open(os.environ['PBS_NODEFILE']) as f:
+        return [line.strip() for line in f.readlines()]
+
+
+def is_local(hostname):
+    return hostname.split(".")[0] == HOSTNAME
+
+
+def run_cmd(host, cmds):
+    args = ["env", "OMP_NUM_THREADS=1"] + cmds
+
+    if not is_local(host):
+        args = ["ssh", host, "--", "workon", "estee", "&&" "ulimit", "-u", "32768", "&&"] + args
+
+    args = ["nohup"] + args
+    subprocess.Popen(args)
+
+
+def spawn_workers(host, count, scheduler):
+    return run_cmd(host, ["dask-worker", "--nthreads", "1", "--nprocs", str(count), "--local-directory", "/tmp/estee", scheduler])
+
+
+def kill_workers(host):
+    return run_cmd(host, ["killall", "dask-worker"])
+
+
+def kill_scheduler(host):
+    return run_cmd(host, ["killall", "dask-scheduler"])
+
+
+def spawn_scheduler(host, port):
+    return run_cmd(host, ["dask-scheduler", "--port", str(port)])
+
+
+def start_cluster(port, procs=24):
+    print("Starting cluster...")
+    spawn_scheduler(HOSTNAME, port)
+    time.sleep(1)
+    scheduler = "{}:{}".format(HOSTNAME, port)
+    spawn_workers(HOSTNAME, procs - 1, scheduler)
+
+    nodes = get_nodes()
+    for node in nodes:
+        if not is_local(node):
+            spawn_workers(node, procs, scheduler)
+
+    client = Client(scheduler)
+
+    print("Waiting for workers to connect...")
+    target_workers = procs * len(nodes) - 1
+    while True:
+        worker_count = len(client.scheduler_info()['workers'])
+        if worker_count >= target_workers:
+            break
+        print("Worker count: {}".format(worker_count))
+        time.sleep(2)
+
+    print("Cluster is running at {}".format(scheduler))
+
+
+def stop_cluster():
+    kill_scheduler(HOSTNAME)
+
+
+def get_info(por):
+    scheduler = "{}:{}".format(HOSTNAME, port)
+    client = Client(scheduler, timeout=5)
+    workers = client.scheduler_info()['workers']
+    print(workers)
+    print("Worker count: {}".format(len(workers)))
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("command", choices=["start", "stop", "info"])
+    parser.add_argument("--port", default=8786)
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    port = int(args.port)
+
+    if args.command == "start":
+        start_cluster(port=port)
+    elif args.command == "stop":
+        stop_cluster()
+    elif args.command == "info":
+        get_info(port)
