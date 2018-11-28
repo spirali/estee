@@ -139,7 +139,7 @@ def dax_serialize(task_graph, file):
         id = "task-{}".format(len(task_to_id))
         task_tree = ET.SubElement(doc, "job",
                                   id=id,
-                                  name=task.name,
+                                  name=task.name or "",
                                   runtime=str(task.duration),
                                   expectedRuntime=str(task.expected_duration),
                                   cores=str(task.cpus))
