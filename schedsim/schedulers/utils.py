@@ -2,14 +2,14 @@ from ..simulator import TaskAssignment
 from ..simulator.runtimeinfo import TaskState
 
 
-def compute_alap(simulator, task_graph, bandwidth):
+def compute_alap(runtime_state, task_graph, bandwidth):
     """
     Calculates the As-late-as-possible metric.
     """
     def task_size(task):
-        return sum(get_size_estimate(simulator, o) for o in task.outputs)
+        return sum(get_size_estimate(runtime_state, o) for o in task.outputs)
 
-    t_level = compute_t_level_duration_size(simulator, task_graph, bandwidth)
+    t_level = compute_t_level_duration_size(runtime_state, task_graph, bandwidth)
 
     alap = {}
 
@@ -63,10 +63,10 @@ def compute_b_level_duration(task_graph):
                            lambda task, next: task.expected_duration or 1)
 
 
-def compute_b_level_duration_size(simulator, task_graph, bandwidth=1):
+def compute_b_level_duration_size(runtime_state, task_graph, bandwidth=1):
     return compute_b_level(
         task_graph,
-        lambda t, n: get_duration_estimate(t) + largest_transfer(simulator, t, n) / bandwidth
+        lambda t, n: get_duration_estimate(t) + largest_transfer(runtime_state, t, n) / bandwidth
     )
 
 
@@ -92,10 +92,10 @@ def compute_t_level_duration(task_graph):
                            lambda task, next: get_duration_estimate(task))
 
 
-def compute_t_level_duration_size(simulator, task_graph, bandwidth=1):
+def compute_t_level_duration_size(runtime_state, task_graph, bandwidth=1):
     return compute_t_level(
         task_graph,
-        lambda t, n: get_duration_estimate(t) + largest_transfer(simulator, t, n) / bandwidth
+        lambda t, n: get_duration_estimate(t) + largest_transfer(runtime_state, t, n) / bandwidth
     )
 
 
@@ -144,13 +144,13 @@ def max_cpus_worker(workers):
     return max(workers, key=lambda w: w.cpus)
 
 
-def transfer_cost_parallel(simulator, worker, task):
+def transfer_cost_parallel(runtime_state, worker, task):
     """
     Calculates the cost of transferring inputs of `task` to `worker`.
     Assumes parallel download.
     """
-    return max((get_size_estimate(simulator, i) for i in task.inputs
-                if worker not in simulator.output_info(i).placing),
+    return max((get_size_estimate(runtime_state, i) for i in task.inputs
+                if worker not in runtime_state.output_info(i).placing),
                default=0)
 
 
@@ -169,11 +169,11 @@ def schedule_all(workers, tasks, get_assignment):
     return schedules
 
 
-def largest_transfer(simulator, task1, task2):
+def largest_transfer(runtime_state, task1, task2):
     """
     Returns the largest transferred output from `task1` to `task2`.
     """
-    return max((get_size_estimate(simulator, o)
+    return max((get_size_estimate(runtime_state, o)
                 for o in set(task1.outputs).intersection(task2.inputs)),
                default=0)
 
@@ -182,7 +182,7 @@ def get_duration_estimate(task):
     return task.expected_duration if task.expected_duration is not None else 1
 
 
-def get_size_estimate(simulator, output):
-    if simulator is None or simulator.task_info(output.parent).state == TaskState.Finished:
+def get_size_estimate(runtime_state, output):
+    if runtime_state is None or runtime_state.task_info(output.parent).state == TaskState.Finished:
         return output.size
     return output.expected_size if output.expected_size is not None else 1

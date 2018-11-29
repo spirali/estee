@@ -124,9 +124,10 @@ def test_scheduling_time():
             test_graph, 1, scheduler,
             SimpleNetModel(bandwidth=2),
             scheduling_time=2, return_simulator=True)
+    runtime_state = simulator.runtime_state
 
     assert times == [0, 5, 8, 11, 14]
-    assert simulator.task_info(a).end_time == 5
-    assert simulator.task_info(b).end_time == 8
-    assert simulator.task_info(c).end_time == 11
-    assert simulator.task_info(d).end_time == 14
+    assert runtime_state.task_info(a).end_time == 5
+    assert runtime_state.task_info(b).end_time == 8
+    assert runtime_state.task_info(c).end_time == 11
+    assert runtime_state.task_info(d).end_time == 14

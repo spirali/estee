@@ -109,15 +109,16 @@ class Worker:
     def _init_downloads(self, assignment):
         deps = []
         not_complete = False
+        runtime_state = self.simulator.runtime_state
         for input in assignment.task.inputs:
             if input in self.data:
                 continue
             priority = assignment.priority
-            if self.simulator.task_info(assignment.task).is_ready:
+            if runtime_state.task_info(assignment.task).is_ready:
                 priority += self.DOWNLOAD_PRIORITY_BOOST_FOR_READY_TASK
             d = self.scheduled_downloads.get(input)
             if d is None:
-                info = self.simulator.output_info(input)
+                info = runtime_state.output_info(input)
                 if info.placing:
                     if input.size == 0:
                         self.data.add(input)
@@ -142,6 +143,7 @@ class Worker:
     def _download_process(self):
         events = [self.download_wakeup]
         env = self.env
+        runtime_state = self.simulator.runtime_state
 
         while True:
             finished = yield env.any_of(events)
@@ -171,7 +173,7 @@ class Worker:
 
                 for d in downloads[:]:
                     count = 0
-                    worker = self.simulator.output_info(d.output).placing[0]
+                    worker = runtime_state.output_info(d.output).placing[0]
                     for rd in self.running_downloads:
                         if worker == rd.source:
                             count += 1

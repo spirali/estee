@@ -85,7 +85,7 @@ class DLSScheduler(SchedulerBase):
 
     def calculate_transfer(self, worker, task):
         return self.simulator.env.now + (transfer_cost_parallel(
-            self.simulator, worker, task) / self.simulator.netmodel.bandwidth)
+            self.simulator.runtime_state, worker, task) / self.simulator.netmodel.bandwidth)
 
 
 class LASTScheduler(SchedulerBase):
@@ -100,11 +100,11 @@ class LASTScheduler(SchedulerBase):
     def schedule(self, new_ready, new_finished):
         bandwidth = self.simulator.netmodel.bandwidth
         workers = self.simulator.workers[:]
-        simulator = self.simulator
+        runtime_state = self.simulator.runtime_state
 
         def edge_cost(o1, t2):
-            if (simulator.output_info(o1).placing ==
-                    simulator.task_info(t2).assigned_workers):
+            if (runtime_state.output_info(o1).placing ==
+                    runtime_state.task_info(t2).assigned_workers):
                 return 0
             else:
                 return 1
@@ -114,12 +114,12 @@ class LASTScheduler(SchedulerBase):
             if not task.inputs:
                 d_nodes[task] = 1
             else:
-                sizes = tuple((get_size_estimate(self.simulator, i) / bandwidth)
+                sizes = tuple((get_size_estimate(runtime_state, i) / bandwidth)
                               for i in task.inputs)
                 input_weighted = sum([s * edge_cost(i, task)
                                       for (s, i) in zip(sizes, task.inputs)])
                 input = sum(sizes)
-                output = sum((get_size_estimate(self.simulator, output) / bandwidth)
+                output = sum((get_size_estimate(runtime_state, output) / bandwidth)
                              for output in task.outputs)
                 d_nodes[task] = (input_weighted + output) / (input + output)
 
@@ -131,7 +131,7 @@ class LASTScheduler(SchedulerBase):
         schedules = []
         for _ in new_ready[:]:
             m = max(d_nodes, key=lambda t: d_nodes[t])
-            worker_costs = [transfer_cost_parallel(self.simulator, w, m) +
+            worker_costs = [transfer_cost_parallel(runtime_state, w, m) +
                             worker_cost(w, m) for w in workers]
             worker_index = min(range(len(workers)),
                                key=lambda i: worker_costs[i])
@@ -156,7 +156,7 @@ class MCPScheduler(SchedulerBase):
     def init(self, simulator):
         super().init(simulator)
         bandwidth = simulator.netmodel.bandwidth
-        self.alap = compute_alap(self.simulator, self.simulator.task_graph, bandwidth)
+        self.alap = compute_alap(self.simulator.runtime_state, self.simulator.task_graph, bandwidth)
 
     def schedule(self, new_ready, new_finished):
         tasks = sorted(new_ready,
@@ -167,7 +167,7 @@ class MCPScheduler(SchedulerBase):
         def cost(w, t):
             if t.cpus > w.cpus:
                 return 10e10
-            return transfer_cost_parallel(self.simulator, w, t) / bandwidth
+            return transfer_cost_parallel(self.simulator.runtime_state, w, t) / bandwidth
 
         schedules = []
         for task in tasks:
@@ -208,4 +208,4 @@ class ETFScheduler(SchedulerBase):
             return 10e10
 
         bandwidth = self.simulator.netmodel.bandwidth
-        return transfer_cost_parallel(self.simulator, worker, task) / bandwidth
+        return transfer_cost_parallel(self.simulator.runtime_state, worker, task) / bandwidth

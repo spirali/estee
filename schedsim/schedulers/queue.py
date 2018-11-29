@@ -67,11 +67,11 @@ class GreedyTransferQueueScheduler(QueueScheduler):
 
     def choose_worker(self, workers, task):
         costs = np.zeros(len(workers))
-        simulator = self.simulator
+        runtime_state = self.simulator.runtime_state
         for i in range(len(workers)):
             w = workers[i]
             for inp in task.inputs:
-                if w not in simulator.output_info(inp).placing:
+                if w not in runtime_state.output_info(inp).placing:
                     costs[i] += inp.size
 
         return np.random.choice(np.flatnonzero(costs == costs.min()))

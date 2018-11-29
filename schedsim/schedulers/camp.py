@@ -36,9 +36,10 @@ class CampCore:
         repulse_score = {}
         tasks = []
         self.tasks = tasks
+        task_info = self.simulator.runtime_state.task_info
 
         for task, indeps in independencies.items():
-            if not self.simulator.task_info(task).is_waiting:
+            if not task_info(task).is_waiting:
                 continue
             tasks.append(task)
             lst = []

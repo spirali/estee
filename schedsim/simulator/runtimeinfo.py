@@ -46,3 +46,18 @@ class OutputRuntimeInfo:
 
     def __init__(self, output):
         self.placing = []
+
+
+class RuntimeState:
+
+    def __init__(self, task_graph):
+        self.task_infos = [TaskRuntimeInfo(task)
+                           for task in task_graph.tasks]
+        self.output_infos = [OutputRuntimeInfo(
+            task) for task in task_graph.outputs]
+
+    def task_info(self, task):
+        return self.task_infos[task.id]
+
+    def output_info(self, output):
+        return self.output_infos[output.id]

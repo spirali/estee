@@ -2,7 +2,7 @@
 from simpy import Environment, Event
 
 from .commands import TaskAssignment
-from .runtimeinfo import OutputRuntimeInfo, TaskRuntimeInfo, TaskState
+from .runtimeinfo import OutputRuntimeInfo, TaskRuntimeInfo, TaskState, RuntimeState
 from .trace import TaskAssignTraceEvent
 
 
@@ -38,11 +38,13 @@ class Simulator:
             assert worker.id is None
             worker.id = i
 
-    def task_info(self, task):
-        return self.task_infos[task.id]
+    """
+        def task_info(self, task):
+            return self.task_infos[task.id]
 
-    def output_info(self, output):
-        return self.output_infos[output.id]
+        def output_info(self, output):
+            return self.output_infos[output.id]
+    """
 
     def add_trace_event(self, trace_event):
         if self.trace_events is not None:
@@ -59,7 +61,7 @@ class Simulator:
         worker_loads = {}
         for assignment in schedule:
             assert isinstance(assignment, TaskAssignment)
-            info = self.task_info(assignment.task)
+            info = self.runtime_state.task_info(assignment.task)
             if info.state == TaskState.Finished:
                 raise Exception("Scheduler tries to assign a finished task ({})"
                                 .format(assignment.task))
@@ -105,7 +107,8 @@ class Simulator:
                 self.apply_schedule(schedule)
 
     def on_task_finished(self, worker, task):
-        info = self.task_info(task)
+        runtime_state = self.runtime_state
+        info = runtime_state.task_info(task)
         assert info.state == TaskState.Assigned
         assert worker in info.assigned_workers
         info.state = TaskState.Finished
@@ -115,10 +118,10 @@ class Simulator:
 
         worker_updates = {}
         for o in task.outputs:
-            self.output_info(o).placing.append(worker)
+            runtime_state.output_info(o).placing.append(worker)
             tasks = sorted(o.consumers, key=lambda t: t.id)
             for t in tasks:
-                t_info = self.task_info(t)
+                t_info = runtime_state.task_info(t)
                 t_info.unfinished_inputs -= 1
                 if t_info.unfinished_inputs <= 0:
                     if t_info.unfinished_inputs < 0:
@@ -129,7 +132,7 @@ class Simulator:
                     self.new_ready.append(t)
 
             for t in tasks:
-                for w in self.task_info(t).assigned_workers:
+                for w in runtime_state.task_info(t).assigned_workers:
                     task_set = worker_updates.get(w)
                     if task_set is None:
                         task_set = set()
@@ -144,11 +147,7 @@ class Simulator:
     def run(self):
         assert not self.trace_events
 
-        self.task_infos = [TaskRuntimeInfo(task)
-                           for task in self.task_graph.tasks]
-        self.output_infos = [OutputRuntimeInfo(
-            task) for task in self.task_graph.outputs]
-
+        self.runtime_state = RuntimeState(self.task_graph)
         self.unprocessed_tasks = self.task_graph.task_count
 
         env = Environment()

@@ -93,8 +93,9 @@ def test_worker_download_priorities1():
     w = [Worker(), Worker(max_downloads=2, max_downloads_per_worker=2)]
     simulator = do_sched_test(g, w, s, SimpleNetModel(), return_simulator=True)
 
+    runtime_state = simulator.runtime_state
     for t, p in zip(b, priorities):
-        assert simulator.task_info(t).end_time == pytest.approx((SIZE - p - 1) // 2 + 1)
+        assert runtime_state.task_info(t).end_time == pytest.approx((SIZE - p - 1) // 2 + 1)
 
 
 def test_worker_download_priorities2():
@@ -122,8 +123,8 @@ def test_worker_download_priorities2():
     w = [Worker(cpus=3), Worker(cpus=1, max_downloads=1)]
     simulator = do_sched_test(g, w, s, SimpleNetModel(), return_simulator=True)
 
-    assert simulator.task_info(a2).end_time == pytest.approx(3)
-    assert simulator.task_info(b2).end_time == pytest.approx(7)
+    assert simulator.runtime_state.task_info(a2).end_time == pytest.approx(3)
+    assert simulator.runtime_state.task_info(b2).end_time == pytest.approx(7)
 
 
 def test_worker_execute_priorities():
@@ -139,8 +140,9 @@ def test_worker_execute_priorities():
         [(0, t, p) for t, p in zip(b, priorities)])
     simulator = do_sched_test(g, [Worker(cpus=2)], s, return_simulator=True)
 
+    runtime_state = simulator.runtime_state
     for t, p in zip(b, priorities):
-        assert simulator.task_info(t).end_time == pytest.approx((SIZE - p - 1) // 2 + 1)
+        assert runtime_state.task_info(t).end_time == pytest.approx((SIZE - p - 1) // 2 + 1)
 
 
 def test_worker_priority_block():
@@ -158,10 +160,11 @@ def test_worker_priority_block():
 
     w = [Worker(cpus=3)]
     simulator = do_sched_test(g, w, s, SimpleNetModel(), return_simulator=True)
+    runtime_state = simulator.runtime_state
 
-    assert simulator.task_info(a).end_time == pytest.approx(1)
-    assert simulator.task_info(b).end_time == pytest.approx(2)
-    assert simulator.task_info(c).end_time == pytest.approx(1)
+    assert runtime_state.task_info(a).end_time == pytest.approx(1)
+    assert runtime_state.task_info(b).end_time == pytest.approx(2)
+    assert runtime_state.task_info(c).end_time == pytest.approx(1)
 
     s = fixed_scheduler(
         [(0, a, 3),
@@ -171,10 +174,11 @@ def test_worker_priority_block():
 
     w = [Worker(cpus=3)]
     simulator = do_sched_test(g, w, s, SimpleNetModel(), return_simulator=True)
+    runtime_state = simulator.runtime_state
 
-    assert simulator.task_info(a).end_time == pytest.approx(1)
-    assert simulator.task_info(b).end_time == pytest.approx(2)
-    assert simulator.task_info(c).end_time == pytest.approx(3)
+    assert runtime_state.task_info(a).end_time == pytest.approx(1)
+    assert runtime_state.task_info(b).end_time == pytest.approx(2)
+    assert runtime_state.task_info(c).end_time == pytest.approx(3)
 
 
 def test_worker_freecpus():
