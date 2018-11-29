@@ -276,7 +276,7 @@ def main():
                     instance.graph_name,
                     instance.graph_id,
                     instance.cluster_name,
-                    instance.bandwidth,
+                    BANDWIDTHS[instance.bandwidth],
                     instance.netmodel,
                     instance.scheduler_name,
                     instance.imode,
