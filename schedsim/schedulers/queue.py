@@ -101,5 +101,5 @@ class TlevelGtScheduler(GreedyTransferQueueScheduler):
         t_level = compute_t_level_duration(self.simulator.task_graph)
         tasks = self.simulator.task_graph.tasks[:]
         random.shuffle(tasks)  # To randomize keys with the same level
-        tasks.sort(key=lambda n: t_level[n], reverse=True)
+        tasks.sort(key=lambda n: t_level[n])
         return tasks
