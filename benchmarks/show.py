@@ -43,13 +43,18 @@ def draw_lineplot(*args, **kw):
 
 
 def draw_frame(frame, args, title=None):
-    # normalize by minimum schedule found for each graph/cluster/bandwidth combination
-    mins = frame.groupby(["graph_id", "cluster_name", "bandwidth"])["time"].transform(pd.Series.min)
+    # normalize by minimum schedule found for each graph/cluster/bandwidth/netmodel combination
+    mins = frame.groupby(["graph_id", "cluster_name", "bandwidth", "netmodel"])["time"].transform(pd.Series.min)
     frame["score"] = frame["time"] / mins
 
-    # calculate average for each graph/cluster/bandwidth/scheduler/imode combination
-    data = frame.groupby(["graph_id", "cluster_name", "bandwidth", "scheduler_name", "imode"]) \
+    # calculate average for each graph/cluster/bandwidth/netmodel/scheduler/imode combination
+    data = frame.groupby(["graph_id", "cluster_name", "bandwidth", "netmodel", "scheduler_name", "imode"]) \
         ["score"].mean().reset_index()
+
+    # merge bandwidth and netmodel to a single column
+    if len(data["netmodel"].unique()) > 1:
+        data["bandwidth"] = ["{}/{}".format(b, n)
+                             for (b, n) in zip(data["bandwidth"], data["netmodel"])]
 
     if args.heatmap:
         fg = seaborn.FacetGrid(data, col='cluster_name')
