@@ -143,4 +143,5 @@ def generate_randomized_graph(steps):
             graph = op(graph)
 
     gen_random_links(graph)
+    graph.normalize()
     return graph
