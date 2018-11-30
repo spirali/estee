@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from schedsim.common import imode
 from schedsim.communication import MinMaxFlowNetModel, SimpleNetModel
+from schedsim.schedulers import DLSScheduler
 from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from schedsim.schedulers.camp import Camp2Scheduler
 from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
@@ -25,7 +26,7 @@ SCHEDULERS = {
     "tlevel": TlevelGtScheduler,
     "random-s": RandomAssignScheduler,
     "random-gt": RandomGtScheduler,
-    #"dls": DLSScheduler,
+    "dls": DLSScheduler,
     #"etf": ETFScheduler,
     #"last": LASTScheduler,
     #"mcp": MCPScheduler,

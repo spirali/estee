@@ -42,11 +42,10 @@ class K1hScheduler(SchedulerBase):
 class DLSScheduler(SchedulerBase):
     """
     Implementation of the dynamic level scheduler (DLS) from
-    A Compile-Time Scheduling Heuristic
-    for Interconnection-Constrained
-    Heterogeneous Processor Architectures (1993)
+    A Compile-Time Scheduling Heuristic for Interconnection-Constrained Heterogeneous Processor
+    Architectures (1993)
 
-    The scheduler calculates t.b_Level -
+    The scheduler calculates t.b_level -
     (minimum time when all dependencies of task t are available on worker w)
     for all task-worker pairs (t, w) and selects the maximum.
 
@@ -73,17 +72,17 @@ class DLSScheduler(SchedulerBase):
             return -10e10
 
         now = self.simulator.env.now
-        transfer = self.calculate_transfer(worker, task)
+        earliest_time_ready = self.get_earliest_time_ready(worker, task)
 
         if self.extended_selection:
             last_finish = now + max([t.remaining_time(now)
                                      for t in worker.running_tasks.values()],
                                     default=0)
-            transfer = max(transfer, last_finish)
+            earliest_time_ready = max(earliest_time_ready, last_finish)
 
-        return self.b_level[task] - transfer
+        return self.b_level[task] - earliest_time_ready
 
-    def calculate_transfer(self, worker, task):
+    def get_earliest_time_ready(self, worker, task):
         return self.simulator.env.now + (transfer_cost_parallel(
             self.simulator.runtime_state, worker, task) / self.simulator.netmodel.bandwidth)
 
