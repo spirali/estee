@@ -181,9 +181,9 @@ def parse_args():
     parser.add_argument("--scheduler", help=generate_help(list(SCHEDULERS)), default="all")
     parser.add_argument("--cluster", help=generate_help(list(CLUSTERS)), default="all")
     parser.add_argument("--bandwidth", help=generate_help(list(BANDWIDTHS)), default="all")
-    parser.add_argument("--netmodel", help=generate_help(list(NETMODELS)), default="all")
-    parser.add_argument("--repeat", type=int, default=5)
-    parser.add_argument("--imode", help=generate_help(list(IMODES)), default="all")
+    parser.add_argument("--netmodel", help=generate_help(list(NETMODELS)), default="minmax")
+    parser.add_argument("--repeat", type=int, default=1)
+    parser.add_argument("--imode", help=generate_help(list(IMODES)), default="user")
     parser.add_argument("--no-append", action="store_true")
     parser.add_argument("--graphs")
     parser.add_argument("--dask-cluster")
@@ -234,7 +234,6 @@ def main():
             return list(keys)
         value = [v.strip() for v in value.split(",")]
         assert all(v in keys for v in value)
-
         return value
 
     schedulers = select_option(args.scheduler, SCHEDULERS)
@@ -252,7 +251,14 @@ def main():
         imodes,
         SCHED_TIMINGS))
 
-    print("Testing scheduler: {}".format(args.scheduler))
+    print("============ Config ========================")
+    print("scheduler : {}".format(", ".join(schedulers)))
+    print("cluster   : {}".format(", ".join(clusters)))
+    print("netmodel  : {}".format(", ".join(netmodels)))
+    print("bandwidths: {}".format(", ".join(bandwidths)))
+    print("imode     : {}".format(", ".join(imodes)))
+    print("REPEAT    : {}".format(args.repeat))
+    print("============================================")
 
     if args.dask_cluster:
         iterator = run_dask(instances, args)
