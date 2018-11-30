@@ -189,11 +189,13 @@ class ETFScheduler(SchedulerBase):
     def find_assignment(self, workers, tasks):
         return min(itertools.product(workers, tasks),
                    key=lambda item: (self.calculate_cost(item[0], item[1]),
-                                     self.b_level[item[1]]))
+                                     -self.b_level[item[1]]))
 
     def calculate_cost(self, worker, task):
         if task.cpus > worker.cpus:
             return 10e10
 
         bandwidth = self.simulator.netmodel.bandwidth
-        return transfer_cost_parallel(self.simulator.runtime_state, worker, task) / bandwidth
+        transfer = transfer_cost_parallel(self.simulator.runtime_state, worker, task) / bandwidth
+        computation = worker_estimate_earliest_time(worker, task, self.simulator.env.now)
+        return max(computation, transfer)
