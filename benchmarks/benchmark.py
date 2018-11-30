@@ -9,7 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from schedsim.common.imode import ExactImode, BlindImode
-from schedsim.communication import MaxMinFlowNetModel, SimpleNetModel
+from schedsim.communication import MinMaxFlowNetModel, SimpleNetModel
 from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from schedsim.schedulers.camp import Camp2Scheduler
 from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
@@ -35,7 +35,7 @@ SCHEDULERS = {
 
 NETMODELS = {
     "simple": SimpleNetModel,
-    "maxmin": MaxMinFlowNetModel
+    "minmax": MinMaxFlowNetModel
 }
 
 

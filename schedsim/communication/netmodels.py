@@ -80,7 +80,7 @@ class RunningDownload:
         return "<RD {} {} {}>".format(id(self), self.size, self.speed)
 
 
-class MaxMinFlowNetModel(NetModel):
+class MinMaxFlowNetModel(NetModel):
 
     CACHE_SIZE = 256
 
@@ -172,7 +172,7 @@ class MaxMinFlowNetModel(NetModel):
         if f is None:
             send_capacities = np.full(len(self.workers), self.bandwidth)
             recv_capacities = send_capacities.copy()
-            f = compute_maxmin_flow(send_capacities, recv_capacities, connections)
+            f = compute_minmax_flow(send_capacities, recv_capacities, connections)
             self.flow_cache.set(key, f)
         self._trace_flows(self.flows, f)
         self.flows = f
@@ -188,7 +188,7 @@ class MaxMinFlowNetModel(NetModel):
                     self.event_listener(NetModelFlowEvent(now, s, t, f))
 
 
-def compute_maxmin_flow(send_capacities, recv_capacities, connections):
+def compute_minmax_flow(send_capacities, recv_capacities, connections):
     result = np.zeros_like(connections, dtype=np.float)
     with np.errstate(divide='ignore', invalid='ignore'):
         count = connections.sum()
