@@ -148,14 +148,16 @@ class MCPScheduler(SchedulerBase):
 
     def schedule(self, new_ready, new_finished):
         tasks = sorted(new_ready,
-                       key=lambda t: [self.alap[t]] +
-                                     [self.alap[c] for c in t.consumers()])
+                       key=lambda t: sorted([self.alap[t]] + [self.alap[c] for c in t.consumers()],
+                                            reverse=True))
         bandwidth = self.simulator.netmodel.bandwidth
 
         def cost(w, t):
             if t.cpus > w.cpus:
                 return 10e10
-            return transfer_cost_parallel(self.simulator.runtime_state, w, t) / bandwidth
+            transfer = transfer_cost_parallel(self.simulator.runtime_state, w, t) / bandwidth
+            computation = worker_estimate_earliest_time(worker, task, self.simulator.env.now)
+            return max(transfer, computation)
 
         schedules = []
         for task in tasks:
