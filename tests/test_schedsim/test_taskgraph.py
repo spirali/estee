@@ -1,5 +1,5 @@
 
-from schedsim.common import TaskGraph
+from schedsim.common import Task, TaskGraph
 
 
 def test_is_descendant():
@@ -66,3 +66,19 @@ def test_task_graph_export_dot(plan1, tmpdir):
     plan1.write_dot(name)
     with open(name) as f:
         assert f.read().count("\n") == 35
+
+
+def test_task_copy():
+    task = Task(cpus=2, duration=5, expected_duration=10, outputs=[2, 3])
+    for o in task.outputs:
+        o.expected_size = o.size + 1
+
+    copy = task.simple_copy()
+    assert copy.cpus == task.cpus
+    assert copy.duration == task.duration
+    assert copy.expected_duration == task.expected_duration
+    assert len(copy.outputs) == len(task.outputs)
+
+    for (orig, copied) in zip(task.outputs, copy.outputs):
+        assert orig.size == copied.size
+        assert orig.expected_size == copied.expected_size
