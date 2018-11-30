@@ -6,10 +6,11 @@ from schedsim.schedulers import (AllOnOneScheduler, BlevelGtScheduler,
                                  MCPScheduler,
                                  RandomAssignScheduler, RandomGtScheduler,
                                  RandomScheduler)
-from schedsim.schedulers.utils import (compute_alap,
-                                       compute_independent_tasks)
-from schedsim.schedulers.utils import compute_b_level_duration_size, \
-    compute_t_level_duration_size
+from schedsim.schedulers.utils import compute_alap, compute_b_level_duration_size, \
+    compute_independent_tasks, compute_t_level_duration_size, worker_estimate_earliest_time
+from schedsim.simulator import TaskAssignment
+from schedsim.worker import Worker
+from schedsim.worker.worker import RunningTask
 from .test_utils import do_sched_test, task_by_name
 
 
@@ -71,7 +72,7 @@ def test_scheduler_camp(plan1):
 
 
 def test_scheduler_dls(plan1):
-    assert do_sched_test(plan1, 2, DLSScheduler(), SimpleNetModel()) == 17
+    assert do_sched_test(plan1, 2, DLSScheduler(), SimpleNetModel()) == 14
 
 
 def test_scheduler_last(plan1):
@@ -153,3 +154,48 @@ def test_compute_alap(plan1):
     assert alap[task_by_name(plan1, "a6")] == 8
     assert alap[task_by_name(plan1, "a7")] == 13
     assert alap[task_by_name(plan1, "a8")] == 14
+
+
+def test_worker_estimate_earliest_time():
+    tg = TaskGraph()
+    t0 = tg.new_task(expected_duration=3, cpus=2)
+    t1 = tg.new_task(expected_duration=5, cpus=1)
+    t2 = tg.new_task(expected_duration=4, cpus=3)
+    t4 = tg.new_task(expected_duration=4, cpus=2)
+    t5 = tg.new_task(expected_duration=4, cpus=2)
+
+    worker = Worker(cpus=4)
+    worker.assignments = [TaskAssignment(worker, t0), TaskAssignment(worker, t1),
+                          TaskAssignment(worker, t2), TaskAssignment(worker, t4)]
+    worker.running_tasks[t0] = RunningTask(t0, 0)
+    worker.running_tasks[t1] = RunningTask(t1, 0)
+
+    assert worker_estimate_earliest_time(worker, t5, 0) == 7
+
+
+def test_worker_estimate_earliest_time_multiple_at_once():
+    tg = TaskGraph()
+    t0 = tg.new_task(expected_duration=3, cpus=1)
+    t1 = tg.new_task(expected_duration=3, cpus=1)
+    t2 = tg.new_task(expected_duration=3, cpus=1)
+
+    worker = Worker(cpus=2)
+    worker.assignments = [TaskAssignment(worker, t0), TaskAssignment(worker, t1)]
+    worker.running_tasks[t0] = RunningTask(t0, 0)
+    worker.running_tasks[t1] = RunningTask(t1, 0)
+
+    assert worker_estimate_earliest_time(worker, t2, 0) == 3
+
+
+def test_worker_estimate_earliest_time_offset_now():
+    tg = TaskGraph()
+    t0 = tg.new_task(expected_duration=3, cpus=1)
+    t1 = tg.new_task(expected_duration=5, cpus=1)
+    t2 = tg.new_task(expected_duration=3, cpus=2)
+
+    worker = Worker(cpus=2)
+    worker.assignments = [TaskAssignment(worker, t0), TaskAssignment(worker, t1)]
+    worker.running_tasks[t0] = RunningTask(t0, 0)
+    worker.running_tasks[t1] = RunningTask(t1, 0)
+
+    assert worker_estimate_earliest_time(worker, t2, 2) == 3

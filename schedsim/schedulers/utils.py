@@ -1,3 +1,6 @@
+import queue
+from collections import deque
+
 from ..simulator import TaskAssignment
 from ..simulator.runtimeinfo import TaskState
 
@@ -186,3 +189,41 @@ def get_size_estimate(runtime_state, output):
     if runtime_state is None or runtime_state.task_info(output.parent).state == TaskState.Finished:
         return output.size
     return output.expected_size if output.expected_size is not None else 1
+
+
+def worker_estimate_earliest_time(worker, task, now):
+    """
+    Estimates in how many time units from `now` will `worker` be able to start executing
+    the given `task`. Neglects data transfers.
+    """
+    assert task.cpus <= worker.cpus
+
+    running_tasks = list(worker.running_tasks)
+
+    free_cpus = worker.cpus
+    index = 0
+    runqueue = queue.PriorityQueue()
+    for t in running_tasks:
+        runqueue.put((worker.running_tasks[t].start_time + t.expected_duration or 1, index, t))
+        index += 1
+        free_cpus -= t.cpus
+    assignments = deque([a.task for a in worker.assignments if a.task not in running_tasks])
+
+    clock = now
+    while free_cpus < task.cpus:
+        (finish_time, _, t) = runqueue.get()
+        clock = finish_time
+        free_cpus += t.cpus
+        while assignments and free_cpus >= assignments[0].cpus:
+            runqueue.put((clock + assignments[0].expected_duration or 1, index, assignments[0]))
+            index += 1
+            free_cpus -= assignments[0].cpus
+            assignments.popleft()
+    return clock - now
+
+
+def assign_expected_values(graph, duration_estimate=1, size_estimate=1):
+    for t in graph.tasks:
+        t.duration = t.expected_duration or duration_estimate
+        for o in t.outputs:
+            o.size = o.expected_size or size_estimate

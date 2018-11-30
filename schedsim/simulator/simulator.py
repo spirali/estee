@@ -2,7 +2,7 @@
 from simpy import Environment, Event
 
 from .commands import TaskAssignment
-from .runtimeinfo import OutputRuntimeInfo, TaskRuntimeInfo, TaskState, RuntimeState
+from .runtimeinfo import RuntimeState, TaskState
 from .trace import TaskAssignTraceEvent
 
 

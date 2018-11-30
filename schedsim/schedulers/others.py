@@ -1,8 +1,8 @@
 import itertools
 
-from .scheduler import SchedulerBase
+from .scheduler import SchedulerBase, make_static_scheduler
 from .utils import compute_alap, compute_b_level_duration, get_duration_estimate, \
-    get_size_estimate, schedule_all, transfer_cost_parallel
+    get_size_estimate, schedule_all, transfer_cost_parallel, worker_estimate_earliest_time
 from ..simulator import TaskAssignment
 
 
@@ -39,6 +39,7 @@ class K1hScheduler(SchedulerBase):
         return cost / bandwidth
 
 
+@make_static_scheduler
 class DLSScheduler(SchedulerBase):
     """
     Implementation of the dynamic level scheduler (DLS) from
@@ -48,12 +49,7 @@ class DLSScheduler(SchedulerBase):
     The scheduler calculates t.b_level -
     (minimum time when all dependencies of task t are available on worker w)
     for all task-worker pairs (t, w) and selects the maximum.
-
-    :param extended_selection True if extended processor selection
-    should be used
     """
-    def __init__(self, extended_selection=False):
-        self.extended_selection = extended_selection
 
     def init(self, simulator):
         super().init(simulator)
@@ -72,19 +68,12 @@ class DLSScheduler(SchedulerBase):
             return -10e10
 
         now = self.simulator.env.now
-        earliest_time_ready = self.get_earliest_time_ready(worker, task)
+        earliest_transfer = (transfer_cost_parallel(self.simulator.runtime_state, worker, task) /
+                             self.simulator.netmodel.bandwidth)
 
-        if self.extended_selection:
-            last_finish = now + max([t.remaining_time(now)
-                                     for t in worker.running_tasks.values()],
-                                    default=0)
-            earliest_time_ready = max(earliest_time_ready, last_finish)
+        earliest_computation = worker_estimate_earliest_time(worker, task, self.simulator.env.now)
 
-        return self.b_level[task] - earliest_time_ready
-
-    def get_earliest_time_ready(self, worker, task):
-        return self.simulator.env.now + (transfer_cost_parallel(
-            self.simulator.runtime_state, worker, task) / self.simulator.netmodel.bandwidth)
+        return self.b_level[task] - (now + max(earliest_transfer, earliest_computation))
 
 
 class LASTScheduler(SchedulerBase):

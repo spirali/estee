@@ -1,10 +1,9 @@
-from simpy import Store, Event
+import logging
+
+from simpy import Event, Store
 
 from ..simulator.trace import FetchEndTraceEvent, FetchStartTraceEvent, \
     TaskEndTraceEvent, TaskStartTraceEvent
-
-import logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +67,11 @@ class Worker:
         self.max_downloads = max_downloads
         self.max_downloads_per_worker = max_downloads_per_worker
         self.id = None
+
+    def copy(self):
+        return Worker(cpus=self.cpus,
+                      max_downloads=self.max_downloads,
+                      max_downloads_per_worker=self.max_downloads_per_worker)
 
     def _download(self, output, priority):
         logger.info("Worker %s: scheduled downloading %s, priority=%s", self, output, priority)
