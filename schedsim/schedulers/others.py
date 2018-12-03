@@ -156,7 +156,7 @@ class MCPScheduler(SchedulerBase):
             if t.cpus > w.cpus:
                 return 10e10
             transfer = transfer_cost_parallel(self.simulator.runtime_state, w, t) / bandwidth
-            computation = worker_estimate_earliest_time(worker, task, self.simulator.env.now)
+            computation = worker_estimate_earliest_time(w, task, self.simulator.env.now)
             return max(transfer, computation)
 
         schedules = []

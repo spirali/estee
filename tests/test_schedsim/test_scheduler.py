@@ -80,11 +80,11 @@ def test_scheduler_last(plan1):
 
 
 def test_scheduler_mcp(plan1):
-    assert do_sched_test(plan1, 2, MCPScheduler(), SimpleNetModel()) == 17
+    assert do_sched_test(plan1, 2, MCPScheduler(), SimpleNetModel()) == 15
 
 
 def test_scheduler_etf(plan1):
-    assert do_sched_test(plan1, 2, ETFScheduler(), SimpleNetModel()) == 17
+    assert do_sched_test(plan1, 2, ETFScheduler(), SimpleNetModel()) == 15
 
 
 def test_compute_indepndent_tasks(plan1):
