@@ -28,6 +28,15 @@ class StaticScheduler(SchedulerBase):
         raise NotImplementedError()
 
 
+class FixedScheduler(StaticScheduler):
+    def __init__(self, schedules):
+        super().__init__()
+        self.schedules = schedules
+
+    def static_schedule(self):
+        return self.schedules
+
+
 class TracingScheduler(SchedulerBase):
     def __init__(self, scheduler):
         self.scheduler = scheduler

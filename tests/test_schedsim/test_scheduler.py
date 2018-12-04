@@ -6,6 +6,7 @@ from schedsim.schedulers import (AllOnOneScheduler, BlevelGtScheduler,
                                  MCPScheduler,
                                  RandomAssignScheduler, RandomGtScheduler,
                                  RandomScheduler)
+from schedsim.schedulers.genetic import GeneticScheduler
 from schedsim.schedulers.utils import compute_alap, compute_b_level_duration_size, \
     compute_independent_tasks, compute_t_level_duration_size, topological_sort, \
     worker_estimate_earliest_time
@@ -86,6 +87,10 @@ def test_scheduler_mcp(plan1):
 
 def test_scheduler_etf(plan1):
     assert do_sched_test(plan1, 2, ETFScheduler(), SimpleNetModel()) == 15
+
+
+def test_scheduler_genetic(plan1):
+    assert 10 <= do_sched_test(plan1, 2, GeneticScheduler(), SimpleNetModel()) <= 20
 
 
 def test_compute_indepndent_tasks(plan1):

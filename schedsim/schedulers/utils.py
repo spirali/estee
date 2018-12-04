@@ -1,5 +1,5 @@
-import queue
 from collections import deque
+from heapq import heappop, heappush
 
 from ..simulator import TaskAssignment
 from ..simulator.runtimeinfo import TaskState
@@ -202,20 +202,22 @@ def worker_estimate_earliest_time(worker, task, now):
 
     free_cpus = worker.cpus
     index = 0
-    runqueue = queue.PriorityQueue()
+    runqueue = []
     for t in running_tasks:
-        runqueue.put((worker.running_tasks[t].start_time + (t.expected_duration or 1), index, t))
+        heappush(runqueue,
+                 (worker.running_tasks[t].start_time + (t.expected_duration or 1), index, t))
         index += 1
         free_cpus -= t.cpus
     assignments = deque([a.task for a in worker.assignments if a.task not in running_tasks])
 
     clock = now
     while free_cpus < task.cpus:
-        (finish_time, _, t) = runqueue.get()
+        (finish_time, _, t) = heappop(runqueue)
         clock = finish_time
         free_cpus += t.cpus
         while assignments and free_cpus >= assignments[0].cpus:
-            runqueue.put((clock + (assignments[0].expected_duration or 1), index, assignments[0]))
+            heappush(runqueue,
+                     (clock + (assignments[0].expected_duration or 1), index, assignments[0]))
             index += 1
             free_cpus -= assignments[0].cpus
             assignments.popleft()

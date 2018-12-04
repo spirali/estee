@@ -12,6 +12,7 @@ from schedsim.common import imode
 from schedsim.communication import MinMaxFlowNetModel, SimpleNetModel
 from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from schedsim.schedulers.camp import Camp2Scheduler
+from schedsim.schedulers.genetic import GeneticScheduler
 from schedsim.schedulers.others import DLSScheduler, ETFScheduler, MCPScheduler
 from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
 from schedsim.serialization.utils import set_recursion_limit
@@ -29,6 +30,7 @@ SCHEDULERS = {
     "dls": DLSScheduler,
     "etf": ETFScheduler,
     "mcp": MCPScheduler,
+    "genetic": GeneticScheduler,
     #"last": LASTScheduler,
     "camp2": lambda: Camp2Scheduler(5000)
 }
