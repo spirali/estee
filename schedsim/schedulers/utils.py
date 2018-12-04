@@ -227,3 +227,24 @@ def assign_expected_values(graph, duration_estimate=1, size_estimate=1):
         t.duration = t.expected_duration or duration_estimate
         for o in t.outputs:
             o.size = o.expected_size or size_estimate
+
+
+def topological_sort(graph):
+    visited = [False] * graph.task_count
+    result = graph.source_tasks()
+    next = []
+
+    for t in result:
+        visited[t.id] = True
+        next += list(t.consumers())
+
+    while len(result) < graph.task_count:
+        forward = []
+        for t in next:
+            if not visited[t.id]:
+                visited[t.id] = True
+                result.append(t)
+                forward += list(t.consumers())
+        next = forward
+
+    return result

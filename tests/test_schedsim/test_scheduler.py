@@ -7,7 +7,8 @@ from schedsim.schedulers import (AllOnOneScheduler, BlevelGtScheduler,
                                  RandomAssignScheduler, RandomGtScheduler,
                                  RandomScheduler)
 from schedsim.schedulers.utils import compute_alap, compute_b_level_duration_size, \
-    compute_independent_tasks, compute_t_level_duration_size, worker_estimate_earliest_time
+    compute_independent_tasks, compute_t_level_duration_size, topological_sort, \
+    worker_estimate_earliest_time
 from schedsim.simulator import TaskAssignment
 from schedsim.worker import Worker
 from schedsim.worker.worker import RunningTask
@@ -199,3 +200,9 @@ def test_worker_estimate_earliest_time_offset_now():
     worker.running_tasks[t1] = RunningTask(t1, 0)
 
     assert worker_estimate_earliest_time(worker, t2, 2) == 3
+
+
+def test_topological_sort(plan1):
+    tasks = ['a1', 'a2', 'a4', 'a7', 'a3', 'a5', 'a6', 'a8']
+
+    assert topological_sort(plan1) == [task_by_name(plan1, t) for t in tasks]
