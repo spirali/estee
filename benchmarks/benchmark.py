@@ -4,6 +4,7 @@ import itertools
 import multiprocessing
 import os
 import sys
+import time
 
 import pandas as pd
 from tqdm import tqdm
@@ -84,11 +85,12 @@ Instance = collections.namedtuple("Instance",
 
 
 def run_single_instance(instance):
+    begin_time = time.monotonic()
     workers = [Worker(**wargs) for wargs in CLUSTERS[instance.cluster_name]]
     netmodel = NETMODELS[instance.netmodel](BANDWIDTHS[instance.bandwidth])
     scheduler = SCHEDULERS[instance.scheduler_name]()
     simulator = Simulator(instance.graph, workers, scheduler, netmodel)
-    return simulator.run()
+    return simulator.run(), time.monotonic() - begin_time
 
 
 def benchmark_scheduler(instance, count):
@@ -203,7 +205,8 @@ def main():
                "imode",
                "min_sched_interval",
                "sched_time",
-               "time"]
+               "time",
+               "execution_time"]
 
     args = parse_args()
     graphset = pd.read_pickle(args.graphset)
@@ -274,7 +277,7 @@ def main():
     try:
         for instance, result in tqdm(zip(instances, iterator), total=len(instances)):
             counter += 1
-            for r in result:
+            for r_time, r_runtime in result:
                 rows.append((
                     instance.graph_name,
                     instance.graph_id,
@@ -285,7 +288,8 @@ def main():
                     instance.imode,
                     instance.min_sched_interval,
                     instance.sched_time,
-                    r
+                    r_time,
+                    r_runtime,
                 ))
     except KeyboardInterrupt:
         print("Benchmark interrupted, iterated {} instances. Writing intermediate results"
