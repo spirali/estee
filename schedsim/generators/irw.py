@@ -26,7 +26,7 @@ def gridcat(count):
     return g
 
 
-def crossv(inner_count, factor=1.0):
+def crossv(inner_count, train_cpus=4, eval_cpus=4, factor=1.0):
     g = TaskGraph()
 
     CHUNK_SIZE = 320
@@ -47,10 +47,10 @@ def crossv(inner_count, factor=1.0):
         results = []
         for i in range(CHUNK_COUNT):
             train = g.new_task("train{}".format(i), duration=exponential(680 * factor),
-                               expected_duration=660 * factor, output_size=18, cpus=4)
+                               expected_duration=660 * factor, output_size=18, cpus=train_cpus)
             train.add_input(merges[i])
             evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
-                                  expected_duration=30 * factor, output_size=0.0001, cpus=4)
+                                  expected_duration=30 * factor, output_size=0.0001, cpus=eval_cpus)
             evaluate.add_input(train)
             evaluate.add_input(chunks[i])
             results.append(evaluate.output)
@@ -60,16 +60,16 @@ def crossv(inner_count, factor=1.0):
     return g
 
 
-def crossvx(inner_count, outer_count):
-    graphs = [crossv(inner_count) for _ in range(outer_count)]
+def crossvx(inner_count, outer_count, train_cpus=4, eval_cpus=4):
+    graphs = [crossv(inner_count, train_cpus=train_cpus, eval_cpus=eval_cpus) for _ in range(outer_count)]
     return TaskGraph.merge(graphs)
 
 
 def fastcrossv(inner_count):
-    return crossv(inner_count, 0.02)
+    return crossv(inner_count, 1, 1, factor=0.02)
 
 
-def nestedcrossv(parameter_count, factor=1.0):
+def nestedcrossv(parameter_count, factor=1.0, train_cpus=4, eval_cpus=4):
     g = TaskGraph()
 
     FOLD_SIZE = 320
@@ -96,10 +96,10 @@ def nestedcrossv(parameter_count, factor=1.0):
             results = []
             for i in range(INNER_FOLD_COUNT):
                 train = g.new_task("train{}".format(i), duration=exponential(680 * factor * p),
-                                   expected_duration=60 * factor * p, output_size=18, cpus=4)
+                                   expected_duration=60 * factor * p, output_size=18, cpus=train_cpus)
                 train.add_input(merges[i])
                 evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
-                                      expected_duration=30 * factor, output_size=0.0001, cpus=4)
+                                      expected_duration=30 * factor, output_size=0.0001, cpus=eval_cpus)
                 evaluate.add_input(train)
                 evaluate.add_input(inner_folds[i])
                 results.append(evaluate.output)
@@ -116,12 +116,12 @@ def nestedcrossv(parameter_count, factor=1.0):
         merge.add_inputs(inner_folds)
 
         train = g.new_task("train{}".format(i), duration=exponential(680 * factor),
-                           expected_duration=660 * factor, output_size=18, cpus=4)
+                           expected_duration=660 * factor, output_size=18, cpus=train_cpus)
         train.add_input(merge)
         train.add_input(t)
 
         evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
-                              expected_duration=30 * factor, output_size=0.0001, cpus=4)
+                              expected_duration=30 * factor, output_size=0.0001, cpus=eval_cpus)
         evaluate.add_input(train)
         evaluate.add_input(folds[leave_out_idx])
 

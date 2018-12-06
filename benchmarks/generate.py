@@ -73,11 +73,11 @@ irw_generators = [
 
 m_irw_generators = [
     ("m/gridcat", gridcat, 90),
-    ("m/crossv", crossv, 800),
-    ("m/crossvx", crossvx, 26, 32),
+    ("m/crossv", crossv, 800, 16, 16),
+    ("m/crossvx", crossvx, 26, 32, 16, 16),
     ("m/fastcrossv", fastcrossv, 800),
     ("m/mapreduce", mapreduce, 260),
-    ("m/netstercrossv", nestedcrossv, 200),
+    ("m/netstercrossv", nestedcrossv, 200, 1.0, 16, 16),
 ]
 
 pegasus_generators = [
