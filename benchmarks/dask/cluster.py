@@ -3,10 +3,12 @@ import os
 import socket
 import subprocess
 import time
+import tempfile
 
 from distributed import Client
 
 
+TMP_DIR = tempfile.gettempdir()
 HOSTNAME = socket.gethostname()
 
 
@@ -30,15 +32,19 @@ def run_cmd(host, cmds):
 
 
 def spawn_workers(host, count, scheduler):
-    return run_cmd(host, ["dask-worker", "--nthreads", "1", "--nprocs", str(count), "--local-directory", "/tmp/estee", scheduler])
+    cookie = time.time()
+    return run_cmd(host, ["dask-worker", "--nthreads", "1", "--nprocs", str(count),
+                          "--local-directory", os.path.join(TMP_DIR,
+                                                            "estee-{}".format(cookie)),
+                          scheduler])
 
 
 def kill_workers(host):
-    return run_cmd(host, ["killall", "dask-worker"])
+    return run_cmd(host, ["pkill", "-f", "-9", "dask-worker"])
 
 
 def kill_scheduler(host):
-    return run_cmd(host, ["killall", "dask-scheduler"])
+    return run_cmd(host, ["pkill", "-f", "-9", "dask-scheduler"])
 
 
 def spawn_scheduler(host, port):
@@ -73,6 +79,7 @@ def start_cluster(port, procs=24):
 
 def stop_cluster():
     kill_scheduler(HOSTNAME)
+    kill_workers(HOSTNAME)
 
 
 def get_info(por):
