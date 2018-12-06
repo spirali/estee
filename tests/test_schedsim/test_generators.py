@@ -5,7 +5,7 @@ from schedsim.generators.elementary import bigmerge, conflux, duration_stairs, f
     size_stairs, splitters, triplets
 from schedsim.generators.irw import crossv, crossvx, fastcrossv, gridcat, mapreduce, nestedcrossv
 from schedsim.generators.pegasus import cybershake, epigenomics, ligo, montage, sipht
-from schedsim.generators.randomized import generate_randomized_graph
+from schedsim.generators.randomized import generate_randomized_graph, SGen, MGen
 
 
 def check_graph(g):
@@ -82,4 +82,5 @@ def test_pegasus():
 
 
 def test_randomized():
-    check_graph(generate_randomized_graph(10))
+    check_graph(generate_randomized_graph(SGen(), 10))
+    check_graph(generate_randomized_graph(MGen(), 10))
