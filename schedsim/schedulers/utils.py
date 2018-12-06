@@ -163,10 +163,12 @@ def schedule_all(workers, tasks, get_assignment):
     Tasks are removed after being scheduler, workers stay the same.
     """
     schedules = []
+    worker_assignments = {}
 
     for _ in tasks[:]:
-        (w, task) = get_assignment(workers, tasks)
+        (w, task) = get_assignment(workers, tasks, worker_assignments)
         tasks.remove(task)
+        worker_assignments.setdefault(w, []).append(task)
         schedules.append(TaskAssignment(w, task))
 
     return schedules
@@ -191,12 +193,15 @@ def get_size_estimate(runtime_state, output):
     return output.expected_size if output.expected_size is not None else 1
 
 
-def worker_estimate_earliest_time(worker, task, now):
+def worker_estimate_earliest_time(worker, task, now, worker_assignments=None):
     """
     Estimates in how many time units from `now` will `worker` be able to start executing
     the given `task`. Neglects data transfers.
     """
     assert task.cpus <= worker.cpus
+
+    if worker_assignments is None:
+        worker_assignments = []
 
     running_tasks = list(worker.running_tasks)
 
@@ -208,7 +213,8 @@ def worker_estimate_earliest_time(worker, task, now):
                  (worker.running_tasks[t].start_time + (t.expected_duration or 1), index, t))
         index += 1
         free_cpus -= t.cpus
-    assignments = deque([a.task for a in worker.assignments if a.task not in running_tasks])
+    assignments = deque([a.task for a in worker.assignments if a.task not in running_tasks] +
+                        worker_assignments)
 
     clock = now
     while free_cpus < task.cpus:

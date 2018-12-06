@@ -9,7 +9,7 @@ from ..simulator import TaskAssignment
 class K1hScheduler(SchedulerBase):
     def schedule(self, new_ready, new_finished):
         return schedule_all(self.simulator.workers, new_ready,
-                            lambda w, t: self.find_assignment(w, t))
+                            lambda w, t, a: self.find_assignment(w, t))
 
     def find_assignment(self, workers, tasks):
         return min(itertools.product(workers, tasks),
@@ -29,12 +29,13 @@ class K1hScheduler(SchedulerBase):
 
     def calculate_transfer(self, worker, task):
         bandwidth = self.simulator.netmodel.bandwidth
-        cost = transfer_cost_parallel(self.simulator, worker, task)
+        cost = transfer_cost_parallel(self.simulator.runtime_state, worker, task)
 
-        for c in task.consumers:
+        for c in task.consumers():
             for i in c.inputs:
-                if i != task and worker not in i.info.assigned_workers:
-                    cost += get_size_estimate(self.simulator, i)
+                if (i.parent != task and
+                        worker not in self.simulator.runtime_state.output_info(i).placing):
+                    cost += get_size_estimate(self.simulator.runtime_state, i)
 
         return cost / bandwidth
 
@@ -57,13 +58,14 @@ class DLSScheduler(SchedulerBase):
 
     def schedule(self, new_ready, new_finished):
         return schedule_all(self.simulator.workers, new_ready,
-                            lambda w, t: self.find_assignment(w, t))
+                            lambda w, t, a: self.find_assignment(w, t, a))
 
-    def find_assignment(self, workers, tasks):
+    def find_assignment(self, workers, tasks, worker_assignments):
         return max(itertools.product(workers, tasks),
-                   key=lambda item: self.calculate_cost(item[0], item[1]))
+                   key=lambda item: self.calculate_cost(item[0], item[1],
+                                                        worker_assignments.get(item[0], [])))
 
-    def calculate_cost(self, worker, task):
+    def calculate_cost(self, worker, task, worker_assignments):
         if task.cpus > worker.cpus:
             return -10e10
 
@@ -71,7 +73,8 @@ class DLSScheduler(SchedulerBase):
         earliest_transfer = (transfer_cost_parallel(self.simulator.runtime_state, worker, task) /
                              self.simulator.netmodel.bandwidth)
 
-        earliest_computation = worker_estimate_earliest_time(worker, task, self.simulator.env.now)
+        earliest_computation = worker_estimate_earliest_time(
+            worker, task, self.simulator.env.now, worker_assignments)
 
         return self.b_level[task] - (now + max(earliest_transfer, earliest_computation))
 
@@ -109,7 +112,7 @@ class LASTScheduler(SchedulerBase):
                 input = sum(sizes)
                 output = sum((get_size_estimate(runtime_state, output) / bandwidth)
                              for output in task.outputs)
-                d_nodes[task] = (input_weighted + output) / (input + output)
+                d_nodes[task] = (input_weighted + output) / max(0.001, input + output)
 
         def worker_cost(worker, task):
             if task.cpus > worker.cpus:
@@ -152,17 +155,21 @@ class MCPScheduler(SchedulerBase):
                                             reverse=True))
         bandwidth = self.simulator.netmodel.bandwidth
 
+        worker_assignments = {}
+
         def cost(w, t):
             if t.cpus > w.cpus:
                 return 10e10
             transfer = transfer_cost_parallel(self.simulator.runtime_state, w, t) / bandwidth
-            computation = worker_estimate_earliest_time(w, task, self.simulator.env.now)
+            computation = worker_estimate_earliest_time(w, task, self.simulator.env.now,
+                                                        worker_assignments.get(w, []))
             return max(transfer, computation)
 
         schedules = []
         for task in tasks:
             worker = min(self.simulator.workers, key=lambda w: cost(w, task))
             schedules.append(TaskAssignment(worker, task))
+            worker_assignments.setdefault(worker, []).append(task)
 
         return schedules
 
@@ -186,18 +193,21 @@ class ETFScheduler(SchedulerBase):
 
     def schedule(self, new_ready, new_finished):
         return schedule_all(self.simulator.workers, new_ready,
-                            lambda w, t: self.find_assignment(w, t))
+                            lambda w, t, a: self.find_assignment(w, t, a))
 
-    def find_assignment(self, workers, tasks):
+    def find_assignment(self, workers, tasks, worker_assignments):
         return min(itertools.product(workers, tasks),
-                   key=lambda item: (self.calculate_cost(item[0], item[1]),
+                   key=lambda item: (self.calculate_cost(item[0],
+                                                         item[1],
+                                                         worker_assignments.get(item[0], [])),
                                      -self.b_level[item[1]]))
 
-    def calculate_cost(self, worker, task):
+    def calculate_cost(self, worker, task, worker_assignments):
         if task.cpus > worker.cpus:
             return 10e10
 
         bandwidth = self.simulator.netmodel.bandwidth
         transfer = transfer_cost_parallel(self.simulator.runtime_state, worker, task) / bandwidth
-        computation = worker_estimate_earliest_time(worker, task, self.simulator.env.now)
+        computation = worker_estimate_earliest_time(worker, task,
+                                                    self.simulator.env.now, worker_assignments)
         return max(computation, transfer)
