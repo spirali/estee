@@ -1,14 +1,13 @@
 import random
-from heapq import heappop, heappush
 
 from deap import algorithms, base, creator
 from deap.gp import tools
 
-from schedsim.schedulers.utils import compute_b_level_duration_size, worker_estimate_earliest_time
-from schedsim.worker.worker import RunningTask
 from .scheduler import FixedScheduler, StaticScheduler, TracingScheduler
+from .utils import compute_b_level_duration_size
 from ..communication import SimpleNetModel
 from ..simulator import Simulator, TaskAssignment
+from ..simulator.utils import estimate_schedule
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
 creator.create("Individual", list, fitness=creator.FitnessMin)
@@ -164,46 +163,3 @@ class GeneticScheduler(StaticScheduler):
     def static_schedule(self):
         return self.create_schedule(self.best_individual, self.simulator.task_graph.tasks,
                                     self.simulator.workers)
-
-
-def estimate_schedule(schedule, graph, netmodel):
-    task_to_worker = {assignment.task: assignment.worker for assignment in schedule}
-    finish_time = {t: 0 for t in graph.tasks}
-    start_time = dict(finish_time)
-
-    events = []
-    index = 0
-    for task in graph.tasks:
-        if not task.inputs:
-            heappush(events, (0, index, task, task_to_worker[task], "start"))
-            index += 1
-
-    finished = [False] * graph.task_count
-
-    while events:
-        (time, _, task, worker, type) = heappop(events)
-        if type == "start":
-            dta = (transfer_cost_parallel_finished(task_to_worker, worker, task) /
-                   netmodel.bandwidth)
-            rt = worker_estimate_earliest_time(worker, task, time)
-            start_time[task] = time + max(rt, dta)
-            finish_time[task] = start_time[task] + task.expected_duration
-            worker.running_tasks[task] = RunningTask(task, start_time[task])
-            heappush(events, (finish_time[task], index, task, worker, "end"))
-            index += 1
-        elif type == "end":
-            del worker.running_tasks[task]
-            finished[task.id] = True
-            for consumer in task.consumers():
-                if all([finished[input.parent.id] for input in consumer.inputs]):
-                    heappush(events,
-                             (time, index, consumer, task_to_worker[consumer], "start"))
-                    index += 1
-
-    return max(finish_time.values())
-
-
-def transfer_cost_parallel_finished(task_to_worker, worker, task):
-    return max((i.size for i in task.inputs
-                if worker != task_to_worker[i.parent]),
-               default=0)

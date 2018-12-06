@@ -1,3 +1,5 @@
+import itertools
+
 import pytest
 
 from schedsim.common import TaskGraph
@@ -5,6 +7,8 @@ from schedsim.communication import SimpleNetModel
 from schedsim.schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase, \
     StaticScheduler
 from schedsim.simulator import TaskAssignment
+from schedsim.simulator.utils import estimate_schedule
+from schedsim.worker import Worker
 from .test_utils import do_sched_test
 
 
@@ -131,3 +135,12 @@ def test_scheduling_time():
     assert runtime_state.task_info(b).end_time == 8
     assert runtime_state.task_info(c).end_time == 11
     assert runtime_state.task_info(d).end_time == 14
+
+
+def test_estimate_schedule(plan1):
+    netmodel = SimpleNetModel(1)
+    workers = [Worker(cpus=4) for _ in range(4)]
+
+    schedule = [TaskAssignment(w, t) for (w, t) in zip(itertools.cycle(workers), plan1.tasks)]
+
+    assert estimate_schedule(schedule, plan1, netmodel) == 16
