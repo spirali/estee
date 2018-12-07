@@ -35,7 +35,7 @@ def test_elementary():
         (plain1n, 380),
         (plain1e, 380),
         (plain1cpus, 380),
-        (triplets, 110),
+        (triplets, 110, 4),
         (merge_neighbours, 107),
         (merge_triplets, 111),
         (merge_small_big, 80),
