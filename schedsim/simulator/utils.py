@@ -11,8 +11,6 @@ def estimate_schedule(schedule, graph, netmodel):
                    default=0)
 
     task_to_worker = {assignment.task: assignment.worker for assignment in schedule}
-    finish_time = {t: 0 for t in graph.tasks}
-    start_time = dict(finish_time)
 
     events = []
     index = 0
@@ -24,16 +22,17 @@ def estimate_schedule(schedule, graph, netmodel):
     finished = [False] * graph.task_count
     remaining_inputs = {task: len(task.inputs) for task in graph.tasks}
 
+    end = 0
     while events:
         (time, _, task, worker, type) = heappop(events)
         if type == "start":
             dta = (transfer_cost_parallel_finished(task_to_worker, worker, task) /
                    netmodel.bandwidth)
             rt = worker_estimate_earliest_time(worker, task, time)
-            start_time[task] = time + max(rt, dta)
-            finish_time[task] = start_time[task] + task.expected_duration
-            worker.running_tasks[task] = RunningTask(task, start_time[task])
-            heappush(events, (finish_time[task], index, task, worker, "end"))
+            start = time + max(rt, dta)
+            finish = start + task.expected_duration
+            worker.running_tasks[task] = RunningTask(task, start)
+            heappush(events, (finish, index, task, worker, "end"))
             index += 1
         elif type == "end":
             del worker.running_tasks[task]
@@ -43,5 +42,6 @@ def estimate_schedule(schedule, graph, netmodel):
                 if remaining_inputs[consumer] == 0:
                     heappush(events, (time, index, consumer, task_to_worker[consumer], "start"))
                     index += 1
+            end = max(end, time)
 
-    return max(finish_time.values())
+    return end
