@@ -66,16 +66,19 @@ BANDWIDTHS = {
 
 IMODES = {
     "exact": imode.process_imode_exact,
-    #"blind": imode.process_imode_blind,
+    "blind": imode.process_imode_blind,
     "mean": imode.process_imode_mean,
     "user": imode.process_imode_user,
 }
 
 
-SCHED_TIMINGS = [
+SCHED_TIMINGS = {
     # min_sched_interval, sched_time
-    (0.1, 0.05)
-]
+    "0.1/0.05": (0.1, 0.05),
+    "0.4/0.05": (0.4, 0.05),
+    "1.6/0.05": (1.6, 0.05),
+    "6.4/0.05": (6.4, 0.05)
+}
 
 
 Instance = collections.namedtuple("Instance",
@@ -111,13 +114,14 @@ def instance_iter(graphs, cluster_names, bandwidths, netmodels, scheduler_names,
                 graph_cache[graph][imode] = g
                 IMODES[imode](g)
 
-    for graph_def, cluster_name, bandwidth, netmodel, scheduler_name, imode,\
-        (min_sched_interval, sched_time) in itertools.product(graphs, cluster_names, bandwidths,
-                                                              netmodels, scheduler_names, imodes,
-                                                              sched_timings):
+    for graph_def, cluster_name, bandwidth, netmodel, scheduler_name, imode, sched_timing\
+        in itertools.product(graphs, cluster_names, bandwidths, netmodels, scheduler_names, imodes,
+                             sched_timings):
         g = graph_def[1]
         calculate_imodes(g["graph"])
         graph = graph_cache[g["graph"]][imode]
+
+        (min_sched_interval, sched_time) = SCHED_TIMINGS[sched_timing]
         instance = Instance(
             g["graph_name"], g["graph_id"], graph,
             cluster_name, BANDWIDTHS[bandwidth], netmodel,
@@ -181,8 +185,9 @@ def parse_args():
     parser.add_argument("--cluster", help=generate_help(list(CLUSTERS)), default="all")
     parser.add_argument("--bandwidth", help=generate_help(list(BANDWIDTHS)), default="all")
     parser.add_argument("--netmodel", help=generate_help(list(NETMODELS)), default="minmax")
-    parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--imode", help=generate_help(list(IMODES)), default="user")
+    parser.add_argument("--sched-timing", help=generate_help(list(SCHED_TIMINGS)), default="all")
+    parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--no-append", action="store_true")
     parser.add_argument("--skip-completed", action="store_true")
     parser.add_argument("--graphs")
@@ -268,6 +273,7 @@ def main():
     bandwidths = select_option(args.bandwidth, BANDWIDTHS)
     netmodels = select_option(args.netmodel, NETMODELS)
     imodes = select_option(args.imode, IMODES)
+    sched_timings = select_option(args.sched_timing, SCHED_TIMINGS)
 
     instances = list(instance_iter(
         graphset.iterrows(),
@@ -276,7 +282,7 @@ def main():
         netmodels,
         schedulers,
         imodes,
-        SCHED_TIMINGS,
+        sched_timings,
         args.repeat))
 
     if appending and args.skip_completed:
@@ -291,6 +297,7 @@ def main():
     print("netmodel  : {}".format(", ".join(netmodels)))
     print("bandwidths: {}".format(", ".join(bandwidths)))
     print("imode     : {}".format(", ".join(imodes)))
+    print("timings   : {}".format(", ".join(sched_timings)))
     print("REPEAT    : {}".format(args.repeat))
     print("============================================")
 
@@ -325,7 +332,8 @@ def main():
 
     frame = pd.DataFrame(rows, columns=COLUMNS)
     print(frame.groupby(["graph_name", "graph_id", "cluster_name",
-                         "bandwidth", "netmodel", "scheduler_name"]).mean())
+                         "bandwidth", "netmodel", "imode", "min_sched_interval", "sched_time",
+                         "scheduler_name"]).mean())
 
     if appending:
         base, ext = os.path.splitext(args.resultfile)

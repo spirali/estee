@@ -50,7 +50,8 @@ def crossv(inner_count, train_cpus=4, eval_cpus=4, factor=1.0):
                                expected_duration=660 * factor, output_size=18, cpus=train_cpus)
             train.add_input(merges[i])
             evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
-                                  expected_duration=30 * factor, output_size=0.0001, cpus=eval_cpus)
+                                  expected_duration=30 * factor, output_size=0.0001,
+                                  cpus=eval_cpus)
             evaluate.add_input(train)
             evaluate.add_input(chunks[i])
             results.append(evaluate.output)
@@ -61,7 +62,8 @@ def crossv(inner_count, train_cpus=4, eval_cpus=4, factor=1.0):
 
 
 def crossvx(inner_count, outer_count, train_cpus=4, eval_cpus=4):
-    graphs = [crossv(inner_count, train_cpus=train_cpus, eval_cpus=eval_cpus) for _ in range(outer_count)]
+    graphs = [crossv(inner_count, train_cpus=train_cpus, eval_cpus=eval_cpus)
+              for _ in range(outer_count)]
     return TaskGraph.merge(graphs)
 
 
@@ -96,10 +98,12 @@ def nestedcrossv(parameter_count, factor=1.0, train_cpus=4, eval_cpus=4):
             results = []
             for i in range(INNER_FOLD_COUNT):
                 train = g.new_task("train{}".format(i), duration=exponential(680 * factor * p),
-                                   expected_duration=60 * factor * p, output_size=18, cpus=train_cpus)
+                                   expected_duration=60 * factor * p, output_size=18,
+                                   cpus=train_cpus)
                 train.add_input(merges[i])
                 evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
-                                      expected_duration=30 * factor, output_size=0.0001, cpus=eval_cpus)
+                                      expected_duration=30 * factor, output_size=0.0001,
+                                      cpus=eval_cpus)
                 evaluate.add_input(train)
                 evaluate.add_input(inner_folds[i])
                 results.append(evaluate.output)

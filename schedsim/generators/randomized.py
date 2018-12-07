@@ -13,10 +13,8 @@ class Generator:
     def rnd_duration(self):
         return np.random.choice(self.DURATIONS)
 
-
     def rnd_size(self):
         return np.random.choice(self.SIZES)
-
 
     def random_cpus(self):
         return np.random.choice(self.CPUS, p=self.CPUS_P)
@@ -36,7 +34,6 @@ class MGen(Generator):
 
     DURATIONS = [1, 6, 30, 60, 180, 320, 600]
     SIZES = [0.01, 1, 10, 20, 50, 100, 200, 320, 640, 1000, 2500, 16000, 32000]
-
 
 
 def make_task(graph, gen, cpus=None):

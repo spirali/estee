@@ -113,12 +113,12 @@ pegasus_generators = [
     (sipht, 2)
 ]
 
+
 def generate_randomized_m_graph():
     while True:
-      g = generate_randomized_graph(MGen(), 27)
-      print(g.task_count)
-      if g.task_count > 3600:
-          return g
+        g = generate_randomized_graph(MGen(), 27)
+        if g.task_count > 3600:
+            return g
 
 
 def main():
