@@ -81,29 +81,26 @@ SCHED_TIMINGS = [
 Instance = collections.namedtuple("Instance",
                                   ("graph_name", "graph_id", "graph",
                                    "cluster_name", "bandwidth", "netmodel",
-                                   "scheduler_name", "imode", "min_sched_interval", "sched_time"))
+                                   "scheduler_name", "imode", "min_sched_interval", "sched_time",
+                                   "count"))
 
 
 def run_single_instance(instance):
     begin_time = time.monotonic()
     workers = [Worker(**wargs) for wargs in CLUSTERS[instance.cluster_name]]
-    netmodel = NETMODELS[instance.netmodel](BANDWIDTHS[instance.bandwidth])
+    netmodel = NETMODELS[instance.netmodel](instance.bandwidth)
     scheduler = SCHEDULERS[instance.scheduler_name]()
     simulator = Simulator(instance.graph, workers, scheduler, netmodel)
     return simulator.run(), time.monotonic() - begin_time
 
 
-def benchmark_scheduler(instance, count):
+def benchmark_scheduler(instance):
     return [run_single_instance(instance)
-            for _ in range(count)]
-
-
-def process(conf):
-    return benchmark_scheduler(*conf)
+            for _ in range(instance.count)]
 
 
 def instance_iter(graphs, cluster_names, bandwidths, netmodels, scheduler_names, imodes,
-                  sched_timings):
+                  sched_timings, count):
     graph_cache = {}
 
     def calculate_imodes(graph):
@@ -123,19 +120,16 @@ def instance_iter(graphs, cluster_names, bandwidths, netmodels, scheduler_names,
         graph = graph_cache[g["graph"]][imode]
         instance = Instance(
             g["graph_name"], g["graph_id"], graph,
-            cluster_name, bandwidth, netmodel,
+            cluster_name, BANDWIDTHS[bandwidth], netmodel,
             scheduler_name,
             imode,
-            min_sched_interval, sched_time)
+            min_sched_interval, sched_time,
+            count)
         yield instance
 
 
-def process_multiprocessing(conf):
-    return benchmark_scheduler(*conf)
-
-
-def run_multiprocessing(pool, instances, args):
-    return pool.imap(process, ((i, args.repeat) for i in instances))
+def run_multiprocessing(pool, instances):
+    return pool.imap(benchmark_scheduler, instances)
 
 
 def dask_identity(data):
@@ -151,15 +145,15 @@ def dask_deserialize(data):
 
 
 def process_dask(conf):
-    (graph, instance, repeat) = conf
+    (graph, instance) = conf
     instance = instance._replace(graph=dask_deserialize(graph))
-    return benchmark_scheduler(instance, repeat)
+    return benchmark_scheduler(instance)
 
 
-def run_dask(instances, args):
+def run_dask(instances, cluster):
     from dask.distributed import Client
 
-    client = Client(args.dask_cluster)
+    client = Client(cluster)
     client.run(set_recursion_limit)
 
     graphs = {}
@@ -172,7 +166,7 @@ def run_dask(instances, args):
         instance_to_graph[inst] = graphs[instance.graph]
         instances[i] = inst
 
-    results = client.map(process_dask, ((instance_to_graph[i], i, args.repeat) for i in instances))
+    results = client.map(process_dask, ((instance_to_graph[i], i) for i in instances))
     return client.gather(results)
 
 
@@ -190,9 +184,36 @@ def parse_args():
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--imode", help=generate_help(list(IMODES)), default="user")
     parser.add_argument("--no-append", action="store_true")
+    parser.add_argument("--skip-completed", action="store_true")
     parser.add_argument("--graphs")
     parser.add_argument("--dask-cluster")
     return parser.parse_args()
+
+
+def skip_completed(instances, frame, args):
+    result = []
+    columns = ["graph_name",
+               "graph_id",
+               "cluster_name",
+               "bandwidth",
+               "netmodel",
+               "scheduler_name",
+               "imode",
+               "min_sched_interval",
+               "sched_time"]
+
+    skipped = 0
+    for instance in instances:
+        completed = frame
+        for col in columns:
+            completed = completed[completed[col] == getattr(instance, col)]
+        if len(completed) < args.repeat:
+            result.append(instance._replace(count=args.repeat - len(completed)))
+        skipped += len(completed)
+
+    if skipped:
+        print("Skipping {} instances".format(skipped))
+    return result
 
 
 def main():
@@ -255,7 +276,14 @@ def main():
         netmodels,
         schedulers,
         imodes,
-        SCHED_TIMINGS))
+        SCHED_TIMINGS,
+        args.repeat))
+
+    if appending and args.skip_completed:
+        instances = skip_completed(instances, oldframe, args)
+        if not instances:
+            print("All instances were already computed")
+            return
 
     print("============ Config ========================")
     print("scheduler : {}".format(", ".join(schedulers)))
@@ -267,10 +295,10 @@ def main():
     print("============================================")
 
     if args.dask_cluster:
-        iterator = run_dask(instances, args)
+        iterator = run_dask(instances, args.dask_cluster)
     else:
         pool = multiprocessing.Pool()
-        iterator = run_multiprocessing(pool, instances, args)
+        iterator = run_multiprocessing(pool, instances)
 
     rows = []
     counter = 0
@@ -282,7 +310,7 @@ def main():
                     instance.graph_name,
                     instance.graph_id,
                     instance.cluster_name,
-                    BANDWIDTHS[instance.bandwidth],
+                    instance.bandwidth,
                     instance.netmodel,
                     instance.scheduler_name,
                     instance.imode,
@@ -306,7 +334,8 @@ def main():
         oldframe.to_pickle(path)
 
     # Remove old results
-    oldframe = oldframe[~oldframe.scheduler_name.isin(schedulers)]
+    if not args.skip_completed:
+        oldframe = oldframe[~oldframe.scheduler_name.isin(schedulers)]
 
     newframe = pd.concat([oldframe, frame], ignore_index=True)
     newframe.to_pickle(args.resultfile)
