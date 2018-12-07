@@ -3,6 +3,7 @@ import collections
 import itertools
 import multiprocessing
 import os
+import re
 import sys
 import time
 
@@ -188,11 +189,25 @@ def parse_args():
     parser.add_argument("--imode", help=generate_help(list(IMODES)), default="user")
     parser.add_argument("--sched-timing", help=generate_help(list(SCHED_TIMINGS)), default="all")
     parser.add_argument("--repeat", type=int, default=1)
-    parser.add_argument("--no-append", action="store_true")
-    parser.add_argument("--skip-completed", action="store_true")
-    parser.add_argument("--graphs")
-    parser.add_argument("--dask-cluster")
+    parser.add_argument("--no-append", action="store_true",
+                        help="Exit if the resultfile already exists.")
+    parser.add_argument("--skip-completed", action="store_true",
+                        help="Skip already computed instances found in the resultfile.")
+    parser.add_argument("--graphs", help="Comma separated list of graphs to be used from the "
+                                         "input graphset")
+    parser.add_argument("--timeout", help="Timeout for the computation. Format hh:mm:ss.")
+    parser.add_argument("--dask-cluster", help="Address of Dask scheduler")
     return parser.parse_args()
+
+
+def parse_timeout(timeout):
+    if not timeout:
+        return 0
+    match = re.match("^(\d{2}):(\d{2}):(\d{2})$", timeout)
+    if not match:
+        print("Wrong timeout format. Enter timeout as hh:mm:ss.")
+        exit(1)
+    return int(match.group(1)) * 3600 + int(match.group(2)) * 60 + int(match.group(3))
 
 
 def skip_completed(instances, frame, args):
@@ -309,6 +324,12 @@ def main():
 
     rows = []
     counter = 0
+    timeout = parse_timeout(args.timeout)
+    start = time.time()
+
+    if timeout:
+        print("Timeout set to {} seconds".format(timeout))
+
     try:
         for instance, result in tqdm(zip(instances, iterator), total=len(instances)):
             counter += 1
@@ -326,6 +347,11 @@ def main():
                     r_time,
                     r_runtime,
                 ))
+            if timeout and time.time() - start > timeout:
+                print("Timeout reached, iterated {} instances. Writing intermediate results"
+                      .format(counter))
+                break
+
     except KeyboardInterrupt:
         print("Benchmark interrupted, iterated {} instances. Writing intermediate results"
               .format(counter))
