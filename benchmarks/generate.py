@@ -10,6 +10,7 @@ from schedsim.generators.elementary import bigmerge, conflux, duration_stairs, f
 from schedsim.generators.irw import crossv, crossvx, fastcrossv, gridcat, mapreduce, nestedcrossv
 from schedsim.generators.pegasus import cybershake, epigenomics, ligo, montage, sipht
 from schedsim.generators.randomized import generate_randomized_graph, SGen, MGen
+from schedsim.serialization.dask_json import json_serialize
 
 sys.setrecursionlimit(80000)
 
@@ -45,6 +46,7 @@ def gen_graphs(graph_defs, output):
         result.append([name, str(uuid.uuid4()), g])
     print("Saving to ...", output)
     f = pandas.DataFrame(result, columns=["graph_name", "graph_id", "graph"])
+    f["graph"] = f["graph"].apply(lambda g: json_serialize(g))
     f.to_pickle(output)
 
 

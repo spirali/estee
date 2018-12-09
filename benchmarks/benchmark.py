@@ -14,15 +14,13 @@ from schedsim.common import imode
 from schedsim.communication import MinMaxFlowNetModel, SimpleNetModel
 from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from schedsim.schedulers.camp import Camp2Scheduler
+from schedsim.schedulers.clustering import LcScheduler
 from schedsim.schedulers.genetic import GeneticScheduler
 from schedsim.schedulers.others import DLSScheduler, ETFScheduler, MCPScheduler
 from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
-from schedsim.schedulers.clustering import LcScheduler
-from schedsim.serialization.utils import set_recursion_limit
+from schedsim.serialization.dask_json import json_deserialize
 from schedsim.simulator import Simulator
 from schedsim.worker import Worker
-
-set_recursion_limit()
 
 SCHEDULERS = {
     "single": AllOnOneScheduler,
@@ -35,9 +33,8 @@ SCHEDULERS = {
     "mcp": MCPScheduler,
     "genetic": GeneticScheduler,
     #"last": LASTScheduler,
-    #"mcp": MCPScheduler,
     "camp2": lambda: Camp2Scheduler(5000),
-    "lc": LcScheduler,
+    "lc": LcScheduler
 }
 
 
@@ -136,21 +133,18 @@ def instance_iter(graphs, cluster_names, bandwidths, netmodels, scheduler_names,
         yield instance
 
 
+def process_multiprocessing(instance):
+    instance = instance._replace(graph=json_deserialize(instance.graph))
+    return benchmark_scheduler(instance)
+
+
 def run_multiprocessing(pool, instances):
-    return pool.imap(benchmark_scheduler, instances)
-
-
-def dask_serialize(data):
-    return data
-
-
-def dask_deserialize(data):
-    return data
+    return pool.imap(process_multiprocessing, instances)
 
 
 def process_dask(conf):
     (graph, instance) = conf
-    instance = instance._replace(graph=dask_deserialize(graph))
+    instance = instance._replace(graph=json_deserialize(graph))
     return benchmark_scheduler(instance)
 
 
@@ -158,14 +152,13 @@ def run_dask(instances, cluster):
     from dask.distributed import Client
 
     client = Client(cluster)
-    client.run(set_recursion_limit)
 
     graphs = {}
     instance_to_graph = {}
     instances = list(instances)
     for (i, instance) in enumerate(instances):
         if instance.graph not in graphs:
-            graphs[instance.graph] = client.scatter([dask_serialize(instance.graph)])[0]
+            graphs[instance.graph] = client.scatter([instance.graph])[0]
         inst = instance._replace(graph=None)
         instance_to_graph[inst] = graphs[instance.graph]
         instances[i] = inst
