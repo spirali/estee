@@ -137,10 +137,6 @@ def run_multiprocessing(pool, instances):
     return pool.imap(benchmark_scheduler, instances)
 
 
-def dask_identity(data):
-    return data
-
-
 def dask_serialize(data):
     return data
 
@@ -166,7 +162,7 @@ def run_dask(instances, cluster):
     instances = list(instances)
     for (i, instance) in enumerate(instances):
         if instance.graph not in graphs:
-            graphs[instance.graph] = client.submit(dask_identity, dask_serialize(instance.graph))
+            graphs[instance.graph] = client.scatter([dask_serialize(instance.graph)])[0]
         inst = instance._replace(graph=None)
         instance_to_graph[inst] = graphs[instance.graph]
         instances[i] = inst
