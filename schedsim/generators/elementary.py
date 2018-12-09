@@ -8,7 +8,7 @@ from ..common import TaskGraph
 def plain1n(count):
     g = TaskGraph()
     for i in range(count):
-        t = np.random.choice([10, 20, 60, 180])
+        t = int(np.random.choice([10, 20, 60, 180]))
         g.new_task("t{}".format(i), duration=normal(t, t / 10), expected_duration=t, cpus=1)
     return g
 
@@ -23,7 +23,7 @@ def plain1e(count):
 def plain1cpus(count):
     g = TaskGraph()
     for i in range(count):
-        t = np.random.choice([10, 20, 60, 180])
+        t = int(np.random.choice([10, 20, 60, 180]))
         g.new_task("t{}".format(i), duration=normal(t, t / 10), expected_duration=t,
                    cpus=np.random.randint(1, 4))
     return g

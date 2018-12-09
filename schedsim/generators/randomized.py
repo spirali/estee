@@ -11,13 +11,13 @@ class Generator:
     SIZES = None
 
     def rnd_duration(self):
-        return np.random.choice(self.DURATIONS)
+        return float(np.random.choice(self.DURATIONS))
 
     def rnd_size(self):
-        return np.random.choice(self.SIZES)
+        return float(np.random.choice(self.SIZES))
 
     def random_cpus(self):
-        return np.random.choice(self.CPUS, p=self.CPUS_P)
+        return int(np.random.choice(self.CPUS, p=self.CPUS_P))
 
 
 class SGen(Generator):
