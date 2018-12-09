@@ -86,7 +86,7 @@ SCHED_TIMINGS = {
 
 
 Instance = collections.namedtuple("Instance",
-                                  ("graph_name", "graph_id", "graph",
+                                  ("graph_set", "graph_name", "graph_id", "graph",
                                    "cluster_name", "bandwidth", "netmodel",
                                    "scheduler_name", "imode", "min_sched_interval", "sched_time",
                                    "count"))
@@ -127,7 +127,7 @@ def instance_iter(graphs, cluster_names, bandwidths, netmodels, scheduler_names,
 
         (min_sched_interval, sched_time) = SCHED_TIMINGS[sched_timing]
         instance = Instance(
-            g["graph_name"], g["graph_id"], graph,
+            g["graph_set"], g["graph_name"], g["graph_id"], graph,
             cluster_name, BANDWIDTHS[bandwidth], netmodel,
             scheduler_name,
             imode,
@@ -235,8 +235,19 @@ def skip_completed(instances, frame, args):
     return result
 
 
+def load_graphs(graphset):
+    graphs = graphset.split(",")
+    frame = pd.DataFrame()
+    for path in graphs:
+        graph = pd.read_pickle(path)
+        graph.insert(loc=0, column='graph_set', value=os.path.splitext(path)[0])
+        frame = pd.concat([frame, graph], ignore_index=True)
+    return frame
+
+
 def main():
-    COLUMNS = ["graph_name",
+    COLUMNS = ["graph_set",
+               "graph_name",
                "graph_id",
                "cluster_name",
                "bandwidth",
@@ -249,7 +260,7 @@ def main():
                "execution_time"]
 
     args = parse_args()
-    graphset = pd.read_pickle(args.graphset)
+    graphset = load_graphs(args.graphset)
 
     if args.graphs:
         graphset = graphset[graphset["graph_name"].isin(args.graphs.split(","))].reset_index()
@@ -334,6 +345,7 @@ def main():
             counter += 1
             for r_time, r_runtime in result:
                 rows.append((
+                    instance.graph_set,
                     instance.graph_name,
                     instance.graph_id,
                     instance.cluster_name,
