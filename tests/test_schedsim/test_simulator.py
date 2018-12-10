@@ -144,3 +144,15 @@ def test_estimate_schedule(plan1):
     schedule = [TaskAssignment(w, t) for (w, t) in zip(itertools.cycle(workers), plan1.tasks)]
 
     assert estimate_schedule(schedule, plan1, netmodel) == 16
+
+
+def test_estimate_schedule_zero_expected_time(plan1):
+    netmodel = SimpleNetModel(1)
+    workers = [Worker(cpus=4) for _ in range(4)]
+
+    plan1.tasks[1].expected_duration = 0
+    plan1.tasks[5].expected_duration = 0
+
+    schedule = [TaskAssignment(w, t) for (w, t) in zip(itertools.cycle(workers), plan1.tasks)]
+
+    assert estimate_schedule(schedule, plan1, netmodel) == 15
