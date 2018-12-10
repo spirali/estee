@@ -35,7 +35,6 @@ def draw_boxplot(*args, **kw):
 
 def draw_lineplot(*args, **kw):
     data = kw["data"]
-    data['bandwidth'] = data['bandwidth'].astype(str)
     g = seaborn.lineplot(data=data, x="bandwidth", y="score", hue="scheduler_name")
 
     maxval = max(data["score"])
