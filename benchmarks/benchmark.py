@@ -18,7 +18,7 @@ from schedsim.schedulers.clustering import LcScheduler
 from schedsim.schedulers.genetic import GeneticScheduler
 from schedsim.schedulers.others import DLSScheduler, ETFScheduler, MCPScheduler
 from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
-from schedsim.serialization.dask_json import json_deserialize
+from schedsim.serialization.dask_json import json_deserialize, json_serialize
 from schedsim.simulator import Simulator
 from schedsim.worker import Worker
 
@@ -107,20 +107,20 @@ def instance_iter(graphs, cluster_names, bandwidths, netmodels, scheduler_names,
                   sched_timings, count):
     graph_cache = {}
 
-    def calculate_imodes(graph):
-        if graph not in graph_cache:
-            graph_cache[graph] = {}
+    def calculate_imodes(graph, graph_id):
+        if graph_id not in graph_cache:
+            graph_cache[graph_id] = {}
             for imode in imodes:
-                g = graph.copy() if len(imodes) > 1 else graph
-                graph_cache[graph][imode] = g
+                g = json_deserialize(graph)
                 IMODES[imode](g)
+                graph_cache[graph_id][imode] = json_serialize(g)
 
     for graph_def, cluster_name, bandwidth, netmodel, scheduler_name, imode, sched_timing\
         in itertools.product(graphs, cluster_names, bandwidths, netmodels, scheduler_names, imodes,
                              sched_timings):
         g = graph_def[1]
-        calculate_imodes(g["graph"])
-        graph = graph_cache[g["graph"]][imode]
+        calculate_imodes(g["graph"], g["graph_id"])
+        graph = graph_cache[g["graph_id"]][imode]
 
         (min_sched_interval, sched_time) = SCHED_TIMINGS[sched_timing]
         instance = Instance(
