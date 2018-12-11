@@ -5,6 +5,7 @@ import multiprocessing
 import os
 import re
 import sys
+import threading
 import time
 
 import pandas as pd
@@ -90,6 +91,7 @@ Instance = collections.namedtuple("Instance",
 
 
 def run_single_instance(instance):
+    time.sleep(1)
     begin_time = time.monotonic()
     workers = [Worker(**wargs) for wargs in CLUSTERS[instance.cluster_name]]
     netmodel = NETMODELS[instance.netmodel](instance.bandwidth)
@@ -326,39 +328,47 @@ def main():
         iterator = run_multiprocessing(pool, instances)
 
     rows = []
-    counter = 0
     timeout = parse_timeout(args.timeout)
     start = time.time()
 
     if timeout:
         print("Timeout set to {} seconds".format(timeout))
 
-    try:
-        for instance, result in tqdm(zip(instances, iterator), total=len(instances)):
-            counter += 1
-            for r_time, r_runtime in result:
-                rows.append((
-                    instance.graph_set,
-                    instance.graph_name,
-                    instance.graph_id,
-                    instance.cluster_name,
-                    instance.bandwidth,
-                    instance.netmodel,
-                    instance.scheduler_name,
-                    instance.imode,
-                    instance.min_sched_interval,
-                    instance.sched_time,
-                    r_time,
-                    r_runtime,
-                ))
-            if timeout and time.time() - start > timeout:
-                print("Timeout reached, iterated {} instances. Writing intermediate results"
-                      .format(counter))
-                break
+    def run():
+        counter = 0
+        try:
+            for instance, result in tqdm(zip(instances, iterator), total=len(instances)):
+                counter += 1
+                for r_time, r_runtime in result:
+                    rows.append((
+                        instance.graph_set,
+                        instance.graph_name,
+                        instance.graph_id,
+                        instance.cluster_name,
+                        instance.bandwidth,
+                        instance.netmodel,
+                        instance.scheduler_name,
+                        instance.imode,
+                        instance.min_sched_interval,
+                        instance.sched_time,
+                        r_time,
+                        r_runtime,
+                    ))
+                if timeout and time.time() - start > timeout:
+                    print("Timeout reached, iterated {} instances. Writing intermediate results"
+                          .format(counter))
+                    break
 
-    except KeyboardInterrupt:
-        print("Benchmark interrupted, iterated {} instances. Writing intermediate results"
-              .format(counter))
+        except KeyboardInterrupt:
+            print("Benchmark interrupted, iterated {} instances. Writing intermediate results"
+                  .format(counter))
+
+    thread = threading.Thread(target=run)
+    thread.daemon = True
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        print("Timeout reached")
 
     frame = pd.DataFrame(rows, columns=COLUMNS)
     print(frame.groupby(["graph_name", "graph_id", "cluster_name",
