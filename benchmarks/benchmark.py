@@ -190,6 +190,7 @@ def parse_args():
     parser.add_argument("--graphs", help="Comma separated list of graphs to be used from the "
                                          "input graphset")
     parser.add_argument("--timeout", help="Timeout for the computation. Format hh:mm:ss.")
+    parser.add_argument("--interval", help="From:to indices to compute.")
     parser.add_argument("--dask-cluster", help="Address of Dask scheduler")
     return parser.parse_args()
 
@@ -305,6 +306,10 @@ def main():
         sched_timings,
         args.repeat))
 
+    if args.interval:
+        interval = [min(max(0, int(i)), len(instances)) for i in args.interval.split(":")]
+        instances = instances[interval[0]:interval[1]]
+
     if appending and args.skip_completed:
         instances = skip_completed(instances, oldframe, args)
         if not instances:
@@ -329,7 +334,6 @@ def main():
 
     rows = []
     timeout = parse_timeout(args.timeout)
-    start = time.time()
 
     if timeout:
         print("Timeout set to {} seconds".format(timeout))
@@ -354,21 +358,24 @@ def main():
                         r_time,
                         r_runtime,
                     ))
-                if timeout and time.time() - start > timeout:
-                    print("Timeout reached, iterated {} instances. Writing intermediate results"
-                          .format(counter))
-                    break
 
         except KeyboardInterrupt:
             print("Benchmark interrupted, iterated {} instances. Writing intermediate results"
                   .format(counter))
 
-    thread = threading.Thread(target=run)
-    thread.daemon = True
-    thread.start()
-    thread.join(timeout)
-    if thread.is_alive():
-        print("Timeout reached")
+    if timeout:
+        thread = threading.Thread(target=run)
+        thread.daemon = True
+        thread.start()
+        thread.join(timeout)
+        if thread.is_alive():
+            print("Timeout reached")
+    else:
+        run()
+
+    if not rows:
+        print("No results were computed")
+        return
 
     frame = pd.DataFrame(rows, columns=COLUMNS)
     print(frame.groupby(["graph_name", "graph_id", "cluster_name",

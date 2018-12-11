@@ -29,4 +29,6 @@ def process_imode_user(graph):
 def process_imode_mean(graph):
     durations = np.array([t.duration for t in graph.tasks])
     sizes = np.array([o.size for o in graph.outputs])
-    _set_consts(graph, durations.mean(), sizes.mean())
+    _set_consts(graph,
+                durations.mean() if graph.tasks else 0,
+                sizes.mean() if graph.outputs else 0)
