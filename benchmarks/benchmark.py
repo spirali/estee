@@ -241,6 +241,42 @@ def load_graphs(graphset):
     return frame
 
 
+def parse_option(value, keys):
+    if value == "all":
+        return list(keys)
+    value = [v.strip() for v in value.split(",")]
+    assert all(v in keys for v in value)
+    return value
+
+
+def load_instances(args):
+    graphset = load_graphs(args.graphset)
+
+    if args.graphs:
+        graphset = graphset[graphset["graph_name"].isin(args.graphs.split(","))].reset_index()
+
+    schedulers = parse_option(args.scheduler, SCHEDULERS)
+    clusters = parse_option(args.cluster, CLUSTERS)
+    bandwidths = parse_option(args.bandwidth, BANDWIDTHS)
+    netmodels = parse_option(args.netmodel, NETMODELS)
+    imodes = parse_option(args.imode, IMODES)
+    sched_timings = parse_option(args.sched_timing, SCHED_TIMINGS)
+
+    return (
+        list(instance_iter(
+            graphset.iterrows(),
+            clusters,
+            bandwidths,
+            netmodels,
+            schedulers,
+            imodes,
+            sched_timings,
+            args.repeat)
+        ),
+        graphset, schedulers, clusters, bandwidths, netmodels, imodes, sched_timings
+    )
+
+
 def main():
     COLUMNS = ["graph_set",
                "graph_name",
@@ -256,14 +292,6 @@ def main():
                "execution_time"]
 
     args = parse_args()
-    graphset = load_graphs(args.graphset)
-
-    if args.graphs:
-        graphset = graphset[graphset["graph_name"].isin(args.graphs.split(","))].reset_index()
-
-    if len(graphset) == 0:
-        print("No graphs selected")
-        return
 
     appending = False
     if os.path.isfile(args.resultfile):
@@ -282,29 +310,11 @@ def main():
         print("Creating result file '{}'".format(args.resultfile))
         oldframe = pd.DataFrame([], columns=COLUMNS)
 
-    def select_option(value, keys):
-        if value == "all":
-            return list(keys)
-        value = [v.strip() for v in value.split(",")]
-        assert all(v in keys for v in value)
-        return value
-
-    schedulers = select_option(args.scheduler, SCHEDULERS)
-    clusters = select_option(args.cluster, CLUSTERS)
-    bandwidths = select_option(args.bandwidth, BANDWIDTHS)
-    netmodels = select_option(args.netmodel, NETMODELS)
-    imodes = select_option(args.imode, IMODES)
-    sched_timings = select_option(args.sched_timing, SCHED_TIMINGS)
-
-    instances = list(instance_iter(
-        graphset.iterrows(),
-        clusters,
-        bandwidths,
-        netmodels,
-        schedulers,
-        imodes,
-        sched_timings,
-        args.repeat))
+    (instances, graphset, schedulers, clusters, bandwidths, netmodels, imodes, sched_timings) =\
+        load_instances(args)
+    if len(graphset) == 0:
+        print("No graphs selected")
+        return
 
     if args.interval:
         interval = [min(max(0, int(i)), len(instances)) for i in args.interval.split(":")]
