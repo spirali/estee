@@ -160,7 +160,7 @@ def run_dask(instances, cluster):
     instances = list(instances)
     for (i, instance) in enumerate(instances):
         if instance.graph not in graphs:
-            graphs[instance.graph] = client.scatter([instance.graph])[0]
+            graphs[instance.graph] = client.scatter([instance.graph], broadcast=True)[0]
         inst = instance._replace(graph=None)
         instance_to_graph[inst] = graphs[instance.graph]
         instances[i] = inst
