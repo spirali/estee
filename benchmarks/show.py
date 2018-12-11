@@ -13,6 +13,7 @@ def parse_args():
     parser.add_argument("--boxplot", action="store_true")
     parser.add_argument("--lineplot", action="store_true")
     parser.add_argument("--graph", action="append")
+    parser.add_argument("--cluster", action="append")
     parser.add_argument("--split-graphs", action="store_true")
     return parser.parse_args()
 
@@ -82,6 +83,9 @@ def main():
 
     if args.graph:
         data = data[data["graph_name"].isin(args.graph)].reset_index(drop=True)
+
+    if args.cluster:
+        data = data[data["cluster_name"].isin(args.cluster)].reset_index(drop=True)
 
     if args.split_graphs:
         graphs = data["graph_name"].unique()
