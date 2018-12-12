@@ -1,3 +1,4 @@
+import itertools
 import random
 
 from deap import algorithms, base, creator
@@ -80,7 +81,7 @@ class GeneticScheduler(StaticScheduler):
         toolbox.register("select", tools.selTournament, tournsize=3)
 
         pop = toolbox.population(n=50)
-        hof = tools.HallOfFame(1)
+        hof = tools.HallOfFame(5)
 
         algorithms.eaSimple(pop, toolbox,
                             cxpb=0.8,
@@ -88,7 +89,13 @@ class GeneticScheduler(StaticScheduler):
                             ngen=20,
                             halloffame=hof,
                             verbose=False)
-        self.best_individual = hof.items[0]
+        best = [item for item in hof.items if self.is_schedule_valid(item, graph, workers)]
+        if not best:
+            def get_worker(task):
+                return random.choice([w for w in workers if w.cpus >= task.cpus])
+            self.best_individual = [TaskAssignment(get_worker(t), t) for t in graph.tasks]
+        else:
+            self.best_individual = best[0]
         assert self.is_schedule_valid(self.best_individual, graph, workers)
 
     def generator_individual_bootstrap(self, graph, workers, netmodel, bootstrap):
