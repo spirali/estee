@@ -38,12 +38,10 @@ SCHEDULERS = {
     "lc": LcScheduler
 }
 
-
 NETMODELS = {
     "simple": SimpleNetModel,
     "minmax": MinMaxFlowNetModel
 }
-
 
 CLUSTERS = {
     "2x8": [{"cpus": 8}] * 2,
@@ -56,15 +54,13 @@ CLUSTERS = {
     "256x16": [{"cpus": 16}] * 256,
 }
 
-
 BANDWIDTHS = {
-    "8G":   8192,
-    "2G":   2048,
+    "8G": 8192,
+    "2G": 2048,
     "512M": 512,
     "128M": 128,
-    "32M":  32
+    "32M": 32
 }
-
 
 IMODES = {
     "exact": imode.process_imode_exact,
@@ -73,7 +69,6 @@ IMODES = {
     "user": imode.process_imode_user,
 }
 
-
 SCHED_TIMINGS = {
     # min_sched_interval, sched_time
     "0.1/0.05": (0.1, 0.05),
@@ -81,7 +76,6 @@ SCHED_TIMINGS = {
     "1.6/0.05": (1.6, 0.05),
     "6.4/0.05": (6.4, 0.05)
 }
-
 
 Instance = collections.namedtuple("Instance",
                                   ("graph_set", "graph_name", "graph_id", "graph",
@@ -117,9 +111,10 @@ def instance_iter(graphs, cluster_names, bandwidths, netmodels, scheduler_names,
                 IMODES[imode](g)
                 graph_cache[graph_id][imode] = json_serialize(g)
 
-    for graph_def, cluster_name, bandwidth, netmodel, scheduler_name, imode, sched_timing\
-        in itertools.product(graphs, cluster_names, bandwidths, netmodels, scheduler_names, imodes,
-                             sched_timings):
+    for graph_def, cluster_name, bandwidth, netmodel, scheduler_name, imode, sched_timing \
+            in itertools.product(graphs, cluster_names, bandwidths, netmodels, scheduler_names,
+                                 imodes,
+                                 sched_timings):
         g = graph_def[1]
         calculate_imodes(g["graph"], g["graph_id"])
         graph = graph_cache[g["graph_id"]][imode]
@@ -205,10 +200,8 @@ def parse_timeout(timeout):
     return int(match.group(1)) * 3600 + int(match.group(2)) * 60 + int(match.group(3))
 
 
-def skip_completed(instances, frame, args):
-    result = []
-    columns = ["graph_name",
-               "graph_id",
+def skip_completed_instances(instances, frame, repeat):
+    columns = ["graph_id",
                "cluster_name",
                "bandwidth",
                "netmodel",
@@ -218,13 +211,18 @@ def skip_completed(instances, frame, args):
                "sched_time"]
 
     skipped = 0
+    counts = frame.groupby(columns).size()
+
+    result = []
     for instance in instances:
-        completed = frame
-        for col in columns:
-            completed = completed[completed[col] == getattr(instance, col)]
-        if len(completed) < args.repeat:
-            result.append(instance._replace(count=args.repeat - len(completed)))
-        skipped += len(completed)
+        hashed = tuple(getattr(instance, col) for col in columns)
+        if hashed in counts:
+            count = counts.loc[hashed]
+            if count < repeat:
+                result.append(instance._replace(count=repeat - count))
+            skipped += count
+        else:
+            result.append(instance)
 
     if skipped:
         print("Skipping {} instances".format(skipped))
@@ -249,18 +247,19 @@ def parse_option(value, keys):
     return value
 
 
-def load_instances(args):
-    graphset = load_graphs(args.graphset)
+def load_instances(graphset, graphs, scheduler, cluster, bandwidth, netmodel, imode, sched_timing,
+                   repeat):
+    graphset = load_graphs(graphset)
 
-    if args.graphs:
-        graphset = graphset[graphset["graph_name"].isin(args.graphs.split(","))].reset_index()
+    if graphs:
+        graphset = graphset[graphset["graph_name"].isin(graphs.split(","))].reset_index()
 
-    schedulers = parse_option(args.scheduler, SCHEDULERS)
-    clusters = parse_option(args.cluster, CLUSTERS)
-    bandwidths = parse_option(args.bandwidth, BANDWIDTHS)
-    netmodels = parse_option(args.netmodel, NETMODELS)
-    imodes = parse_option(args.imode, IMODES)
-    sched_timings = parse_option(args.sched_timing, SCHED_TIMINGS)
+    schedulers = parse_option(scheduler, SCHEDULERS)
+    clusters = parse_option(cluster, CLUSTERS)
+    bandwidths = parse_option(bandwidth, BANDWIDTHS)
+    netmodels = parse_option(netmodel, NETMODELS)
+    imodes = parse_option(imode, IMODES)
+    sched_timings = parse_option(sched_timing, SCHED_TIMINGS)
 
     return (
         list(instance_iter(
@@ -271,13 +270,16 @@ def load_instances(args):
             schedulers,
             imodes,
             sched_timings,
-            args.repeat)
+            repeat)
         ),
         graphset, schedulers, clusters, bandwidths, netmodels, imodes, sched_timings
     )
 
 
-def main():
+def compute(graphset, resultfile, scheduler, cluster, bandwidth,
+            netmodel, imode, sched_timing, repeat=1,
+            no_append=False, graphs=None, timeout=0, interval=None, skip_completed=True,
+            dask_cluster=None):
     COLUMNS = ["graph_set",
                "graph_name",
                "graph_id",
@@ -291,37 +293,36 @@ def main():
                "time",
                "execution_time"]
 
-    args = parse_args()
-
     appending = False
-    if os.path.isfile(args.resultfile):
-        if args.no_append:
+    if os.path.isfile(resultfile):
+        if no_append:
             print("Result file '{}' already exists\n"
-                  "Remove --no-append to append results to it".format(args.resultfile),
+                  "Remove --no-append to append results to it".format(resultfile),
                   file=sys.stderr)
             exit(1)
 
         appending = True
-        print("Appending to result file '{}'".format(args.resultfile))
+        print("Appending to result file '{}'".format(resultfile))
 
-        oldframe = pd.read_pickle(args.resultfile)
+        oldframe = pd.read_pickle(resultfile)
         assert list(oldframe.columns) == COLUMNS
     else:
-        print("Creating result file '{}'".format(args.resultfile))
+        print("Creating result file '{}'".format(resultfile))
         oldframe = pd.DataFrame([], columns=COLUMNS)
 
-    (instances, graphset, schedulers, clusters, bandwidths, netmodels, imodes, sched_timings) =\
-        load_instances(args)
+    (instances, graphset, schedulers, clusters, bandwidths, netmodels, imodes, sched_timings) = \
+        load_instances(graphset, graphs, scheduler, cluster,
+                       bandwidth, netmodel, imode, sched_timing, repeat)
     if len(graphset) == 0:
         print("No graphs selected")
         return
 
-    if args.interval:
-        interval = [min(max(0, int(i)), len(instances)) for i in args.interval.split(":")]
+    if interval:
+        interval = [min(max(0, int(i)), len(instances)) for i in interval.split(":")]
         instances = instances[interval[0]:interval[1]]
 
-    if appending and args.skip_completed:
-        instances = skip_completed(instances, oldframe, args)
+    if appending and skip_completed:
+        instances = skip_completed_instances(instances, oldframe, repeat)
         if not instances:
             print("All instances were already computed")
             return
@@ -333,17 +334,17 @@ def main():
     print("bandwidths: {}".format(", ".join(bandwidths)))
     print("imode     : {}".format(", ".join(imodes)))
     print("timings   : {}".format(", ".join(sched_timings)))
-    print("REPEAT    : {}".format(args.repeat))
+    print("REPEAT    : {}".format(repeat))
     print("============================================")
 
-    if args.dask_cluster:
-        iterator = run_dask(instances, args.dask_cluster)
+    if dask_cluster:
+        iterator = run_dask(instances, dask_cluster)
     else:
         pool = multiprocessing.Pool()
         iterator = run_multiprocessing(pool, instances)
 
     rows = []
-    timeout = parse_timeout(args.timeout)
+    timeout = parse_timeout(timeout)
 
     if timeout:
         print("Timeout set to {} seconds".format(timeout))
@@ -393,19 +394,20 @@ def main():
                          "scheduler_name"]).mean())
 
     if appending:
-        base, ext = os.path.splitext(args.resultfile)
+        base, ext = os.path.splitext(resultfile)
         path = "{}.backup{}".format(base, ext)
         print("Creating backup of old results to '{}'".format(path))
         oldframe.to_pickle(path)
 
     # Remove old results
-    if not args.skip_completed:
+    if not skip_completed:
         oldframe = oldframe[~oldframe.scheduler_name.isin(schedulers)]
 
     newframe = pd.concat([oldframe, frame], ignore_index=True)
-    newframe.to_pickle(args.resultfile)
-    print("{} entries in new '{}'".format(newframe["time"].count(), args.resultfile))
+    newframe.to_pickle(resultfile)
+    print("{} entries in new '{}'".format(newframe["time"].count(), resultfile))
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    compute(**vars(args))
