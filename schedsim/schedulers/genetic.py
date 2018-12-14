@@ -1,4 +1,3 @@
-import itertools
 import random
 
 from deap import algorithms, base, creator

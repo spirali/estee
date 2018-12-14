@@ -1,4 +1,8 @@
 deap==1.2.2
+distributed==1.24.2
 numpy==1.15.4
 lxml==4.2.5
+matplotlib==3.0.2
+pandas==0.23.4
 simpy==3.0.11
+tqdm==4.28.1

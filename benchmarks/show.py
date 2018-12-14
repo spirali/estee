@@ -44,12 +44,14 @@ def draw_lineplot(*args, **kw):
 
 def draw_frame(frame, args, title=None):
     # normalize by minimum schedule found for each graph/cluster/bandwidth/netmodel combination
-    mins = frame.groupby(["graph_id", "cluster_name", "bandwidth", "netmodel"])["time"].transform(pd.Series.min)
+    mins = frame.groupby(["graph_id", "cluster_name",
+                          "bandwidth", "netmodel"])["time"].transform(pd.Series.min)
     frame["score"] = frame["time"] / mins
 
     # calculate average for each graph/cluster/bandwidth/netmodel/scheduler/imode combination
-    data = frame.groupby(["graph_id", "cluster_name", "bandwidth", "netmodel", "scheduler_name", "imode"]) \
-        ["score"].mean().reset_index()
+    data = frame.groupby(["graph_id", "cluster_name",
+                          "bandwidth", "netmodel",
+                          "scheduler_name", "imode"])["score"].mean().reset_index()
 
     # merge bandwidth and netmodel to a single column
     if len(data["netmodel"].unique()) > 1:

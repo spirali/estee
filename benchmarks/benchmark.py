@@ -106,25 +106,25 @@ def instance_iter(graphs, cluster_names, bandwidths, netmodels, scheduler_names,
     def calculate_imodes(graph, graph_id):
         if graph_id not in graph_cache:
             graph_cache[graph_id] = {}
-            for imode in imodes:
+            for mode in imodes:
                 g = json_deserialize(graph)
-                IMODES[imode](g)
-                graph_cache[graph_id][imode] = json_serialize(g)
+                IMODES[mode](g)
+                graph_cache[graph_id][mode] = json_serialize(g)
 
-    for graph_def, cluster_name, bandwidth, netmodel, scheduler_name, imode, sched_timing \
+    for graph_def, cluster_name, bandwidth, netmodel, scheduler_name, mode, sched_timing \
             in itertools.product(graphs, cluster_names, bandwidths, netmodels, scheduler_names,
                                  imodes,
                                  sched_timings):
         g = graph_def[1]
         calculate_imodes(g["graph"], g["graph_id"])
-        graph = graph_cache[g["graph_id"]][imode]
+        graph = graph_cache[g["graph_id"]][mode]
 
         (min_sched_interval, sched_time) = SCHED_TIMINGS[sched_timing]
         instance = Instance(
             g["graph_set"], g["graph_name"], g["graph_id"], graph,
             cluster_name, BANDWIDTHS[bandwidth], netmodel,
             scheduler_name,
-            imode,
+            mode,
             min_sched_interval, sched_time,
             count)
         yield instance

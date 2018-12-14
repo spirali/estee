@@ -95,8 +95,8 @@ def run_pbs(cmd_args, options):
                 continue
 
         arguments += ["-N", "estee-{}-{}".format(filename(cmd_args.input_file), filename(output))]
-        arguments += ["-v", "ESTEE_INPUT={},ESTEE_INDEX={}"
-            .format(os.path.abspath(cmd_args.input_file), i)]
+        arguments += ["-v", "ESTEE_INPUT={},ESTEE_INDEX={}".format(
+            os.path.abspath(cmd_args.input_file), i)]
         arguments += ["-k", "n"]  # do not keep output
 
         arguments.append(dirpath("qsub.sh"))
