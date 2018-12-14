@@ -21,8 +21,11 @@ def is_local(hostname):
     return hostname.split(".")[0] == HOSTNAME
 
 
-def run_cmd(host, cmds):
-    args = ["env", "OMP_NUM_THREADS=1"] + cmds
+def run_cmd(host, cmds, path=""):
+    args = ["env", "OMP_NUM_THREADS=1"]
+    if path:
+        args += ["PYTHONPATH=${{PYTHONPATH}}:{}".format(path)]
+    args += cmds
 
     if not is_local(host):
         args = ["ssh", host, "--", "workon", "estee", "&&" "ulimit", "-u", "32768", "&&"] + args
@@ -31,12 +34,12 @@ def run_cmd(host, cmds):
     subprocess.Popen(args)
 
 
-def spawn_workers(host, count, scheduler):
+def spawn_workers(host, count, scheduler, path):
     cookie = time.time()
     return run_cmd(host, ["dask-worker", "--nthreads", "1", "--nprocs", str(count),
                           "--local-directory", os.path.join(TMP_DIR,
                                                             "estee-{}".format(cookie)),
-                          scheduler])
+                          scheduler], path)
 
 
 def kill_workers(host):
@@ -47,21 +50,21 @@ def kill_scheduler(host):
     return run_cmd(host, ["pkill", "-f", "-9", "dask-scheduler"])
 
 
-def spawn_scheduler(host, port):
-    return run_cmd(host, ["dask-scheduler", "--port", str(port)])
+def spawn_scheduler(host, port, path):
+    return run_cmd(host, ["dask-scheduler", "--port", str(port)], path)
 
 
-def start_cluster(port, procs=24):
+def start_cluster(port, path, procs=24):
     print("Starting cluster...")
-    spawn_scheduler(HOSTNAME, port)
+    spawn_scheduler(HOSTNAME, port, path)
     time.sleep(1)
     scheduler = "{}:{}".format(HOSTNAME, port)
-    spawn_workers(HOSTNAME, procs - 1, scheduler)
+    spawn_workers(HOSTNAME, procs - 1, scheduler, path)
 
     nodes = get_nodes()
     for node in nodes:
         if not is_local(node):
-            spawn_workers(node, procs, scheduler)
+            spawn_workers(node, procs, scheduler, path)
 
     client = Client(scheduler)
 
@@ -102,7 +105,7 @@ if __name__ == "__main__":
     port = int(args.port)
 
     if args.command == "start":
-        start_cluster(port=port)
+        start_cluster(port=port, path=os.getcwd())
     elif args.command == "stop":
         stop_cluster()
     elif args.command == "info":

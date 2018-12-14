@@ -8,9 +8,6 @@ import sys
 
 import pandas as pd
 
-from benchmark import compute, load_instances, skip_completed_instances
-from dask_cluster import start_cluster
-
 
 def dirpath(path):
     return os.path.abspath(os.path.join(os.path.dirname(__file__), path))
@@ -28,6 +25,9 @@ DASK_PORT = 8786
 
 
 def run_computation(cmd_args, options):
+    from benchmark import compute
+    from dask_cluster import start_cluster
+
     input = options["inputs"][int(cmd_args.graph_index)]
     output = options["outputs"][int(cmd_args.graph_index)]
 
@@ -37,15 +37,14 @@ def run_computation(cmd_args, options):
         os.makedirs(workdir)
     shutil.copyfile(cmd_args.input_file, os.path.join(workdir,
                                                       os.path.basename(cmd_args.input_file)))
-    os.chdir(workdir)
 
     dask_cluster = None
     if options.get("dask"):
-        start_cluster(DASK_PORT)
+        start_cluster(port=DASK_PORT, path=os.getcwd())
         dask_cluster = "{}:{}".format(socket.gethostname(), DASK_PORT)
 
-    with open("output", "w") as out:
-        with open("error", "w") as err:
+    with open(os.path.join(workdir, "output"), "w") as out:
+        with open(os.path.join(workdir, "error"), "w") as err:
             sys.stdout = out
             sys.stderr = err
             compute(graphset=input,
@@ -63,6 +62,8 @@ def run_computation(cmd_args, options):
 
 
 def run_pbs(cmd_args, options):
+    from benchmark import load_instances, skip_completed_instances
+
     args = ["qsub", "-q", "qexp", "-l"]
     nodes = "select={}:ncpus=24"
     if options.get("dask"):
