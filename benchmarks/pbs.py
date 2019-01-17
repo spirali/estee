@@ -24,19 +24,18 @@ def get_workdir(jobid, input_file, output):
 DASK_PORT = 8786
 
 
-def run_computation(cmd_args, options):
+def run_computation(index, input_file, options):
     from benchmark import compute
     from dask_cluster import start_cluster
 
-    index = cmd_args.graph_index
     input = options["inputs"][int(index)]
     output = options["outputs"][int(index)]
 
-    workdir = get_workdir(os.environ["PBS_JOBID"], cmd_args.input_file, output)
+    workdir = get_workdir(os.environ["PBS_JOBID"], input_file, output)
 
     if not os.path.exists(workdir):
         os.makedirs(workdir)
-    with open(os.path.join(workdir, os.path.basename(cmd_args.input_file)), "w") as dst:
+    with open(os.path.join(workdir, os.path.basename(input_file)), "w") as dst:
         options["index"] = index
         json.dump(options, dst, indent=4)
 
@@ -63,7 +62,7 @@ def run_computation(cmd_args, options):
                     skip_completed=True)
 
 
-def run_pbs(cmd_args, options):
+def run_pbs(input_file, options):
     from benchmark import load_instances, skip_completed_instances
 
     args = ["qsub", "-q", "qexp", "-l"]
@@ -96,21 +95,21 @@ def run_pbs(cmd_args, options):
                 print("All instances were completed for {}".format(input))
                 continue
 
-        arguments += ["-N", "estee-{}-{}".format(filename(cmd_args.input_file), filename(output))]
+        arguments += ["-N", "estee-{}-{}".format(filename(input_file), filename(output))]
         arguments += ["-v", "ESTEE_INPUT={},ESTEE_INDEX={}".format(
-            os.path.abspath(cmd_args.input_file), i)]
+            os.path.abspath(input_file), i)]
         arguments += ["-k", "n"]  # do not keep output
 
         arguments.append(dirpath("qsub.sh"))
 
-        print("Starting job {}-{}".format(filename(cmd_args.input_file), filename(output)))
+        print("Starting job {}-{}".format(filename(input_file), filename(output)))
         subprocess.run(arguments)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["submit", "compute"])
-    parser.add_argument("input_file")
+    parser.add_argument("input_files", nargs="+")
     parser.add_argument("--graph-index", default=0)
     return parser.parse_args()
 
@@ -118,10 +117,14 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    with open(args.input_file) as f:
-        options = json.load(f)
-
     if args.command == "compute":
-        run_computation(args, options)
+        assert len(args.input_files) == 1
+        file = args.input_files[0]
+        with open(file) as f:
+            options = json.load(f)
+        run_computation(args.graph_index, file, options)
     else:
-        run_pbs(args, options)
+        for input_file in args.input_files:
+            with open(input_file) as f:
+                options = json.load(f)
+            run_pbs(input_file, options)
