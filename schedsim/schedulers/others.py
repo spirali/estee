@@ -226,7 +226,9 @@ class BlevelScheduler(SchedulerBase):
     def find_assignment(self, workers, tasks, worker_assignments):
         tasks = sorted(tasks, key=lambda t: self.b_level[t], reverse=True)
         task = tasks[0]
-        return (min(workers, key=lambda w: self.calculate_cost(w, task, worker_assignments)), task)
+        return (min(workers, key=lambda w: self.calculate_cost(w, task,
+                                                               worker_assignments.get(w, []))),
+                task)
 
     def calculate_cost(self, worker, task, worker_assignments):
         if task.cpus > worker.cpus:
