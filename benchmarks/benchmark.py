@@ -17,7 +17,7 @@ from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from schedsim.schedulers.camp import Camp2Scheduler
 from schedsim.schedulers.clustering import LcScheduler
 from schedsim.schedulers.genetic import GeneticScheduler
-from schedsim.schedulers.others import DLSScheduler, ETFScheduler, MCPScheduler
+from schedsim.schedulers.others import BlevelScheduler, DLSScheduler, ETFScheduler, MCPScheduler
 from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
 from schedsim.serialization.dask_json import json_deserialize, json_serialize
 from schedsim.simulator import Simulator
@@ -26,6 +26,7 @@ from schedsim.worker import Worker
 SCHEDULERS = {
     "single": AllOnOneScheduler,
     "blevel": BlevelGtScheduler,
+    "blevel-simple": BlevelScheduler,
     "tlevel": TlevelGtScheduler,
     "random-s": RandomAssignScheduler,
     "random-gt": RandomGtScheduler,
@@ -86,8 +87,15 @@ Instance = collections.namedtuple("Instance",
 
 def run_single_instance(instance):
     time.sleep(1)
+    inf = 2**32
+
+    def create_worker(wargs):
+        if instance.netmodel == "simple":
+            return Worker(**wargs, max_downloads=inf, max_downloads_per_worker=inf)
+        return Worker(**wargs)
+
     begin_time = time.monotonic()
-    workers = [Worker(**wargs) for wargs in CLUSTERS[instance.cluster_name]]
+    workers = [create_worker(wargs) for wargs in CLUSTERS[instance.cluster_name]]
     netmodel = NETMODELS[instance.netmodel](instance.bandwidth)
     scheduler = SCHEDULERS[instance.scheduler_name]()
     simulator = Simulator(instance.graph, workers, scheduler, netmodel)

@@ -28,15 +28,17 @@ def run_computation(cmd_args, options):
     from benchmark import compute
     from dask_cluster import start_cluster
 
-    input = options["inputs"][int(cmd_args.graph_index)]
-    output = options["outputs"][int(cmd_args.graph_index)]
+    index = cmd_args.graph_index
+    input = options["inputs"][int(index)]
+    output = options["outputs"][int(index)]
 
     workdir = get_workdir(os.environ["PBS_JOBID"], cmd_args.input_file, output)
 
     if not os.path.exists(workdir):
         os.makedirs(workdir)
-    shutil.copyfile(cmd_args.input_file, os.path.join(workdir,
-                                                      os.path.basename(cmd_args.input_file)))
+    with open(os.path.join(workdir, os.path.basename(cmd_args.input_file)), "w") as dst:
+        options["index"] = index
+        json.dump(options, dst, indent=4)
 
     dask_cluster = None
     if options.get("dask"):

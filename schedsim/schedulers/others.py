@@ -211,3 +211,31 @@ class ETFScheduler(SchedulerBase):
         computation = worker_estimate_earliest_time(worker, task,
                                                     self.simulator.env.now, worker_assignments)
         return max(computation, transfer)
+
+
+@make_static_scheduler
+class BlevelScheduler(SchedulerBase):
+    def init(self, simulator):
+        super().init(simulator)
+        self.b_level = compute_b_level_duration(simulator.task_graph)
+
+    def schedule(self, new_ready, new_finished):
+        return schedule_all(self.simulator.workers, new_ready,
+                            lambda w, t, a: self.find_assignment(w, t, a))
+
+    def find_assignment(self, workers, tasks, worker_assignments):
+        tasks = sorted(tasks, key=lambda t: self.b_level[t], reverse=True)
+        task = tasks[0]
+        return (min(workers, key=lambda w: self.calculate_cost(w, task, worker_assignments)), task)
+
+    def calculate_cost(self, worker, task, worker_assignments):
+        if task.cpus > worker.cpus:
+            return 10e10
+
+        earliest_transfer = (transfer_cost_parallel(self.simulator.runtime_state, worker, task) /
+                             self.simulator.netmodel.bandwidth)
+
+        earliest_computation = worker_estimate_earliest_time(
+            worker, task, self.simulator.env.now, worker_assignments)
+
+        return max(earliest_transfer, earliest_computation)
