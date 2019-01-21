@@ -2,7 +2,8 @@ import itertools
 
 from .scheduler import SchedulerBase, make_static_scheduler
 from .utils import compute_alap, compute_b_level_duration, get_duration_estimate, \
-    get_size_estimate, schedule_all, transfer_cost_parallel, worker_estimate_earliest_time
+    get_size_estimate, schedule_all, transfer_cost_parallel, worker_estimate_earliest_time, \
+    compute_t_level_duration
 from ..simulator import TaskAssignment
 
 
@@ -213,18 +214,16 @@ class ETFScheduler(SchedulerBase):
         return max(computation, transfer)
 
 
-@make_static_scheduler
-class BlevelScheduler(SchedulerBase):
-    def init(self, simulator):
-        super().init(simulator)
-        self.b_level = compute_b_level_duration(simulator.task_graph)
+class StaticSortScheduler(SchedulerBase):
+    def sort_tasks(self, tasks):
+        raise NotImplementedError()
 
     def schedule(self, new_ready, new_finished):
         return schedule_all(self.simulator.workers, new_ready,
                             lambda w, t, a: self.find_assignment(w, t, a))
 
     def find_assignment(self, workers, tasks, worker_assignments):
-        tasks = sorted(tasks, key=lambda t: self.b_level[t], reverse=True)
+        tasks = self.sort_tasks(tasks)
         task = tasks[0]
         return (min(workers, key=lambda w: self.calculate_cost(w, task,
                                                                worker_assignments.get(w, []))),
@@ -241,3 +240,23 @@ class BlevelScheduler(SchedulerBase):
             worker, task, self.simulator.env.now, worker_assignments)
 
         return max(earliest_transfer, earliest_computation)
+
+
+@make_static_scheduler
+class BlevelScheduler(StaticSortScheduler):
+    def init(self, simulator):
+        super().init(simulator)
+        self.b_level = compute_b_level_duration(simulator.task_graph)
+
+    def sort_tasks(self, tasks):
+        return sorted(tasks, key=lambda t: self.b_level[t], reverse=True)
+
+
+@make_static_scheduler
+class TlevelScheduler(StaticSortScheduler):
+    def init(self, simulator):
+        super().init(simulator)
+        self.t_level = compute_t_level_duration(simulator.task_graph)
+
+    def sort_tasks(self, tasks):
+        return sorted(tasks, key=lambda t: self.t_level[t])
