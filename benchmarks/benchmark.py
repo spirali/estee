@@ -3,11 +3,13 @@ import collections
 import itertools
 import multiprocessing
 import os
+import random
 import re
 import sys
 import threading
 import time
 
+import numpy
 import pandas as pd
 from tqdm import tqdm
 
@@ -23,6 +25,19 @@ from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, Tlev
 from schedsim.serialization.dask_json import json_deserialize, json_serialize
 from schedsim.simulator import Simulator
 from schedsim.worker import Worker
+
+
+def generate_seed():
+    seed = os.getpid() * time.time()
+    for b in os.urandom(4):
+        seed *= b
+    seed = int(seed) % 2**32
+    random.seed(seed)
+    numpy.random.seed(seed)
+
+
+generate_seed()
+
 
 SCHEDULERS = {
     "single": AllOnOneScheduler,
