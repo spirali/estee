@@ -103,6 +103,7 @@ def splot(data, col, row, x, y, style_col=None, sharex=False, sharey=True, ylim=
 
     def draw(gdata, ax):
         ax.set_xscale("log", nonposx='clip')
+        ax.get_yaxis().get_major_formatter().set_useOffset(False)
         if ylim is not None:
             ax.set(ylim=ylim)
         for v, style in zip(values, style_gen()):
