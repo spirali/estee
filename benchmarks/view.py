@@ -137,9 +137,10 @@ def splot(data, col, row, x, y, style_col=None, sharex=False, sharey=True, ylim=
 
     fig.legend(handles=[Line2D([], [], color=style["color"], label=v, linestyle=style["line"], marker=style["marker"])
                         for v, style in zip(values, style_gen())],
-               ncol=3,
-               loc=3,
-               mode="expand", borderaxespad=0., numpoints=1)
+               bbox_to_anchor=(0, 1),
+               loc="lower left",
+               ncol=20)
+    plt.tight_layout()
 
 
 def savefig(name):
