@@ -8,6 +8,7 @@ import re
 import sys
 import threading
 import time
+import traceback
 
 import numpy
 import pandas as pd
@@ -89,6 +90,7 @@ IMODES = {
 
 SCHED_TIMINGS = {
     # min_sched_interval, sched_time
+    "0/0": (0, 0),
     "0.1/0.05": (0.1, 0.05),
     "0.4/0.05": (0.4, 0.05),
     "1.6/0.05": (1.6, 0.05),
@@ -116,7 +118,13 @@ def run_single_instance(instance):
     netmodel = NETMODELS[instance.netmodel](instance.bandwidth)
     scheduler = SCHEDULERS[instance.scheduler_name]()
     simulator = Simulator(instance.graph, workers, scheduler, netmodel)
-    return simulator.run(), time.monotonic() - begin_time
+
+    try:
+        return simulator.run(), time.monotonic() - begin_time
+    except Exception as e:
+        traceback.print_exc()
+        print("ERROR INSTANCE: {}".format(instance), file=sys.stderr)
+        return None, None
 
 
 def benchmark_scheduler(instance):
@@ -380,20 +388,21 @@ def compute(graphset, resultfile, scheduler, cluster, bandwidth,
             for instance, result in tqdm(zip(instances, iterator), total=len(instances)):
                 counter += 1
                 for r_time, r_runtime in result:
-                    rows.append((
-                        instance.graph_set,
-                        instance.graph_name,
-                        instance.graph_id,
-                        instance.cluster_name,
-                        instance.bandwidth,
-                        instance.netmodel,
-                        instance.scheduler_name,
-                        instance.imode,
-                        instance.min_sched_interval,
-                        instance.sched_time,
-                        r_time,
-                        r_runtime,
-                    ))
+                    if r_time is not None:
+                        rows.append((
+                            instance.graph_set,
+                            instance.graph_name,
+                            instance.graph_id,
+                            instance.cluster_name,
+                            instance.bandwidth,
+                            instance.netmodel,
+                            instance.scheduler_name,
+                            instance.imode,
+                            instance.min_sched_interval,
+                            instance.sched_time,
+                            r_time,
+                            r_runtime,
+                        ))
 
         except KeyboardInterrupt:
             print("Benchmark interrupted, iterated {} instances. Writing intermediate results"

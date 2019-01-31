@@ -57,7 +57,7 @@ def spawn_scheduler(host, port, path):
 def start_cluster(port, path, procs=24):
     print("Starting cluster...")
     spawn_scheduler(HOSTNAME, port, path)
-    time.sleep(1)
+    time.sleep(5)
     scheduler = "{}:{}".format(HOSTNAME, port)
     spawn_workers(HOSTNAME, procs - 1, scheduler, path)
 
