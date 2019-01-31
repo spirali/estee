@@ -85,7 +85,7 @@ class GeneticScheduler(StaticScheduler):
         algorithms.eaSimple(pop, toolbox,
                             cxpb=0.8,
                             mutpb=0.05,
-                            ngen=20,
+                            ngen=100,
                             halloffame=hof,
                             verbose=False)
         best = [item for item in hof.items if self.is_schedule_valid(item, graph, workers)]
@@ -94,7 +94,7 @@ class GeneticScheduler(StaticScheduler):
                 return random.choice([w for w in workers if w.cpus >= task.cpus])
             self.best_individual = [TaskAssignment(get_worker(t), t) for t in graph.tasks]
         else:
-            self.best_individual = best[0]
+            self.best_individual = self.create_schedule(best[0], graph.tasks, workers)
         assert self.is_schedule_valid(self.best_individual, graph, workers)
 
     def generator_individual_bootstrap(self, graph, workers, netmodel, bootstrap):
@@ -167,5 +167,4 @@ class GeneticScheduler(StaticScheduler):
         return schedule
 
     def static_schedule(self):
-        return self.create_schedule(self.best_individual, self.simulator.task_graph.tasks,
-                                    self.simulator.workers)
+        return self.best_individual
