@@ -22,8 +22,18 @@ def process_imode_blind(graph):
 
 
 def process_imode_user(graph):
-    # Do nothing
-    pass
+    durations = np.array([t.duration for t in graph.tasks])
+    sizes = np.array([o.size for o in graph.outputs])
+    duration = durations.mean() if graph.tasks else 0
+    size = sizes.mean() if graph.outputs else 0
+
+    for t in graph.tasks:
+        if t.expected_duration is None:
+            t.expected_duration = duration
+
+    for o in graph.outputs:
+        if o.expected_size is None:
+            o.expected_size = size
 
 
 def process_imode_mean(graph):
