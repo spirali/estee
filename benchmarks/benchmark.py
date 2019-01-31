@@ -266,7 +266,7 @@ def load_graphs(graphset):
     graphs = graphset.split(",")
     frame = pd.DataFrame()
     for path in graphs:
-        graph = pd.read_pickle(path)
+        graph = pd.read_json(path)
         graph.insert(loc=0, column='graph_set', value=os.path.splitext(path)[0])
         frame = pd.concat([frame, graph], ignore_index=True)
     return frame
