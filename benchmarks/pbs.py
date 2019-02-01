@@ -73,6 +73,7 @@ def run_pbs(input_file, options):
         nodes = nodes.format(1)
     args.append(nodes)
 
+    print("Starting jobs from file {}".format(input_file))
     for i, input in enumerate(options["inputs"]):
         arguments = args[:]
 

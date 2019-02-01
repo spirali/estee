@@ -258,7 +258,7 @@ def skip_completed_instances(instances, frame, repeat):
             result.append(instance)
 
     if skipped:
-        print("Skipping {} instances".format(skipped))
+        print("Skipping {} instances, {} left".format(skipped, len(result)))
     return result
 
 
