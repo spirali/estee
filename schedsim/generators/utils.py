@@ -17,9 +17,10 @@ def listify(value):
     return value
 
 
-def gen_level(tg, width, name, cost_fn, output_fn):
+def gen_level(tg, width, name, cost_fn, output_fn, expected_duration):
     return [tg.new_task(name=name.format(i),
                         duration=cost_fn(),
+                        expected_duration=expected_duration,
                         outputs=listify(output_fn())) for i in range(width)]
 
 
