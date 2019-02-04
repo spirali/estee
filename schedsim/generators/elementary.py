@@ -34,10 +34,10 @@ def triplets(count, cpus):
     for i in range(count):
         t1 = g.new_task("a{}".format(i), duration=normal(5, 1.5), expected_duration=5,
                         output_size=40)
-        t2 = g.new_task("b{}".format(i), duration=normal(118, 20), expected_duration=120,
+        t2 = g.new_task("b{}".format(i), duration=normal(120, 20), expected_duration=120,
                         output_size=120, cpus=cpus)
         t2.add_input(t1)
-        t3 = g.new_task("c{}".format(i), duration=normal(32, 3), expected_duration=30)
+        t3 = g.new_task("c{}".format(i), duration=normal(32, 3), expected_duration=32)
         t3.add_input(t2)
     return g
 

@@ -38,7 +38,7 @@ def crossv(inner_count, train_cpus=4, eval_cpus=4, factor=1.0):
 
     merges = []
     for i in range(CHUNK_COUNT):
-        merge = g.new_task("merge{}".format(i), duration=normal(1.1, 0.02), expected_duration=1,
+        merge = g.new_task("merge{}".format(i), duration=normal(1.1, 0.02), expected_duration=1.1,
                            output_size=CHUNK_SIZE * (CHUNK_COUNT - 1))
         merge.add_inputs([c for j, c in enumerate(chunks) if i != j])
         merges.append(merge)
@@ -47,10 +47,10 @@ def crossv(inner_count, train_cpus=4, eval_cpus=4, factor=1.0):
         results = []
         for i in range(CHUNK_COUNT):
             train = g.new_task("train{}".format(i), duration=exponential(680 * factor),
-                               expected_duration=660 * factor, output_size=18, cpus=train_cpus)
+                               expected_duration=680 * factor, output_size=18, cpus=train_cpus)
             train.add_input(merges[i])
             evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
-                                  expected_duration=30 * factor, output_size=0.0001,
+                                  expected_duration=34 * factor, output_size=0.0001,
                                   cpus=eval_cpus)
             evaluate.add_input(train)
             evaluate.add_input(chunks[i])
@@ -89,7 +89,7 @@ def nestedcrossv(parameter_count, factor=1.0, train_cpus=4, eval_cpus=4):
         merges = []
         for i in range(INNER_FOLD_COUNT):
             merge = g.new_task("merge{}".format(i), duration=normal(1.1, 0.02),
-                               expected_duration=1, output_size=FOLD_SIZE * (INNER_FOLD_COUNT - 1))
+                               expected_duration=1.1, output_size=FOLD_SIZE * (INNER_FOLD_COUNT - 1))
             merge.add_inputs([c for j, c in enumerate(inner_folds) if i != j])
             merges.append(merge)
 
@@ -98,11 +98,11 @@ def nestedcrossv(parameter_count, factor=1.0, train_cpus=4, eval_cpus=4):
             results = []
             for i in range(INNER_FOLD_COUNT):
                 train = g.new_task("train{}".format(i), duration=exponential(680 * factor * p),
-                                   expected_duration=60 * factor * p, output_size=18,
+                                   expected_duration=680 * factor * p, output_size=18,
                                    cpus=train_cpus)
                 train.add_input(merges[i])
-                evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
-                                      expected_duration=30 * factor, output_size=0.0001,
+                evaluate = g.new_task("eval{}".format(i), duration=normal(35 * factor, 3),
+                                      expected_duration=35 * factor, output_size=0.0001,
                                       cpus=eval_cpus)
                 evaluate.add_input(train)
                 evaluate.add_input(inner_folds[i])
@@ -115,17 +115,17 @@ def nestedcrossv(parameter_count, factor=1.0, train_cpus=4, eval_cpus=4):
         t = g.new_task("best_param", duration=0.2, expected_duration=0.2, output_size=0.0001)
         t.add_inputs(avg_scores)
 
-        merge = g.new_task("merge{}".format(i), duration=normal(1.1, 0.02),
+        merge = g.new_task("merge{}".format(i), duration=normal(1, 0.02),
                            expected_duration=1, output_size=FOLD_SIZE * INNER_FOLD_COUNT)
         merge.add_inputs(inner_folds)
 
         train = g.new_task("train{}".format(i), duration=exponential(680 * factor),
-                           expected_duration=660 * factor, output_size=18, cpus=train_cpus)
+                           expected_duration=680 * factor, output_size=18, cpus=train_cpus)
         train.add_input(merge)
         train.add_input(t)
 
-        evaluate = g.new_task("eval{}".format(i), duration=normal(34 * factor, 3),
-                              expected_duration=30 * factor, output_size=0.0001, cpus=eval_cpus)
+        evaluate = g.new_task("eval{}".format(i), duration=normal(38 * factor, 3),
+                              expected_duration=38 * factor, output_size=0.0001, cpus=eval_cpus)
         evaluate.add_input(train)
         evaluate.add_input(folds[leave_out_idx])
 
@@ -137,8 +137,8 @@ def mapreduce(count):
     splitter = g.new_task("splitter", duration=10, expected_duration=10,
                           outputs=[2.5 * 1024 for _ in range(count)])
     maps = [g.new_task("map{}".format(i),
-                       duration=normal(49, 10),
-                       expected_duration=60,
+                       duration=normal(50, 10),
+                       expected_duration=50,
                        outputs=[TaskOutput(size=normal(250 / count, 20 / count),
                                            expected_size=250 / count)
                                 for _ in range(count)])
