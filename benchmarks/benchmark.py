@@ -309,6 +309,21 @@ def load_instances(graphset, graphs, scheduler, cluster, bandwidth, netmodel, im
     )
 
 
+def limit_max_count(instances, max_count):
+    result = []
+    for instance in instances:
+        if instance.count > max_count:
+            remaining = instance.count
+            while remaining > 0:
+                count = min(max_count, remaining)
+                remaining -= count
+                result.append(instance._replace(count=count))
+        else:
+            result.append(instance)
+
+    return result
+
+
 def compute(graphset, resultfile, scheduler, cluster, bandwidth,
             netmodel, imode, sched_timing, repeat=1,
             no_append=False, graphs=None, timeout=0, interval=None, skip_completed=True,
@@ -369,6 +384,8 @@ def compute(graphset, resultfile, scheduler, cluster, bandwidth,
     print("timings   : {}".format(", ".join(sched_timings)))
     print("REPEAT    : {}".format(repeat))
     print("============================================")
+
+    instances = limit_max_count(instances, 5)
 
     if dask_cluster:
         iterator = run_dask(instances, dask_cluster)
