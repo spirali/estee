@@ -1,9 +1,11 @@
 import itertools
+import random
 
-from .scheduler import SchedulerBase, make_static_scheduler
-from .utils import compute_alap, compute_b_level_duration, get_duration_estimate, \
-    get_size_estimate, schedule_all, transfer_cost_parallel, worker_estimate_earliest_time, \
-    compute_t_level_duration
+from schedsim.schedulers.queue import GreedyTransferQueueScheduler
+from .scheduler import SchedulerBase
+from .utils import compute_alap, compute_b_level_duration, compute_t_level_duration, \
+    get_duration_estimate, get_size_estimate, schedule_all, transfer_cost_parallel, \
+    worker_estimate_earliest_time
 from ..simulator import TaskAssignment
 
 
@@ -41,7 +43,6 @@ class K1hScheduler(SchedulerBase):
         return cost / bandwidth
 
 
-@make_static_scheduler
 class DLSScheduler(SchedulerBase):
     """
     Implementation of the dynamic level scheduler (DLS) from
@@ -175,6 +176,19 @@ class MCPScheduler(SchedulerBase):
         return schedules
 
 
+class MCPGTScheduler(GreedyTransferQueueScheduler):
+    def make_queue(self):
+        bandwidth = self.simulator.netmodel.bandwidth
+        alap = compute_alap(self.simulator.runtime_state,
+                            self.simulator.task_graph,
+                            bandwidth)
+        tasks = self.simulator.task_graph.tasks[:]
+        random.shuffle(tasks)  # To randomize keys with the same level
+        tasks.sort(key=lambda t: sorted([alap[t]] + [alap[c] for c in t.consumers()],
+                                        reverse=True))
+        return tasks
+
+
 class ETFScheduler(SchedulerBase):
     """
     Implementation of the ETF (Earliest Time First) scheduler from
@@ -242,7 +256,6 @@ class StaticSortScheduler(SchedulerBase):
         return max(earliest_transfer, earliest_computation)
 
 
-@make_static_scheduler
 class BlevelScheduler(StaticSortScheduler):
     def init(self, simulator):
         super().init(simulator)
@@ -252,7 +265,6 @@ class BlevelScheduler(StaticSortScheduler):
         return sorted(tasks, key=lambda t: self.b_level[t], reverse=True)
 
 
-@make_static_scheduler
 class TlevelScheduler(StaticSortScheduler):
     def init(self, simulator):
         super().init(simulator)

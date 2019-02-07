@@ -20,8 +20,8 @@ from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from schedsim.schedulers.camp import Camp2Scheduler
 from schedsim.schedulers.clustering import LcScheduler
 from schedsim.schedulers.genetic import GeneticScheduler
-from schedsim.schedulers.others import BlevelScheduler, DLSScheduler, ETFScheduler, MCPScheduler, \
-    TlevelScheduler
+from schedsim.schedulers.others import BlevelScheduler, DLSScheduler, ETFScheduler, MCPGTScheduler, \
+    MCPScheduler, TlevelScheduler
 from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
 from schedsim.serialization.dask_json import json_deserialize, json_serialize
 from schedsim.simulator import Simulator
@@ -51,6 +51,7 @@ SCHEDULERS = {
     "dls": DLSScheduler,
     "etf": ETFScheduler,
     "mcp": MCPScheduler,
+    "mcp-gt": MCPGTScheduler,
     "genetic": GeneticScheduler,
     #"last": LASTScheduler,
     "camp2": lambda: Camp2Scheduler(5000),
