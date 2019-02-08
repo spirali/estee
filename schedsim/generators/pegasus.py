@@ -161,7 +161,8 @@ def ligo(widths=(20, 10)):
             inspiral = gen_level(tg, w, "Inspiral-{}", lambda: normal(400, 100),
                                  lambda: normal(0.4, 0.1), 400)
             join_level(top, inspiral)
-            thinca = tg.new_task("Thinca", duration=normal(5, 1), output_size=0.02)
+            thinca = tg.new_task("Thinca", duration=normal(5, 1),
+                                 expected_duration=5, output_size=0.02)
             thinca.add_inputs(inspiral)
             parent = thinca
 

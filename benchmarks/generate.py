@@ -41,6 +41,12 @@ def gen_graphs(graph_defs, output):
         g = fn(*args)
         g.normalize()
         g.validate()
+
+        for t in g.tasks:
+            assert t.expected_duration is not None
+        for o in g.outputs:
+            assert o.expected_size is not None
+
         print("{} #t={} #o={}".format(name, g.task_count, len(g.outputs)))
         assert g.task_count < 80000  # safety check
         result.append([name, str(uuid.uuid4()), g])
@@ -137,7 +143,7 @@ def main():
     elif args.type == "pegasus":
         generators = pegasus_generators
     elif args.type == "rg":
-        generators = [("rg", generate_randomized_graph, SGen(), 12) for _ in range(10)]
+        generators = [("rg", generate_randomized_graph, SGen(), 12) for _ in range(60)]
     elif args.type == "m/rg":
         generators = [("m/rg", generate_randomized_m_graph) for _ in range(3)]
     else:

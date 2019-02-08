@@ -5,7 +5,9 @@ from ..common import TaskGraph
 
 def gridcat(count):
     g = TaskGraph()
-    opens = [g.new_task("input{}".format(i), duration=normal(0.01, 0.001),
+    opens = [g.new_task("input{}".format(i),
+                        duration=normal(0.01, 0.001),
+                        expected_duration=0.01,
                         output_size=normal(300, 25)) for i in range(count)]
     hashes = []
     for i in range(count):
@@ -14,14 +16,16 @@ def gridcat(count):
             o2 = opens[j]
             sz = o1.output.size + o2.output.size
             d = normal(0.2, 0.01) + sz / 1000.0
-            cat = g.new_task("cat", duration=d, output_size=sz)
+            cat = g.new_task("cat", duration=d,
+                             expected_duration=0.2 + sz / 1000.0, output_size=sz)
             cat.add_input(o1)
             cat.add_input(o2)
             d = normal(0.2, 0.01) + sz / 500.0
-            makehash = g.new_task("hash", duration=d, output_size=16 / 1024 / 1024)
+            makehash = g.new_task("hash", duration=d,
+                                  expected_duration=0.2 + sz / 500.0, output_size=16 / 1024 / 1024)
             makehash.add_input(cat)
             hashes.append(makehash.output)
-    m = g.new_task("merge", duration=0.1, output_size=16 / 1024 / 1024)
+    m = g.new_task("merge", duration=0.1, expected_duration=0.1, output_size=16 / 1024 / 1024)
     m.add_inputs(hashes)
     return g
 
