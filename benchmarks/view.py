@@ -1,17 +1,17 @@
+
+# This scripts generates graphs for
+# outputs of benchmarks
+
 import pandas as pd
-import matplotlib
 import matplotlib.pyplot as plt
-import seaborn as sns
 import os
-import multiprocessing
 import itertools
-import matplotlib.patches as mpatches
 from matplotlib.lines import Line2D
 
 LINE_STYLES = ["-", ":", "-.", "--"]
 cmap = plt.cm.get_cmap('Dark2')
 COLORS = [cmap(i) for i in range(5)]
-MARKERS = ["o", "v", "^", "<", ">", "1", "2", "3", "4", "8", "s", "+", "x", "D"]
+MARKERS = ["o", "v", "^", "<", ">", "1", "2", "3", "4", "8", "s", "x", "D"]
 
 
 def style_gen():
@@ -31,12 +31,15 @@ class Data:
     def __init__(self, filename):
         self.raw_data = pd.read_pickle(filename)
 
-        #self.raw_data["min_sched_interval"] = self.raw_data["min_sched_interval"].apply(lambda x: str(x))
-        #print(self.raw_data["min_sched_interval"].map(lambda x: "x" + str(x)))
-        #print(self.raw_data["min_sched_interval"].unique())
         self.raw_data.drop("graph_set", axis=1, inplace=True)
+        exclude = ["tlevel-simple", "blevel-simple"]
+        self.raw_data = pd.DataFrame(
+            self.raw_data[~self.raw_data["scheduler_name"].isin(exclude)])
 
-        mins = self.raw_data.groupby(["graph_id", "cluster_name", "bandwidth", "netmodel"])["time"].transform(pd.Series.min)
+        mins = self.raw_data.groupby(
+            ["graph_id", "cluster_name", "bandwidth", "netmodel"]
+        )["time"].transform(pd.Series.min)
+
         self.raw_data["score"] = self.raw_data["time"] / mins
 
     def prepare(self,
@@ -62,7 +65,6 @@ class Data:
         else:
             f &= rd["imode"].isin(["exact", "mean", "user"])
 
-        #f &= rd["scheduler_name"].isin(["blevel", "random-gt", "genetic"])
         if cluster_name:
             f &= rd["cluster_name"] == cluster_name
         if cluster_name:
@@ -70,32 +72,8 @@ class Data:
         return pd.DataFrame(rd[f])
 
 
-def splot(data, col, row, x, y, style_col=None, sharex=False, sharey=True, ylim=None, style_values=None):
-    """
-    g = sns.FacetGrid(data, col=col, row=row, sharey=sharey, sharex=sharex, margin_titles=True)
-    if ylim is not None:
-        g.set(ylim=ylim)
-
-    def draw(**kw):
-        data = kw["data"]
-        #data["min_sched_interval"] = data["min_sched_interval"].astype(str)
-        #data["bandwidth"] = data["bandwidth"]
-        #ax = sns.scatterplot(data=data, x=x, y=y, hue=hue, style=style)
-        #ax.set(xscale="log")
-        #hue_order = sorted(data[hue].unique())
-        hue_order = None
-        #if hue:
-        #    hue_order = sorted(data[hue].unique())
-        ax = sns.scatterplot(data=data, x=x, y=y, hue=hue, hue_order=hue_order, style=style)
-        ax.set(xscale="log")
-        ax = sns.lineplot(data=data, x=x, y=y, hue=hue, hue_order=hue_order, style=style, ci=None)
-        ax.set(xscale="log")
-    g.map_dataframe(draw).add_legend()
-    for ax in g.axes.flat:
-        plt.setp(ax.texts, text="")
-    g.set_titles(row_template="{row_name}", col_template="{col_name}", size = 2)
-    """
-
+def splot(data, col, row, x, y,
+          style_col=None, sharex=False, sharey=True, ylim=None, style_values=None):
     if style_col is None:
         values = style_values
     else:
@@ -108,7 +86,8 @@ def splot(data, col, row, x, y, style_col=None, sharex=False, sharey=True, ylim=
             ax.set(ylim=ylim)
         for v, style in zip(values, style_gen()):
             fdata = gdata[gdata[style_col] == v]
-            ax.plot(fdata[x], fdata[y], 'ro', markersize=5, color=style["color"], marker=style["marker"])
+            ax.plot(fdata[x], fdata[y], 'ro',
+                    markersize=5, color=style["color"], marker=style["marker"])
             means = fdata.groupby(x)[y].mean()
             ax.plot(means.index, means, linestyle=style["line"], color=style["color"])
 
@@ -135,7 +114,8 @@ def splot(data, col, row, x, y, style_col=None, sharex=False, sharey=True, ylim=
                 ax = axes[j, i]
                 draw(gdata, ax)
 
-    fig.legend(handles=[Line2D([], [], color=style["color"], label=v, linestyle=style["line"], marker=style["marker"])
+    fig.legend(handles=[Line2D([], [], color=style["color"],
+                               label=v, linestyle=style["line"], marker=style["marker"])
                         for v, style in zip(values, style_gen())],
                bbox_to_anchor=(0, 1),
                loc="lower left",
@@ -144,81 +124,88 @@ def splot(data, col, row, x, y, style_col=None, sharex=False, sharey=True, ylim=
 
 
 def savefig(name):
-    plt.savefig("outputs/" + name + ".pdf", bbox_inches='tight')    
+    plt.savefig("outputs/" + name + ".pdf", bbox_inches='tight')
 
 
 def process(name):
     print("processing " + name)
-    data = Data("../results/" + name + ".zip")
-    
+    data = Data("../results-rc/" + name + ".zip")
+
     # ----- Schedulers -----
     dataset = data.prepare()
 
-    splot(dataset, "cluster_name", "graph_name", x="bandwidth", y="score", style_col="scheduler_name", ylim=(1, 3))
+    splot(dataset, "cluster_name", "graph_name", x="bandwidth", y="score",
+          style_col="scheduler_name", ylim=(1, 3))
     savefig(name + "-schedulers-score")
 
-    splot(dataset, "cluster_name", "graph_name", x="bandwidth", y="time", style_col="scheduler_name", sharey=False)
+    splot(dataset, "cluster_name", "graph_name", x="bandwidth", y="time",
+          style_col="scheduler_name", sharey=False)
     savefig(name + "-schedulers-time")
 
     # ----- Netmodel -----
     dataset = data.prepare(cluster_name="16x4", netmodel=None, exclude_single=True)
 
-    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="time", style_col="netmodel", sharey=False)
+    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="time",
+          style_col="netmodel", sharey=False)
     savefig(name + "-16x4-netmodel-time")
 
-    groups = dataset.groupby(["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name"])
+    groups = dataset.groupby(
+        ["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name"])
+
     def normalize(x):
         mean = x[x["netmodel"] == "simple"]["time"].mean()
         x["time"] /= mean
         return x
+
     dataset["norms"] = groups.apply(normalize)["time"]
-    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="norms", sharey=False, style_col="netmodel")
+    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="norms",
+          sharey=False, style_col="netmodel")
     savefig(name + "-16x4-netmodel-score")
 
     # ----- MinSchedTime
     dataset = data.prepare(cluster_name="16x4", min_sched_interval=None, exclude_single=True)
-    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="time", style_col="min_sched_interval", sharey=False)
+    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="time",
+          style_col="min_sched_interval", sharey=False)
     savefig(name + "-16x4-schedtime-time")
 
-    groups = dataset.groupby(["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name"])
+    groups = dataset.groupby(
+        ["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name"])
+
     def normalize(x):
         mean = x[x["min_sched_interval"] == 0.0]["time"].mean()
         x["time"] /= mean
         return x
-    dataset["norms"] = groups.apply(normalize)["time"]
-    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="norms", sharey=False, style_col="min_sched_interval")
-    savefig(name + "-16x4-schedtime-score")
 
+    dataset["norms"] = groups.apply(normalize)["time"]
+    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="norms",
+          sharey=False, style_col="min_sched_interval")
+    savefig(name + "-16x4-schedtime-score")
 
     # ----- Imodes
     dataset = data.prepare(cluster_name="16x4", exclude_single=True, imode=None)
-    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="time", style_col="imode", sharey=False)
+    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="time",
+          style_col="imode", sharey=False)
     savefig(name + "-16x4-imode-time")
 
-    groups = dataset.groupby(["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name"])
+    groups = dataset.groupby(
+        ["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name"])
+
     def normalize_imode(x):
         mean = x[x["imode"] == "exact"]["time"].mean()
         x["time"] /= mean
         return x
+
     dataset["norms_imode"] = groups.apply(normalize_imode)["time"]
-    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="norms_imode", sharey=False, style_col="imode")
+    splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="norms_imode",
+          sharey=False, style_col="imode")
     savefig(name + "-16x4-imode-score")
     return name
 
 
-if not os.path.isdir("outputs"):
-    os.mkdir("outputs")
+if __name__ == "__main__":
+    if not os.path.isdir("outputs"):
+        os.mkdir("outputs")
 
-
-#names = ["pegasus", "elementary", "irw"]
-
-#pool = multiprocessing.Pool()
-#for name in pool.imap(process, names):
-#    print("finished", name)
-
-process("pegasus")
-process("elementary")
-process("irw")
-
-
-#plt.show()
+    process("pegasus")
+    process("elementary")
+    process("irw")
