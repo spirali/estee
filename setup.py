@@ -1,6 +1,6 @@
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,7 +21,7 @@ setup(
     license="MIT",
     keywords="scheduling, simulation",
     url="http://estee.readthedocs.io",
-    packages=["schedsim"],
+    packages=find_packages(),
     install_requires=requirements,
     long_description=read('README.md'),
 )
