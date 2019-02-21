@@ -1,2 +1,2 @@
 
-from .netmodels import InstantNetModel, SimpleNetModel, MinMaxFlowNetModel  # noqa
+from .netmodels import InstantNetModel, SimpleNetModel, MaxMinFlowNetModel  # noqa

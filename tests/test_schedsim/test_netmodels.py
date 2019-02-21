@@ -5,15 +5,15 @@ import pytest
 import simpy
 from numpy.testing import assert_array_equal
 
-from schedsim.communication.netmodels import compute_minmax_flow, \
-    MinMaxFlowNetModel, SimpleNetModel
+from schedsim.communication.netmodels import compute_maxmin_flow, \
+    MaxMinFlowNetModel, SimpleNetModel
 from schedsim.worker import Worker
 
 
-def test_minmax_flow():
+def test_maxmin_flow():
 
     def mm_flow(send_capacities, recv_capacities, connections):
-        return compute_minmax_flow(
+        return compute_maxmin_flow(
             np.array(send_capacities, dtype=np.float),
             np.array(recv_capacities, dtype=np.float),
             np.array(connections, dtype=np.int32))
@@ -48,7 +48,7 @@ def test_minmax_flow():
                                np.eye(4, dtype=np.int32)))
 
 
-def create_netmodel(cclass=MinMaxFlowNetModel):
+def create_netmodel(cclass=MaxMinFlowNetModel):
     env = simpy.Environment()
     workers = [Worker() for _ in range(4)]
     for i, w in enumerate(workers):
@@ -58,7 +58,7 @@ def create_netmodel(cclass=MinMaxFlowNetModel):
     return netmodel, env, workers
 
 
-def test_minmax_netmodel_simple():
+def test_maxmin_netmodel_simple():
     netmodel, env, workers = create_netmodel()
     d = netmodel.download(workers[0], workers[1], 200)
     env.run(d)
@@ -78,7 +78,7 @@ def test_minmax_netmodel_simple():
     assert env.now == pytest.approx(10.0)
 
 
-def test_minmax_netmodel_mix():
+def test_maxmin_netmodel_mix():
     netmodel, env, workers = create_netmodel()
     d1 = netmodel.download(workers[0], workers[1], 200)
     # d1 200
@@ -109,7 +109,7 @@ def test_minmax_netmodel_mix():
     assert env.now == pytest.approx(14)
 
 
-def test_minmax_netmodel():
+def test_maxmin_netmodel():
 
     random.seed(42)
     COUNT = 50

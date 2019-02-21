@@ -15,7 +15,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from schedsim.common import imode
-from schedsim.communication import MinMaxFlowNetModel, SimpleNetModel
+from schedsim.communication import MaxMinFlowNetModel, SimpleNetModel
 from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from schedsim.schedulers.camp import Camp2Scheduler
 from schedsim.schedulers.clustering import LcScheduler
@@ -60,7 +60,7 @@ SCHEDULERS = {
 
 NETMODELS = {
     "simple": SimpleNetModel,
-    "minmax": MinMaxFlowNetModel
+    "maxmin": MaxMinFlowNetModel
 }
 
 CLUSTERS = {
@@ -208,7 +208,7 @@ def parse_args():
     parser.add_argument("--scheduler", help=generate_help(list(SCHEDULERS)), default="all")
     parser.add_argument("--cluster", help=generate_help(list(CLUSTERS)), default="all")
     parser.add_argument("--bandwidth", help=generate_help(list(BANDWIDTHS)), default="all")
-    parser.add_argument("--netmodel", help=generate_help(list(NETMODELS)), default="minmax")
+    parser.add_argument("--netmodel", help=generate_help(list(NETMODELS)), default="maxmin")
     parser.add_argument("--imode", help=generate_help(list(IMODES)), default="user")
     parser.add_argument("--sched-timing", help=generate_help(list(SCHED_TIMINGS)), default="all")
     parser.add_argument("--repeat", type=int, default=1)

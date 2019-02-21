@@ -25,7 +25,11 @@ from schedsim.common import TaskGraph
 from schedsim.schedulers import BlevelGtScheduler
 from schedsim.worker import Worker
 from schedsim.simulator import Simulator
+<<<<<<< HEAD
 from schedsim.communication import MinMaxFlowNetModel
+=======
+from schedsim.communication import MaxMinFlowNetModel
+>>>>>>> dc9a6c5... RF: fixed min-max flow -> max-min flow
 
 # Create task graph containing 3 tasks
 # (each task runs 1s and requires 1 CPU)
@@ -44,8 +48,8 @@ scheduler = BlevelGtScheduler()
 # Define cluster with 2 workers (1 CPU each)
 workers = [Worker(cpus=1) for _ in range(2)]
 
-# Define MinMaxFlow network model (100MB/s)
-netmodel = MinMaxFlowNetModel(bandwidth=100)
+# Define MaxMinFlow network model (100MB/s)
+netmodel = MaxMinFlowNetModel(bandwidth=100)
 
 # Create simulator
 simulator = Simulator(tg, workers, scheduler, netmodel)
@@ -86,4 +90,4 @@ Built-in network models can be imported as follows:
 `from schedsim.communication import`:
  * `InstantNetModel`
  * `SimpleNetModel`
- * `MinMaxFlowNetModel`
+ * `MaxMinFlowNetModel`
