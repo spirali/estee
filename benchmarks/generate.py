@@ -4,13 +4,13 @@ import uuid
 
 import pandas
 
-from schedsim.generators.elementary import bigmerge, conflux, duration_stairs, fork1, fork2, \
+from estee.generators.elementary import bigmerge, conflux, duration_stairs, fork1, fork2, \
     grid, merge_neighbours, merge_small_big, merge_triplets, plain1cpus, plain1e, plain1n, \
     size_stairs, splitters, triplets, fern
-from schedsim.generators.irw import crossv, crossvx, fastcrossv, gridcat, mapreduce, nestedcrossv
-from schedsim.generators.pegasus import cybershake, epigenomics, ligo, montage, sipht
-from schedsim.generators.randomized import generate_randomized_graph, SGen, MGen
-from schedsim.serialization.dask_json import json_serialize
+from estee.generators.irw import crossv, crossvx, fastcrossv, gridcat, mapreduce, nestedcrossv
+from estee.generators.pegasus import cybershake, epigenomics, ligo, montage, sipht
+from estee.generators.randomized import generate_randomized_graph, SGen, MGen
+from estee.serialization.dask_json import json_serialize
 
 sys.setrecursionlimit(80000)
 

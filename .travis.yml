@@ -6,4 +6,4 @@ install:
   - pip install flake8
 script:
   - py.test tests
-  - flake8 schedsim tests
+  - flake8 estee tests

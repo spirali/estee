@@ -1,6 +1,6 @@
-from schedsim.common import TaskGraph
-from schedsim.communication import SimpleNetModel
-from schedsim.simulator.trace import FetchEndTraceEvent, FetchStartTraceEvent, \
+from estee.common import TaskGraph
+from estee.communication import SimpleNetModel
+from estee.simulator.trace import FetchEndTraceEvent, FetchStartTraceEvent, \
     TaskAssignTraceEvent, TaskEndTraceEvent, TaskStartTraceEvent
 from .test_utils import do_sched_test, fixed_scheduler
 

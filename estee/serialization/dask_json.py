@@ -1,6 +1,6 @@
 import json
 
-from schedsim.common import TaskGraph
+from estee.common import TaskGraph
 
 
 def json_serialize(graph):

@@ -1,11 +1,11 @@
 import pytest
 
-from schedsim.common import TaskGraph, TaskOutput
-from schedsim.communication import InstantNetModel
-from schedsim.simulator import Simulator
-from schedsim.worker import Worker
-from schedsim.schedulers import StaticScheduler
-from schedsim.simulator import TaskAssignment
+from estee.common import TaskGraph, TaskOutput
+from estee.communication import InstantNetModel
+from estee.simulator import Simulator
+from estee.worker import Worker
+from estee.schedulers import StaticScheduler
+from estee.simulator import TaskAssignment
 
 
 @pytest.fixture

@@ -14,18 +14,18 @@ import numpy
 import pandas as pd
 from tqdm import tqdm
 
-from schedsim.common import imode
-from schedsim.communication import MaxMinFlowNetModel, SimpleNetModel
-from schedsim.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
-from schedsim.schedulers.camp import Camp2Scheduler
-from schedsim.schedulers.clustering import LcScheduler
-from schedsim.schedulers.genetic import GeneticScheduler
-from schedsim.schedulers.others import BlevelScheduler, DLSScheduler, ETFScheduler, MCPGTScheduler, \
+from estee.common import imode
+from estee.communication import MaxMinFlowNetModel, SimpleNetModel
+from estee.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
+from estee.schedulers.camp import Camp2Scheduler
+from estee.schedulers.clustering import LcScheduler
+from estee.schedulers.genetic import GeneticScheduler
+from estee.schedulers.others import BlevelScheduler, DLSScheduler, ETFScheduler, MCPGTScheduler, \
     MCPScheduler, TlevelScheduler
-from schedsim.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
-from schedsim.serialization.dask_json import json_deserialize, json_serialize
-from schedsim.simulator import Simulator
-from schedsim.worker import Worker
+from estee.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
+from estee.serialization.dask_json import json_deserialize, json_serialize
+from estee.simulator import Simulator
+from estee.worker import Worker
 
 
 def generate_seed():

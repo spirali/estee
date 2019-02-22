@@ -5,9 +5,9 @@ import pytest
 import simpy
 from numpy.testing import assert_array_equal
 
-from schedsim.communication.netmodels import compute_maxmin_flow, \
+from estee.communication.netmodels import compute_maxmin_flow, \
     MaxMinFlowNetModel, SimpleNetModel
-from schedsim.worker import Worker
+from estee.worker import Worker
 
 
 def test_maxmin_flow():

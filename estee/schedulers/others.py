@@ -1,7 +1,7 @@
 import itertools
 import random
 
-from schedsim.schedulers.queue import GreedyTransferQueueScheduler
+from estee.schedulers.queue import GreedyTransferQueueScheduler
 from .scheduler import SchedulerBase
 from .utils import compute_alap, compute_b_level_duration, compute_t_level_duration, \
     get_duration_estimate, get_size_estimate, schedule_all, transfer_cost_parallel, \

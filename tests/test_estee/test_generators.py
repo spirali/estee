@@ -1,11 +1,11 @@
-from schedsim.common import TaskGraph
-from schedsim.generators import random_dependencies, random_levels
-from schedsim.generators.elementary import bigmerge, conflux, duration_stairs, fern, fork1,\
+from estee.common import TaskGraph
+from estee.generators import random_dependencies, random_levels
+from estee.generators.elementary import bigmerge, conflux, duration_stairs, fern, fork1,\
     fork2, grid, merge_neighbours, merge_small_big, merge_triplets, plain1cpus, plain1e, plain1n, \
     size_stairs, splitters, triplets
-from schedsim.generators.irw import crossv, crossvx, fastcrossv, gridcat, mapreduce, nestedcrossv
-from schedsim.generators.pegasus import cybershake, epigenomics, ligo, montage, sipht
-from schedsim.generators.randomized import generate_randomized_graph, SGen, MGen
+from estee.generators.irw import crossv, crossvx, fastcrossv, gridcat, mapreduce, nestedcrossv
+from estee.generators.pegasus import cybershake, epigenomics, ligo, montage, sipht
+from estee.generators.randomized import generate_randomized_graph, SGen, MGen
 
 
 def check_graph(g):

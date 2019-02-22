@@ -21,15 +21,11 @@ Estee requires users to define:
 The following code demostrates usage of Estee using built in implementation of scheduler and network model.
 
 ```
-from schedsim.common import TaskGraph
-from schedsim.schedulers import BlevelGtScheduler
-from schedsim.worker import Worker
-from schedsim.simulator import Simulator
-<<<<<<< HEAD
-from schedsim.communication import MinMaxFlowNetModel
-=======
-from schedsim.communication import MaxMinFlowNetModel
->>>>>>> dc9a6c5... RF: fixed min-max flow -> max-min flow
+from estee.common import TaskGraph
+from estee.schedulers import BlevelGtScheduler
+from estee.worker import Worker
+from estee.simulator import Simulator
+from estee.communication import MaxMinFlowNetModel
 
 # Create task graph containing 3 tasks
 # (each task runs 1s and requires 1 CPU)
@@ -69,7 +65,7 @@ We provide implementations of multiple scheduling heuristics and network models 
 
 Built-in schedulers can be imported as follows:
 
-`from schedsim.schedulers import`:
+`from estee.schedulers import`:
  * `StaticScheduler`
  * `AllOnOneScheduler`
  * `DoNothingScheduler`
@@ -87,7 +83,7 @@ Built-in schedulers can be imported as follows:
 
 Built-in network models can be imported as follows:
 
-`from schedsim.communication import`:
+`from estee.communication import`:
  * `InstantNetModel`
  * `SimpleNetModel`
  * `MaxMinFlowNetModel`

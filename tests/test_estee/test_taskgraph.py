@@ -1,5 +1,5 @@
 
-from schedsim.common import Task, TaskGraph
+from estee.common import Task, TaskGraph
 
 
 def test_is_descendant():

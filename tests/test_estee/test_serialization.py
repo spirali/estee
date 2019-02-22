@@ -3,8 +3,8 @@ import os
 
 import pytest
 
-from schedsim.common import TaskGraph
-from schedsim.serialization.dax import dax_deserialize, dax_serialize
+from estee.common import TaskGraph
+from estee.serialization.dax import dax_deserialize, dax_serialize
 
 
 def test_load_graph():

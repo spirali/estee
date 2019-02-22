@@ -2,13 +2,13 @@ import itertools
 
 import pytest
 
-from schedsim.common import TaskGraph
-from schedsim.communication import SimpleNetModel
-from schedsim.schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase, \
+from estee.common import TaskGraph
+from estee.communication import SimpleNetModel
+from estee.schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase, \
     StaticScheduler
-from schedsim.simulator import TaskAssignment
-from schedsim.simulator.utils import estimate_schedule
-from schedsim.worker import Worker
+from estee.simulator import TaskAssignment
+from estee.simulator.utils import estimate_schedule
+from estee.worker import Worker
 from .test_utils import do_sched_test
 
 

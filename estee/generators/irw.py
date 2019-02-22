@@ -1,4 +1,4 @@
-from schedsim.common import TaskOutput
+from estee.common import TaskOutput
 from .utils import exponential, normal
 from ..common import TaskGraph
 
