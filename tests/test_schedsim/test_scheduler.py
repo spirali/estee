@@ -225,5 +225,6 @@ def test_find_critical_path(plan1):
 
 
 def test_critical_path_clustering(plan1):
-    assert [] == critical_path_clustering(plan1)
+    a1, a2, a3, a4, a5, a6, a7, a8 = plan1.tasks
+    assert [[a4, a6, a8], [a1, a3, a5], [a2], [a7]] == critical_path_clustering(plan1)
 
