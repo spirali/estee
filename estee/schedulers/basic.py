@@ -1,26 +1,30 @@
 
-from .scheduler import SchedulerBase, StaticScheduler
+from .scheduler import SchedulerBase, StaticScheduler, TaskState
 from .utils import max_cpus_worker, compute_b_level_duration
 from ..simulator import TaskAssignment
 import numpy as np
 
 
 class DoNothingScheduler(SchedulerBase):
-    pass
+
+    def __init__(self):
+        super().__init__("do-nothing", "0")
+
+    def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
+        pass
 
 
 class RandomAssignScheduler(StaticScheduler):
 
-    def init(self, simulator):
-        self.scheduled = False
+    def __init__(self):
+        super().__init__("random-s", "0")
 
     def static_schedule(self):
-        tasks = list(self.simulator.task_graph.tasks)
+        tasks = [t for t in self.task_graph.tasks.values() if t.state == TaskState.Waiting]
         np.random.shuffle(tasks)
 
-        workers = self.simulator.workers
+        workers = list(self.workers.values())
 
-        results = []
         p = np.array([w.cpus for w in workers], dtype=np.float)
         p /= p.sum()
 
@@ -28,19 +32,28 @@ class RandomAssignScheduler(StaticScheduler):
             w = np.random.choice(workers, p=p)
             while w.cpus < t.cpus:
                 w = np.random.choice(workers, p=p)
-            results.append(TaskAssignment(w, t))
-        return results
+            self.assign(w, t)
 
 
 class AllOnOneScheduler(SchedulerBase):
 
-    def init(self, simulator):
-        super().init(simulator)
-        self.worker = max_cpus_worker(self.simulator.workers)
-        self.b_level = compute_b_level_duration(self.simulator.task_graph)
+    def __init__(self):
+        super().__init__("single", "0")
+        self.worker = None
+        self.b_level = None
 
-    def schedule(self, new_ready, new_finished):
-        worker = self.worker
-        b_level = self.b_level
-        return [TaskAssignment(worker, task, b_level[task])
-                for task in new_ready]
+    def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
+        if cluster_changed:
+            worker = max_cpus_worker(self.workers.values())
+            self.worker = worker
+        else:
+            worker = self.worker
+
+        if graph_changed:
+            b_level = compute_b_level_duration(self.task_graph)
+            self.b_level = b_level
+        else:
+            b_level = self.b_level
+
+        for task in new_ready:
+            self.assign(worker, task, b_level[task])

@@ -37,7 +37,7 @@ class K1hScheduler(SchedulerBase):
         for c in task.consumers():
             for i in c.inputs:
                 if (i.parent != task and
-                        worker not in self.simulator.runtime_state.output_info(i).placing):
+                        worker not in self.simulator.runtime_state.object_info(i).placing):
                     cost += get_size_estimate(self.simulator.runtime_state, i)
 
         return cost / bandwidth
@@ -96,7 +96,7 @@ class LASTScheduler(SchedulerBase):
         runtime_state = self.simulator.runtime_state
 
         def edge_cost(o1, t2):
-            if (runtime_state.output_info(o1).placing ==
+            if (runtime_state.object_info(o1).placing ==
                     runtime_state.task_info(t2).assigned_workers):
                 return 0
             else:

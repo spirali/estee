@@ -1,39 +1,30 @@
 
-from .task import Task
+from .task import Task, DataObject
+from .taskbase import TaskGraphBase
 from .utils import flat_list
 
 
-class TaskGraph:
+class TaskGraph(TaskGraphBase):
 
-    def __init__(self, tasks=None):
-        if tasks is None:
-            self.tasks = []
-            self.outputs = []
-        else:
-            outputs = []
-            for i, task in enumerate(tasks):
-                task.id = i
-                for output in task.outputs:
-                    output.id = len(outputs)
-                    outputs.append(output)
-            self.tasks = tasks
-            self.outputs = outputs
+    def _copy_tasks_and_objects(self):
+        self.validate()
+        tasks = [task.simple_copy() for task in self.tasks.values()]
+        objects = {o.id: o for t in tasks for o in t.outputs}
 
-    def _copy_tasks(self):
-        tasks = [task.simple_copy() for task in self.tasks]
-        outputs = flat_list(task.outputs for task in tasks)
+        for o in self.objects.values():
+            if o.parent is not None:
+                continue
+            assert o.id not in objects
+            objects[o.id] = DataObject(o.id, o.size, o.expected_size)
 
-        for old_task, task in zip(self.tasks, tasks):
+        for old_task, task in zip(self.tasks.values(), tasks):
             for inp in old_task.inputs:
-                task.add_input(outputs[inp.id])
-        return tasks
+                task.add_input(objects[inp.id])
+        return (tasks, objects)
 
     def copy(self):
-        return TaskGraph(tasks=self._copy_tasks())
-
-    @property
-    def task_count(self):
-        return len(self.tasks)
+        tasks, objects = self._copy_tasks_and_objects()
+        return TaskGraph({t.id: t for t in tasks}, objects)
 
     def new_task(self,
                  name=None,
@@ -42,92 +33,34 @@ class TaskGraph:
                  expected_duration=None,
                  cpus=1,
                  output_size=None):
-        task = Task(name, outputs, duration, cpus, output_size, expected_duration)
-        task.id = len(self.tasks)
+        task_id = len(self.tasks)
+        task = Task(task_id, name, outputs, duration, cpus, output_size, expected_duration)
+        self.tasks[task_id] = task
 
-        output_id = len(self.outputs)
+        output_id = len(self.objects)
         for o in task.outputs:
             o.id = output_id
+            self.objects[output_id] = o
             output_id += 1
-
-        self.tasks.append(task)
-        self.outputs += task.outputs
-
         return task
-
-    def source_tasks(self):
-        return [t for t in self.tasks if not t.inputs]
-
-    def leaf_tasks(self):
-        return [t for t in self.tasks if t.is_leaf]
-
-    @property
-    def arcs(self):
-        for task in self.tasks:
-            for t in task.inputs:
-                yield (task, t)
-
-    def validate(self):
-        tasks = set(self.tasks)
-        outputs = set(self.outputs)
-
-        for i, task in enumerate(self.tasks):
-            assert task.id == i
-            task.validate()
-
-            for o in task.inputs:
-                assert o in outputs
-                assert o.parent in tasks
-
-            for o in task.outputs:
-                assert o in outputs
-                assert o.parent is task
-                for c in o.consumers:
-                    assert c in tasks
-
-    def normalize(self):
-        for t in self.tasks:
-            t.normalize()
-
-    def to_dot(self, name, verbose=False):
-        stream = ["digraph ", name, " {\n"]
-
-        for task in self.tasks:
-            label = "{}\\n{}\\n{:.2f}".format(task.label, task.cpus, task.duration)
-            stream.append("t{} [shape=oval,label=\"{}\"]\n".format(task.id, label))
-
-        for output in self.outputs:
-            label = "{}\\n{:.2f}".format(output.id, output.size)
-            stream.append("o{} [shape=box,label=\"{}\"]\n".format(output.id, label))
-
-        for task in self.tasks:
-            for o in task.inputs:
-                stream.append("o{} -> t{}\n".format(o.id, task.id))
-            for o in task.outputs:
-                stream.append("t{} -> o{}\n".format(task.id, o.id))
-
-        stream.append("}\n")
-        return "".join(stream)
-
-    def write_dot(self, filename):
-        dot = self.to_dot("g")
-        with open(filename, "w") as f:
-            f.write(dot)
-
-    def __repr__(self):
-        return "<TaskGraph #t={}>".format(len(self.tasks))
 
     @staticmethod
     def merge(task_graphs):
-        tasks = flat_list(tg._copy_tasks() for tg in task_graphs)
-        return TaskGraph(tasks=tasks)
+        tasks = []
+        objects = []
+        for g in task_graphs:
+            t, o = g._copy_tasks_and_objects()
+            tasks += t
+            objects += o.values()
 
-    def remove_task(self, task):
-        outputs = self.outputs
-        for o in task.outputs:
-            outputs.remove(o)
-            for t in o.consumers:
-                t.inputs.remove(o)
-        self.tasks.remove(task)
-        for o in task.inputs:
-            o.consumers.remove(task)
+        ts = {}
+        for (i, t) in enumerate(tasks):
+            t.id = i
+            ts[i] = t
+
+        os = {}
+        for (i, o) in enumerate(objects):
+            o.id = i
+            os[i] = o
+
+        return TaskGraph(ts, os)

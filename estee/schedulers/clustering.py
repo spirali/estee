@@ -9,9 +9,11 @@ from ..communication import SimpleNetModel
 
 def find_critical_path(graph):
     b_level = compute_b_level_duration(graph)
-    tasks = graph.tasks
+    print("X", b_level)
+    tasks = graph.source_tasks()
     critical_path = []
     while tasks:
+        print("TASKS", tasks)
         task = max(tasks, key=lambda t: b_level[t])
         critical_path.append(task)
         tasks = task.consumers()
@@ -23,7 +25,7 @@ def critical_path_clustering(graph):
     clusters = []
     while g.tasks:
         path = find_critical_path(g)
-        clusters.append([graph.tasks[t.id] for t in path])
+        clusters.append(path)
         for task in path:
             g.remove_task(task)
     return clusters

@@ -14,7 +14,7 @@ def test_load_graph():
     assert len(tg.tasks) == 3
 
     tasks = {}
-    for t in tg.tasks:
+    for t in tg.tasks.values():
         tasks[t.name] = t
 
     assert tasks["SpatialClustering"].name == "SpatialClustering"

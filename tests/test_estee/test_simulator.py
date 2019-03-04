@@ -87,17 +87,16 @@ def test_task_zerocost():
 
     class Scheduler(StaticScheduler):
         def static_schedule(self):
-            workers = self.simulator.workers
-            tasks = self.simulator.task_graph.tasks
-            return [
-                TaskAssignment(workers[0], tasks[0]),
-                TaskAssignment(workers[1], tasks[1]),
-                TaskAssignment(workers[2], tasks[3]),
-                TaskAssignment(workers[0], tasks[4]),
-                TaskAssignment(workers[2], tasks[2])
-            ]
+            if not self.workers or not self.task_graph.tasks:
+                return
+            tasks = self.task_graph.tasks
+            self.assign(self.workers[0], tasks[0])
+            self.assign(self.workers[1], tasks[1])
+            self.assign(self.workers[2], tasks[3])
+            self.assign(self.workers[0], tasks[4])
+            self.assign(self.workers[2], tasks[2])
 
-    scheduler = Scheduler()
+    scheduler = Scheduler("x", "0")
     do_sched_test(test_graph, 3, scheduler, SimpleNetModel(bandwidth=2))
 
 
@@ -115,15 +114,15 @@ def test_scheduling_time():
     times = []
 
     class Scheduler(SchedulerBase):
-        def schedule(self, new_ready, new_finished):
-            times.append(self.simulator.env.now)
-            workers = self.simulator.workers
-            return [
-                TaskAssignment(workers[0], t)
-                for t in new_ready
-            ]
+        def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
+            if not self.task_graph.tasks:
+                return
+            simulator = self._simulator
+            times.append(simulator.env.now)
+            for t in new_ready:
+                self.assign(self.workers[0], t)
 
-    scheduler = Scheduler()
+    scheduler = Scheduler("x", "0")
     simulator = do_sched_test(
             test_graph, 1, scheduler,
             SimpleNetModel(bandwidth=2),

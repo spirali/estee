@@ -6,7 +6,7 @@ from .test_utils import do_sched_test, fixed_scheduler
 
 
 def test_trace_task_assign(plan1):
-    assignments = [(i % 2, task, 0) for i, task in enumerate(plan1.tasks)]
+    assignments = [(i % 2, task, 0) for i, task in enumerate(plan1.tasks.values())]
 
     simulator = do_sched_test(plan1, [1, 1], fixed_scheduler(assignments),
                               trace=True, return_simulator=True)

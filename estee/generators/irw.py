@@ -1,4 +1,4 @@
-from estee.common import TaskOutput
+from estee.common import DataObject
 from .utils import exponential, normal
 from ..common import TaskGraph
 
@@ -143,7 +143,7 @@ def mapreduce(count):
     maps = [g.new_task("map{}".format(i),
                        duration=normal(50, 10),
                        expected_duration=50,
-                       outputs=[TaskOutput(size=normal(250 / count, 20 / count),
+                       outputs=[DataObject(size=normal(250 / count, 20 / count),
                                            expected_size=250 / count)
                                 for _ in range(count)])
             for i in range(count)]

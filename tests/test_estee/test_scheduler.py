@@ -31,12 +31,6 @@ def test_scheduler_all_on_one(plan1):
     assert 17 == do_sched_test(plan1, 3, scheduler)
 
 
-def test_scheduler_all(plan1):
-
-    scheduler = AllOnOneScheduler()
-    assert 17 == do_sched_test(plan1, 1, scheduler)
-
-
 def test_scheduler_random(plan1):
     # 1w, instant
     assert 17 == do_sched_test(plan1, 1, RandomScheduler())
@@ -220,11 +214,10 @@ def test_topological_sort(plan1):
 
 def test_find_critical_path(plan1):
     path = find_critical_path(plan1)
-    _, _, _, a4, _, a6, _, a8 = plan1.tasks
-    assert path == [a4, a6, a8]
+    assert [t.id for t in path] == [3, 5, 7]
 
 
 def test_critical_path_clustering(plan1):
-    a1, a2, a3, a4, a5, a6, a7, a8 = plan1.tasks
-    assert [[a4, a6, a8], [a1, a3, a5], [a2], [a7]] == critical_path_clustering(plan1)
+    assert [[3, 5, 7], [0, 2, 4], [1], [6]] == \
+           [[t.id for t in p] for p in critical_path_clustering(plan1)]
 

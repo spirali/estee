@@ -135,7 +135,9 @@ def dax_serialize(task_graph, file):
 
     MiB = 1024 * 1024
 
-    for task in task_graph.tasks:
+    tasks = list(task_graph.tasks.values())
+
+    for task in tasks:
         id = "task-{}".format(len(task_to_id))
         task_tree = ET.SubElement(doc, "job",
                                   id=id,
@@ -152,7 +154,7 @@ def dax_serialize(task_graph, file):
                           file=name)
         task_to_id[task] = (id, task_tree)
 
-    for task in task_graph.tasks:
+    for task in tasks:
         (_, tree) = task_to_id[task]
         inputs = sorted(task.inputs, key=lambda i: task_to_id[i.parent][0])
         for (index, input) in enumerate(inputs):
@@ -165,7 +167,7 @@ def dax_serialize(task_graph, file):
                           expectedSize=str(input.expected_size * MiB),
                           file=name)
 
-    for task in task_graph.tasks:
+    for task in tasks:
         if task.inputs:
             elem = ET.SubElement(doc, "child", ref=task_to_id[task][0])
             parents = sorted({i.parent for i in task.inputs}, key=lambda t: task_to_id[t][0])

@@ -1,6 +1,6 @@
 import numpy as np
 
-from estee.common import TaskOutput
+from estee.common import DataObject
 from .utils import exponential, normal
 from ..common import TaskGraph
 
@@ -47,7 +47,7 @@ def merge_neighbours(count):
 
     tasks1 = [g.new_task("a{}".format(i), duration=normal(15, 3),
                          expected_duration=15,
-                         outputs=[TaskOutput(normal(99, 2.5), 100)])
+                         outputs=[DataObject(normal(99, 2.5), 100)])
               for i in range(count)]
     for i in range(count):
         t = g.new_task("b{}".format(i), duration=normal(15, 2), expected_duration=15)
@@ -61,7 +61,7 @@ def merge_triplets(count):
 
     tasks1 = [g.new_task("a{}".format(i), duration=normal(15, 3),
                          expected_duration=15,
-                         outputs=[TaskOutput(normal(99, 2.5), 100)])
+                         outputs=[DataObject(normal(99, 2.5), 100)])
               for i in range(count)]
     for i in range(0, count, 3):
         t = g.new_task("b{}".format(i), duration=normal(15, 2), expected_duration=15)
@@ -80,7 +80,7 @@ def merge_small_big(count):
 
     tasks2 = [g.new_task("b{}".format(i), duration=normal(15, 3),
                          expected_duration=15,
-                         outputs=[TaskOutput(normal(99, 2.5), 100)])
+                         outputs=[DataObject(normal(99, 2.5), 100)])
               for i in range(count)]
 
     for i, (t1, t2) in enumerate(zip(tasks1, tasks2)):
@@ -221,10 +221,10 @@ def fern(size):
                       expected_duration=20, duration=normal(20, 1))
     for i in range(size):
         a = g.new_task("a{}".format(i),
-                       outputs=[TaskOutput(normal(5 + i / 10, i / 100), 5 + i / 10)],
+                       outputs=[DataObject(normal(5 + i / 10, i / 100), 5 + i / 10)],
                        expected_duration=17 + i / 10, duration=normal(17 + i / 10, 3))
         b = g.new_task("b{}".format(i),
-                       outputs=[TaskOutput(normal(42, 2), 42)],
+                       outputs=[DataObject(normal(42, 2), 42)],
                        expected_duration=35, duration=normal(35, 3))
         a.add_input(prev)
         a.add_input(b)

@@ -1,10 +1,12 @@
 
+from .taskbase import TaskBase, DataObjectBase
 
-class Task:
 
-    __slots__ = ("inputs", "outputs", "duration", "expected_duration", "name", "id", "cpus")
+class Task(TaskBase):
 
-    def __init__(self, name=None,
+    def __init__(self,
+                 task_id,
+                 name=None,
                  outputs=(),
                  duration=1,
                  cpus=1,
@@ -14,38 +16,41 @@ class Task:
         assert duration >= 0
         assert expected_duration is None or expected_duration >= 0
 
-        self.inputs = []
-
         if output_size is not None:
             if outputs:
                 raise Exception("Cannot set 'output_size' and 'outputs' at once")
-            self.outputs = (TaskOutput(output_size, output_size),)
+            outputs = (DataObject(None, output_size, output_size),)
         else:
-            self.outputs = tuple(TaskOutput(s, s) if (isinstance(s, float) or isinstance(s, int))
+            outputs = tuple(DataObject(None, s, s) if (isinstance(s, float) or isinstance(s, int))
                                  else s for s in outputs)
 
-        for output in self.outputs:
+        for output in outputs:
             assert output.parent is None
             output.parent = self
 
-        self.name = name
-        self.id = None
+        super().__init__(task_id, [], outputs)
 
+        self.name = name
         self.duration = duration
         self.expected_duration = expected_duration
         self.cpus = cpus
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "inputs": [o.id for o in self.inputs],
+            "outputs": [o.id for o in self.outputs],
+            "expected_duration": self.expected_duration,
+            "cpus": self.cpus
+        }
+
     def simple_copy(self):
-        t = Task(self.name, duration=self.duration, expected_duration=self.expected_duration,
+        t = Task(self.id, self.name, duration=self.duration, expected_duration=self.expected_duration,
                  cpus=self.cpus)
-        t.outputs = [TaskOutput(o.size, o.expected_size) for o in self.outputs]
+        t.outputs = [DataObject(o.id, o.size, o.expected_size) for o in self.outputs]
         for o in t.outputs:
             o.parent = t
         return t
-
-    @property
-    def is_leaf(self):
-        return all(not o.consumers for o in self.outputs)
 
     @property
     def output(self):
@@ -56,11 +61,6 @@ class Task:
             raise Exception("Task {} has no unique output", self)
         return outputs[0]
 
-    def consumers(self):
-        if not self.outputs:
-            return set()
-        return set.union(*[o.consumers for o in self.outputs])
-
     @property
     def label(self):
         if self.name:
@@ -68,14 +68,10 @@ class Task:
         else:
             return "id={}".format(self.id)
 
-    @property
-    def pretasks(self):
-        return set(o.parent for o in self.inputs)
-
     def add_input(self, output):
         if isinstance(output, Task):
             output = output.output
-        elif not isinstance(output, TaskOutput):
+        elif not isinstance(output, DataObject):
             raise Exception("Only 'Task' or 'TaskInstance' is expected, not {}"
                             .format(repr(output)))
         self.inputs.append(output)
@@ -98,29 +94,6 @@ class Task:
 
         return "<T{}{} id={}>".format(name, cpus, self.id)
 
-    def is_predecessor_of(self, task):
-        descendants = set()
-        explore = [self]
-
-        while explore:
-            new = []
-            for t in explore:
-                for o in t.outputs:
-                    for d in o.consumers:
-                        if d in descendants:
-                            continue
-                        if d == task:
-                            return True
-                        descendants.add(d)
-                        new.append(d)
-            explore = new
-        return False
-
-    def normalize(self):
-        inputs = list(set(self.inputs))
-        inputs.sort(key=lambda o: o.id)
-        self.inputs = inputs
-
     def validate(self):
         assert self.duration >= 0
         assert self.expected_duration is None or self.expected_duration >= 0
@@ -132,19 +105,21 @@ class Task:
             assert o.expected_size is None or o.expected_size >= 0
 
 
-class TaskOutput:
+class DataObject(DataObjectBase):
 
-    __slots__ = ("parent", "id", "size", "consumers", "expected_size")
-
-    def __init__(self, size, expected_size=None):
+    def __init__(self, object_id=None, size=None, expected_size=None):
         assert size >= 0
         assert expected_size is None or expected_size >= 0
 
-        self.parent = None
+        super().__init__(object_id)
         self.size = size
-        self.consumers = set()
-        self.id = None
         self.expected_size = expected_size
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "expected_size": self.expected_size,
+        }
 
     def __repr__(self):
         return "<O id={} p={} size={}>".format(self.id, repr(self.parent), self.size)

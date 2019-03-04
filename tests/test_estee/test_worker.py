@@ -192,12 +192,15 @@ def test_worker_freecpus():
     free_cpus = []
 
     class Scheduler(SchedulerBase):
-        def schedule(self, new_ready, new_finished):
-            worker = self.simulator.workers[0]
+        def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
+            if not self.task_graph.tasks:
+                return
+            worker = self._simulator.workers[0]
             free_cpus.append(worker.free_cpus)
-            return [TaskAssignment(worker, t) for t in new_ready]
+            for t in new_ready:
+                self.assign(self.workers[worker.id], t)
 
-    scheduler = Scheduler()
+    scheduler = Scheduler("x", "0")
     do_sched_test(test_graph, [10], scheduler)
     assert free_cpus == [10, 5, 5, 8, 10]
 
@@ -212,29 +215,28 @@ def test_worker_running_tasks():
     remaining_times = []
 
     class Scheduler(SchedulerBase):
-        def __init__(self):
-            self.scheduled = False
+        scheduled = False
 
-        def schedule(self, new_ready, new_finished):
-            workers = self.simulator.workers
+        def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
+            if not self.task_graph.tasks:
+                return
 
-            remaining_times.append([[t.remaining_time(self.simulator.env.now)
+            simulator = self._simulator
+            remaining_times.append([[t.remaining_time(simulator.env.now)
                                      for t
                                      in w.running_tasks.values()]
-                                    for w in workers])
+                                     for w in simulator.workers])
 
             if not self.scheduled:
-                tasks = self.simulator.task_graph.tasks
+                tasks = self.task_graph.tasks
                 self.scheduled = True
-                return [
-                    TaskAssignment(workers[0], tasks[0]),
-                    TaskAssignment(workers[1], tasks[1]),
-                    TaskAssignment(workers[1], tasks[2])
-                ]
+                self.assign(self.workers[0], tasks[0])
+                self.assign(self.workers[1], tasks[1])
+                self.assign(self.workers[1], tasks[2])
             else:
                 return ()
 
-    scheduler = Scheduler()
+    scheduler = Scheduler("x", "0")
     do_sched_test(test_graph, 2, scheduler)
     assert remaining_times == [
         [[], []],

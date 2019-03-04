@@ -1,6 +1,6 @@
 import pytest
 
-from estee.common import TaskGraph, TaskOutput
+from estee.common import TaskGraph, DataObject
 from estee.communication import InstantNetModel
 from estee.simulator import Simulator
 from estee.worker import Worker
@@ -26,7 +26,7 @@ def plan1():
     a1, a2, a3, a4, a5, a6, a7, a8 = [
         task_graph.new_task("a{}".format(i + 1),
                             duration=duration, expected_duration=duration,
-                            outputs=[TaskOutput(size, size) for size in outputs])
+                            outputs=[DataObject(size, size) for size in outputs])
         for i, (duration, outputs) in enumerate([
             (2, [1]),  # a1
             (3, [3]),  # a2
@@ -91,18 +91,22 @@ def do_sched_test(task_graph, workers, scheduler,
 
 
 def task_by_name(plan, name):
-    return [t for t in plan.tasks if t.name == name][0]
+    return [t for t in plan.tasks.values() if t.name == name][0]
 
 
 def fixed_scheduler(assignments):
 
     class FixScheduler(StaticScheduler):
 
+        def __init__(self):
+            super().__init__("fix_scheduler", "0")
+
         def static_schedule(self):
-            workers = self.simulator.workers
-            return [
-                TaskAssignment(workers[definition[0]], *definition[1:])
-                for definition in assignments
-            ]
+            if not self.task_graph.tasks:
+                return
+            for definition in assignments:
+                worker = self.workers[definition[0]]
+                task = self.task_graph.tasks[definition[1].id]
+                self.assign(worker, task, *definition[2:])
 
     return FixScheduler()

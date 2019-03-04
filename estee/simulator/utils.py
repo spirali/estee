@@ -43,11 +43,12 @@ def estimate_schedule(schedule, graph, netmodel):
 
     events = []
     finished = [False] * graph.task_count
-    remaining_inputs = {task: len(task.inputs) for task in graph.tasks}
+    tasks = list(graph.tasks.values())
+    remaining_inputs = {task: len(task.inputs) for task in tasks}
     index = 0
     end = 0
 
-    for task in graph.tasks:
+    for task in tasks:
         if not task.inputs:
             task_push(0, task, "start")
 

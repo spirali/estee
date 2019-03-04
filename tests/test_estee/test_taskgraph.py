@@ -27,7 +27,11 @@ def test_task_graph_copy(plan1):
 
     task_graph.validate()
 
-    for t1, t2 in zip(task_graph.tasks, plan1.tasks):
+    assert set(task_graph.tasks) == set(plan1.tasks)
+
+    for task_id in task_graph.tasks:
+        t1 = task_graph.tasks[task_id]
+        t2 = plan1.tasks[task_id]
         assert id(t1) != id(t2)
         assert t1.id == t2.id
         assert len(t1.inputs) == len(t2.inputs)
@@ -54,7 +58,7 @@ def test_task_graph_merge(plan1):
 
     task_graph.validate()
 
-    for i, t in enumerate(task_graph.tasks):
+    for i, t in task_graph.tasks.items():
         assert t.id == i
         assert len(t.inputs) == len(plan1.tasks[i % plan1.task_count].inputs)
         assert t.duration == plan1.tasks[i % plan1.task_count].duration
@@ -69,11 +73,12 @@ def test_task_graph_export_dot(plan1, tmpdir):
 
 
 def test_task_copy():
-    task = Task(cpus=2, duration=5, expected_duration=10, outputs=[2, 3])
+    task = Task(123, cpus=2, duration=5, expected_duration=10, outputs=[2, 3])
     for o in task.outputs:
         o.expected_size = o.size + 1
 
     copy = task.simple_copy()
+    assert copy.id == 123
     assert copy.cpus == task.cpus
     assert copy.duration == task.duration
     assert copy.expected_duration == task.expected_duration

@@ -68,6 +68,12 @@ class Worker:
         self.max_downloads_per_worker = max_downloads_per_worker
         self.id = None
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "cpus": self.cpus
+        }
+
     def copy(self):
         return Worker(cpus=self.cpus,
                       max_downloads=self.max_downloads,
@@ -122,7 +128,7 @@ class Worker:
                 priority += self.DOWNLOAD_PRIORITY_BOOST_FOR_READY_TASK
             d = self.scheduled_downloads.get(input)
             if d is None:
-                info = runtime_state.output_info(input)
+                info = runtime_state.object_info(input)
                 if info.placing:
                     if input.size == 0:
                         self.data.add(input)
@@ -177,7 +183,7 @@ class Worker:
 
                 for d in downloads[:]:
                     count = 0
-                    worker = runtime_state.output_info(d.output).placing[0]
+                    worker = runtime_state.object_info(d.output).placing[0]
                     for rd in self.running_downloads:
                         if worker == rd.source:
                             count += 1

@@ -46,14 +46,14 @@ def compute_b_level(task_graph, cost_fn):
     Calculates the B-level (taken from the HLFET algorithm).
     """
     b_level = {}
-    for task in task_graph.tasks:
+    for task in task_graph.tasks.values():
         if task.is_leaf:
             b_level[task] = cost_fn(task, task)
         else:
             b_level[task] = 0
 
     graph_dist_crawl(b_level,
-                     {t: sum(len(o.consumers) for o in t.outputs) for t in task_graph.tasks},
+                     {t: sum(len(o.consumers) for o in t.outputs) for t in task_graph.tasks.values()},
                      lambda t: t.pretasks,
                      lambda task, next: max(b_level[next],
                                             b_level[task] +
@@ -61,9 +61,9 @@ def compute_b_level(task_graph, cost_fn):
     return b_level
 
 
-def compute_b_level_duration(task_graph):
+def compute_b_level_duration(task_graph, default_value=30):
     return compute_b_level(task_graph,
-                           lambda task, next: task.expected_duration or 1)
+                           lambda task, next: task.expected_duration or default_value)
 
 
 def compute_b_level_duration_size(runtime_state, task_graph, bandwidth=1):
@@ -78,11 +78,11 @@ def compute_t_level(task_graph, cost_fn):
     Calculates the T-level (the earliest possible time to start the task).
     """
     t_level = {}
-    for task in task_graph.tasks:
+    for task in task_graph.tasks.values():
         t_level[task] = 0
 
     graph_dist_crawl(t_level,
-                     {t: len(t.inputs) for t in task_graph.tasks},
+                     {t: len(t.inputs) for t in task_graph.tasks.values()},
                      lambda t: t.consumers(),
                      lambda task, next: max(t_level[next],
                                             t_level[task] +
@@ -136,11 +136,11 @@ def compute_independent_tasks(task_graph):
         values.append(frozenset((state,)))
         return frozenset.union(*values)
 
-    tasks = frozenset(task_graph.tasks)
+    tasks = frozenset(task_graph.tasks.values())
     up_deps = graph_crawl(task_graph.leaf_tasks(), lambda t: t.pretasks, union)
     down_deps = graph_crawl(task_graph.source_tasks(), lambda t: t.consumers(), union)
     return {task: tasks.difference(up_deps[task] | down_deps[task])
-            for task in task_graph.tasks}
+            for task in task_graph.tasks.values()}
 
 
 def max_cpus_worker(workers):
@@ -153,7 +153,7 @@ def transfer_cost_parallel(runtime_state, worker, task):
     Assumes parallel download.
     """
     return max((get_size_estimate(runtime_state, i) for i in task.inputs
-                if worker not in runtime_state.output_info(i).placing),
+                if worker not in runtime_state.object_info(i).placing),
                default=0)
 
 

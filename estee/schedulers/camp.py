@@ -11,24 +11,23 @@ from ..simulator import TaskAssignment
 
 class CampCore:
 
-    def __init__(self, simulator):
-        self.simulator = simulator
-
-        independencies = compute_independent_tasks(simulator.task_graph)
+    def __init__(self, task_graph, workers, network_bandwidth, default_size):
+        independencies = compute_independent_tasks(task_graph)
         self.independecies = independencies
+        self.workers = workers
 
-        workers = self.simulator.workers
-
-        placement = np.empty(len(simulator.task_graph.tasks),
+        placement = np.empty(len(task_graph.tasks),
                              dtype=np.int32)
         placement[:] = workers.index(max_cpus_worker(workers))
         self.placement = placement
-        self.b_level = compute_b_level_duration(simulator.task_graph)
+        self.b_level = compute_b_level_duration(task_graph)
+        self.network_bandwidth = network_bandwidth
+        self.default_size = default_size
 
     def compute(self, iterations):
 
         placement = self.placement
-        workers = self.simulator.workers
+        workers = self.workers
         independencies = self.independecies
         cpu_factor = sum([w.cpus for w in workers]) / len(workers)
 
@@ -36,10 +35,9 @@ class CampCore:
         repulse_score = {}
         tasks = []
         self.tasks = tasks
-        task_info = self.simulator.runtime_state.task_info
 
         for task, indeps in independencies.items():
-            if not task_info(task).is_waiting:
+            if not task.is_waiting:
                 continue
             tasks.append(task)
             lst = []
@@ -55,7 +53,7 @@ class CampCore:
         if not tasks:
             return
 
-        for i in range(iterations):
+        for _ in range(iterations):
             t = random.randint(0, len(tasks) - 1)
             task = tasks[t]
             old_w = placement[task.id]
@@ -74,8 +72,9 @@ class CampCore:
     def compute_input_score(self, placement, task):
         old_worker = placement[task.id]
         score = 0
+        default_size = self.default_size
         for inp in task.inputs:
-            size = inp.expected_size
+            size = inp.expected_size or default_size
             if size > score and placement[inp.parent.id] != old_worker:
                 score = size
         return score
@@ -84,87 +83,32 @@ class CampCore:
         score = self.compute_input_score(placement, task)
         for t in task.consumers():
             score += self.compute_input_score(placement, t)
-        score /= self.simulator.netmodel.bandwidth
+        score /= self.network_bandwidth
         p = placement[task.id]
         for t_id, v in repulse_score[task]:
             if placement[t_id] == p:
                 score += v
         return score
 
-    def make_assignments(self):
-        workers = self.simulator.workers
+    def make_assignments(self, builder):
+        workers = self.workers
         placement = self.placement
         b_level = self.b_level
 
-        return [TaskAssignment(workers[placement[task.id]], task, b_level[task])
-                for task in self.tasks]
+        for task in self.tasks:
+            builder(workers[placement[task.id]], task, b_level[task])
 
 
 class Camp2Scheduler(StaticScheduler):
 
     def __init__(self, iterations=2000):
-        super().__init__()
+        super().__init__("camp", "0")
         self.iterations = iterations
-
-    def init(self, simulator):
-        super().init(simulator)
 
     def static_schedule(self):
-        core = CampCore(self.simulator)
+        core = CampCore(self.task_graph,
+                        [w for w in self.workers.values()],
+                        self.network_bandwidth,
+                        5)
         core.compute(self.iterations)
-        return core.make_assignments()
-
-
-class TwoLayerScheduler(SchedulerBase):
-
-    def compute_schedule(self):
-        raise NotImplementedError()
-
-    def schedule(self, new_ready, new_finished):
-        assignments = self.compute_schedule()
-        simulator = self.simulator
-        result = []
-
-        task_info = self.simulator.task_info
-
-        free_cpus = {
-            worker: worker.cpus - sum(t.cpus for t in worker.assigned_tasks)
-            for worker in simulator.workers
-        }
-
-        assignments.sort(key=lambda a: a.priority, reverse=True)
-
-        for assignment in assignments:
-            # info = simulator.task_info(assignment.task)
-            task = assignment.task
-            # or any(task_info(o.parent).is_finished for o in task.inputs):
-            if free_cpus[assignment.worker] > 0 and task_info(task).is_ready:
-                result.append(assignment)
-                free_cpus[assignment.worker] -= task.cpus
-
-        """
-        result = []
-        for worker in self.simulator.workers:
-            #free_cpus = 2 * worker.cpus - sum(t.cpus for t in worker.assigned_tasks if t.is_ready)
-            #tasks = [self._is_task_prepared(t) for t in worker.s_info]
-            result += [assignment for assignment in worker.s_info
-                       if assignment.task.info.is_ready or (assignment.task.info.is_waiting and
-                          any(t.info.is_ready for t in assignment.task.inputs))]
-        """
-        return result
-
-
-class Camp3Scheduler(TwoLayerScheduler):
-
-    def __init__(self, iterations=2000):
-        super().__init__()
-        self.iterations = iterations
-
-    def init(self, simulator):
-        super().init(simulator)
-        self.core = CampCore(simulator)
-        self.core.compute(4000)
-
-    def compute_schedule(self):
-        self.core.compute(self.iterations)
-        return self.core.make_assignments()
+        core.make_assignments(self.assign)

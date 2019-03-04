@@ -1,6 +1,6 @@
 import numpy as np
 
-from ..common import TaskGraph, TaskOutput
+from ..common import TaskGraph, DataObject
 
 
 class Generator:
@@ -49,7 +49,7 @@ def make_task(graph, gen, cpus=None):
     outputs = []
     for _ in range(n_outputs):
         s = gen.rnd_size()
-        output = TaskOutput(np.random.normal(s, s / 10), s)
+        output = DataObject(np.random.normal(s, s / 10), s)
         outputs.append(output)
 
     return graph.new_task(None,
@@ -112,7 +112,7 @@ def gen_random_links(graph, gen):
         return graph
 
     for _ in range(int(np.ceil(graph.task_count / 20))):
-        t1, t2 = np.random.choice(graph.tasks, 2, replace=False)
+        t1, t2 = np.random.choice(list(graph.tasks.values()), 2, replace=False)
         if t1.is_predecessor_of(t2):
             continue
         t1.add_input(np.random.choice(t2.outputs))
@@ -127,7 +127,7 @@ def add_noise(task):
 
 def gen_noisy_duplicate(graph, gen):
     graph2 = graph.copy()
-    for task in graph2.tasks:
+    for task in graph2.tasks.values():
         add_noise(task)
     return TaskGraph.merge([graph, graph2])
 
