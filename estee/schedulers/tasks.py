@@ -25,7 +25,8 @@ class SchedulerDataObject(DataObjectBase):
 
     def __init__(self, id, expected_size, size=None):
         super().__init__(id)
-        self.placement = []
+        self.placement = ()
+        self.availability = ()
         self.expected_size = expected_size
         self.size = size
 

@@ -2,7 +2,7 @@ import logging
 
 from simpy import Event, Store
 
-from ..simulator.trace import FetchEndTraceEvent, FetchStartTraceEvent, \
+from ..simulator.trace import FetchStartTraceEvent, \
     TaskEndTraceEvent, TaskStartTraceEvent
 
 logger = logging.getLogger(__name__)
@@ -170,8 +170,7 @@ class Worker:
                 self.running_downloads.remove(download)
                 del self.scheduled_downloads[download.output]
                 download.event.succeed(download)
-                self.simulator.add_trace_event(
-                    FetchEndTraceEvent(self.env.now, self, download.source, download.output))
+                self.simulator.fetch_finished(self, download.source, download.output)
 
             if len(self.running_downloads) < self.max_downloads:
                 # We need to sort any time, as it priority may changed in background

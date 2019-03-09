@@ -42,10 +42,12 @@ class TaskRuntimeInfo:
 
 class ObjectRuntimeInfo:
 
-    __slots__ = ("placing")
+    __slots__ = ("placing", "availability")
 
     def __init__(self, output):
         self.placing = []
+        self.availability = []
+
 
 class RuntimeState:
 

@@ -25,10 +25,20 @@ from .test_utils import do_sched_test, task_by_name
 def test_scheduler_all_on_one(plan1):
 
     scheduler = AllOnOneScheduler()
+    scheduler._disable_cleanup = True
     assert 17 == do_sched_test(plan1, 1, scheduler)
 
+    for obj in scheduler.task_graph.objects.values():
+        assert len(obj.placing) == 1
+        assert obj.availability == obj.placing
+
     scheduler = AllOnOneScheduler()
+    scheduler._disable_cleanup = True
     assert 17 == do_sched_test(plan1, 3, scheduler)
+
+    for obj in scheduler.task_graph.objects.values():
+        assert len(obj.placing) == 1
+        assert obj.availability == obj.placing
 
 
 def test_scheduler_random(plan1):
@@ -59,8 +69,16 @@ def test_scheduler_blevel_gt(plan1):
 
     # 2w, simple
     for _ in range(50):
-        assert do_sched_test(plan1, 2, BlevelGtScheduler(), SimpleNetModel()) in [13, 16]
+        scheduler = BlevelGtScheduler()
+        scheduler._disable_cleanup = True
+        assert do_sched_test(plan1, 2, scheduler, SimpleNetModel()) in [13, 16]
 
+        sizes = set()
+        for obj in scheduler.task_graph.objects.values():
+            assert len(obj.placing) == 1
+            sizes.add(len(obj.availability))
+
+        assert sizes == {1, 2}
 
 def test_scheduler_random_assign(plan1):
     for _ in range(50):

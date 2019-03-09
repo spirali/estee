@@ -31,6 +31,8 @@ class SchedulerBase(SchedulerInterface):
     _simulator = None  # If running in simulator, this variable is filled before calling start()
                        # Only for testing purpose, scheduler should not depends on this variable
 
+    _disable_cleanup = False
+
     def __init__(self, name, version):
         self.workers = {}
         self.task_graph = SchedulerTaskGraph()
@@ -126,6 +128,7 @@ class SchedulerBase(SchedulerInterface):
         for ou in message.get("objects_update", ()):
             o = task_graph.objects[ou["id"]]
             o.placing = [workers[w] for w in ou["placing"]]
+            o.availability = [workers[w] for w in ou["availability"]]
             size = ou.get("size")
             if size is not None:
                 o.size = size
@@ -149,6 +152,8 @@ class SchedulerBase(SchedulerInterface):
         self.assignments[task] = result
 
     def stop(self):
+        if self._disable_cleanup:
+            return
         self.workers.clear()
         self.task_graph.tasks.clear()
         self.task_graph.objects.clear()

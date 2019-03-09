@@ -9,6 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from ..simulator.trace import FetchEndTraceEvent
 
 class Simulator:
 
@@ -46,6 +47,7 @@ class Simulator:
         self.new_tasks = []
         self.new_objects = []
         self.update_bandwidth = True
+        self.env = Environment()
 
     def add_trace_event(self, trace_event):
         if self.trace_events is not None:
@@ -57,6 +59,14 @@ class Simulator:
         priority = obj.get("priority", 0)
         blocking = obj.get("blocking", 0)
         return TaskAssignment(worker, task, priority, blocking)
+
+    def fetch_finished(self, worker, source_worker, data_object):
+        self.runtime_state.object_info(data_object).availability.append(worker)
+        self.objects_updated.add(data_object)
+        if not self.wakeup_event.triggered:
+            self.wakeup_event.succeed()
+        self.add_trace_event(
+            FetchEndTraceEvent(self.env.now, worker, source_worker, data_object))
 
     def apply_schedule(self, schedule):
         worker_loads = {}
@@ -101,7 +111,8 @@ class Simulator:
             placing = info.placing
             result = {
               "id": obj.id,
-              "placing": [w.id for w in placing]
+              "placing": [w.id for w in placing],
+              "availability": [w.id for w in info.availability]
             }
             if info.placing or runtime_state.task_info(obj.parent).state == TaskState.Finished:
                 result["size"] = obj.size
@@ -190,7 +201,9 @@ class Simulator:
         objects_updated = self.objects_updated
 
         for o in task.outputs:
-            runtime_state.object_info(o).placing.append(worker)
+            o_info = runtime_state.object_info(o)
+            o_info.placing.append(worker)
+            o_info.availability.append(worker)
             objects_updated.add(o)
             tasks = sorted(o.consumers, key=lambda t: t.id)
             for t in tasks:
@@ -236,8 +249,7 @@ class Simulator:
         self.runtime_state = RuntimeState(self.task_graph)
         self.unprocessed_tasks = self.task_graph.task_count
 
-        env = Environment()
-        self.env = env
+        env = self.env
         self.netmodel.init(self.env, self.workers)
 
         for worker in self.workers:
