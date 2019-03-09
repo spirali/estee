@@ -2,6 +2,8 @@
 from ..simulator.runtimeinfo import TaskState
 from .tasks import SchedulerTaskGraph, SchedulerTask, SchedulerDataObject
 
+import logging
+logger = logging.getLogger(__name__)
 
 class SchedulerInterface:
 
@@ -141,6 +143,12 @@ class SchedulerBase(SchedulerInterface):
     def assign(self, worker, task, priority=None, blocking=None):
         task.state = TaskState.Assigned
         task.worker = worker
+
+        for o in task.inputs:
+            o.scheduled.add(worker)
+
+        for o in task.outputs:
+            o.scheduled.add(worker)
 
         result = {
             "worker": worker.worker_id,

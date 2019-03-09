@@ -10,10 +10,10 @@ def _set_consts(graph, duration, size):
 
 
 def process_imode_exact(graph):
-    for t in graph.tasks:
+    for t in graph.tasks.values():
         t.expected_duration = t.duration
 
-    for o in graph.outputs:
+    for o in graph.objects.values():
         o.expected_size = o.size
 
 

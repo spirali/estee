@@ -27,6 +27,7 @@ class SchedulerDataObject(DataObjectBase):
         super().__init__(id)
         self.placement = ()
         self.availability = ()
+        self.scheduled = set()
         self.expected_size = expected_size
         self.size = size
 

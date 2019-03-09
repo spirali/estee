@@ -80,7 +80,11 @@ class GreedyTransferQueueScheduler(QueueScheduler):
         for i in range(len(workers)):
             w = workers[i]
             for inp in task.inputs:
-                if w not in inp.placing:
+                if w in inp.availability or w in inp.placing:
+                    continue
+                if w in inp.scheduled:
+                    costs[i] += 0.10 * inp.size
+                else:
                     costs[i] += inp.size
         return workers[np.random.choice(np.flatnonzero(costs == costs.min()))]
 
