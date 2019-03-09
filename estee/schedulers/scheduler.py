@@ -119,11 +119,12 @@ class SchedulerBase(SchedulerInterface):
             task = task_graph.tasks[tu["id"]]
             task.state = TaskState.Finished
             finished_tasks.append(task)
-            for t in task.consumers():
-                t.unfinished_inputs -= 1
-                if t.unfinished_inputs <= 0:
-                    assert t.unfinished_inputs == 0
-                    ready_tasks.append(t)
+            for o in task.outputs:
+                for t in o.consumers:
+                    t.unfinished_inputs -= 1
+                    if t.unfinished_inputs <= 0:
+                        assert t.unfinished_inputs == 0
+                        ready_tasks.append(t)
 
         for ou in message.get("objects_update", ()):
             o = task_graph.objects[ou["id"]]
