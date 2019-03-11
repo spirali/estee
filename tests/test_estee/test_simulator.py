@@ -11,6 +11,7 @@ from estee.simulator.utils import estimate_schedule
 from estee.worker import Worker
 from .test_utils import do_sched_test
 
+from .test_utils import fixed_scheduler
 
 def test_simulator_empty_task_graph():
 
@@ -155,3 +156,124 @@ def test_estimate_schedule_zero_expected_time(plan1):
     schedule = [TaskAssignment(w, t) for (w, t) in zip(itertools.cycle(workers), plan1.tasks)]
 
     assert estimate_schedule(schedule, plan1, netmodel) == 15
+
+
+def test_simulator_reschedule_no_download():
+    test_graph = TaskGraph()
+    a1 = test_graph.new_task("A1", duration=10, cpus=1)
+    a2 = test_graph.new_task("A2", duration=10, cpus=1)
+
+    b = test_graph.new_task("B", duration=1, cpus=1)
+    c = test_graph.new_task("C", duration=1, cpus=1)
+    d = test_graph.new_task("D", duration=1, cpus=1)
+    e = test_graph.new_task("E", duration=1, cpus=1)
+
+    assignments = [[
+        (0, a1, 0),
+        (1, a2, 0),
+        (0, b, 10),
+        (0, c, 9),
+        (0, d, 8),
+        (0, e, 7),
+    ], [
+        (1, a1, 0),
+    ], [
+        (None, a1, 0)
+    ], [
+        (0, a1, 0)
+    ], [
+        (2, a1, 0)
+    ]]
+
+    simulator = do_sched_test(test_graph, [1, 1, 1],
+                                  fixed_scheduler(assignments, steps=True, reassigning=True),
+                              trace=True, return_simulator=True)
+    assert simulator.env.now == 14
+    assert simulator.runtime_state.task_info(a1).assigned_workers == [simulator.workers[0]]
+
+    # Test the same without allowed reassigning
+    with pytest.raises(Exception):
+        do_sched_test(test_graph, [1, 1, 1],
+                      fixed_scheduler(assignments, steps=True, reassigning=False))
+
+
+def test_simulator_reschedule_too_late():
+    test_graph = TaskGraph()
+
+    source = test_graph.new_task("S", duration=0, cpus=1, output_size=10)
+    a1 = test_graph.new_task("A1", duration=10, cpus=1)
+    b = test_graph.new_task("B", duration=1, cpus=1)
+
+    assignments = [[
+        (0, source, 100),
+        (1, a1, 0),
+        (0, b, 10),
+    ], [
+        (0, a1, 0),
+    ]]
+
+    simulator = do_sched_test(test_graph, [1, 1, 1],
+                             fixed_scheduler(assignments, steps=True, reassigning=True),
+                             trace=True, return_simulator=True, netmodel=SimpleNetModel(1))
+    assert simulator.env.now == 10
+    assert simulator.runtime_state.task_info(a1).assigned_workers == [simulator.workers[1]]
+
+
+def test_simulator_reschedule_running_download():
+    test_graph = TaskGraph()
+
+    source = test_graph.new_task("S", duration=0, cpus=1, output_size=10)
+
+    a1 = test_graph.new_task("A1", duration=10, cpus=1)
+    b = test_graph.new_task("B", duration=1, cpus=1)
+
+    a1.add_input(source)
+
+    assignments = [[
+        (0, source, 100),
+        (1, a1, 0),
+        (0, b, 10),
+    ], [], [
+        (2, a1, 0),
+    ]]
+
+    simulator = do_sched_test(test_graph, [1, 1, 1],
+                             fixed_scheduler(assignments, steps=True, reassigning=True),
+                             trace=True, return_simulator=True, netmodel=SimpleNetModel(1))
+    assert simulator.env.now == 21
+    assert simulator.runtime_state.task_info(a1).assigned_workers == [simulator.workers[2]]
+
+
+def test_simulator_reschedule_scheduled_download():
+    test_graph = TaskGraph()
+
+    s = [test_graph.new_task("S{}".format(i), duration=0, cpus=1, output_size=10)
+         for i in range(10)]
+
+    a1 = test_graph.new_task("A1", duration=10, cpus=1)
+    b = test_graph.new_task("B", duration=1, cpus=1)
+    c = test_graph.new_task("C", duration=2, cpus=1)
+    a1.add_inputs(s)
+
+    assignments = [
+       [(0, x, 100) for x in s] + [
+        (1, a1, 0),
+        (0, b, 10),
+        (1, c, 10),
+    ], [], [
+        (2, a1, 0),
+    ]]
+
+    scheduler = fixed_scheduler(assignments, steps=True, reassigning=True)
+    scheduler._disable_cleanup = True
+    simulator = do_sched_test(test_graph, [1, 1, 1],
+                              scheduler,
+                              trace=True, return_simulator=True, netmodel=SimpleNetModel(1))
+    assert simulator.env.now > 40
+
+    available = set()
+    for x in s:
+        available.add(frozenset(w.worker_id for w in scheduler.task_graph.objects[x.output.id].availability))
+    assert frozenset({0, 1, 2}) in available
+    assert frozenset({0, 2}) in available
+    assert simulator.runtime_state.task_info(a1).assigned_workers == [simulator.workers[2]]

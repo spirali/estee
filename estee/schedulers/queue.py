@@ -39,7 +39,7 @@ class QueueScheduler(SchedulerBase):
             self.queue = self.make_queue()
 
         for task in new_finished:
-            free_cpus[task.worker] += task.cpus
+            free_cpus[task.scheduled_worker] += task.cpus
 
         aws = set(self.workers.values())
         for t in list(self.queue):

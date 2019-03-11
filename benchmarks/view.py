@@ -45,7 +45,7 @@ class Data:
     def prepare(self,
                 cluster_name=None,
                 exclude_single=False,
-                netmodel="minmax",
+                netmodel="maxmin",
                 min_sched_interval=0.1,
                 imode="exact"):
         rd = self.raw_data
@@ -53,7 +53,7 @@ class Data:
         if netmodel:
             f = rd["netmodel"] == netmodel
         else:
-            f = rd["netmodel"].isin(["simple", "minmax"])
+            f = rd["netmodel"].isin(["simple", "maxmin"])
 
         if min_sched_interval is not None:
             f &= rd["min_sched_interval"] == min_sched_interval

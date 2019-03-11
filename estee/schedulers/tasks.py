@@ -14,7 +14,8 @@ class SchedulerTask(TaskBase):
         self.state = TaskState.Waiting
         self.cpus = cpus
         self.expected_duration = expected_duration
-        self.assigned_worker = None
+        self.scheduled_worker = None
+        self.computed_by = None
 
     @property
     def is_waiting(self):

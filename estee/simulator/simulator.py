@@ -30,6 +30,7 @@ class Simulator:
         self.env = None
         self.min_scheduling_interval = min_scheduling_interval
         self.scheduling_time = scheduling_time
+        self.reassign_allowed = False
 
         if trace:
             self.trace_events = []
@@ -55,7 +56,9 @@ class Simulator:
 
     def read_assignment(self, obj):
         task = self.task_graph.tasks[obj["task"]]
-        worker = self.workers[obj["worker"]]
+        worker = obj.get("worker")
+        if worker is not None:
+            worker = self.workers[worker]
         priority = obj.get("priority", 0)
         blocking = obj.get("blocking", 0)
         return TaskAssignment(worker, task, priority, blocking)
@@ -67,6 +70,14 @@ class Simulator:
             self.wakeup_event.succeed()
         self.add_trace_event(
             FetchEndTraceEvent(self.env.now, worker, source_worker, data_object))
+
+    def try_rectract_assigned_task(self, task, info):
+        for w in info.assigned_workers[:]:
+            if not w.try_retract_task(task):
+                return False
+            info.assigned_workers.remove(w)
+        info.state = TaskState.Waiting
+        return True
 
     def apply_schedule(self, schedule):
         worker_loads = {}
@@ -81,8 +92,20 @@ class Simulator:
                 raise Exception("Scheduler tries to assign a finished task ({})"
                                 .format(assignment.task))
             if info.state == TaskState.Assigned:
-                raise Exception("Scheduler reassigns already assigned task ({})"
-                                .format(assignment.task))
+                if assignment.worker in info.assigned_workers:
+                    logging.info("Reassigning without effect (%s, %s)", assignment.task, assignment.worker)
+                    continue
+                if not self.reassign_allowed:
+                    raise Exception("Scheduler reassigns already assigned task ({})"
+                                    .format(assignment.task))
+                if not self.try_rectract_assigned_task(assignment.task, info):
+                    continue
+
+            self.add_trace_event(TaskAssignTraceEvent(
+                self.env.now, assignment.worker, assignment.task))
+
+            if assignment.worker is None:
+                continue
             info.state = TaskState.Assigned
             info.assigned_workers.append(assignment.worker)
             worker = assignment.worker
@@ -91,8 +114,6 @@ class Simulator:
                 lst = []
                 worker_loads[worker] = lst
             lst.append(assignment)
-            self.add_trace_event(TaskAssignTraceEvent(
-                self.env.now, assignment.worker, assignment.task))
         for worker in worker_loads:
             worker.assign_tasks(worker_loads[worker])
 
@@ -104,6 +125,7 @@ class Simulator:
             return {
                 "id": task.id,
                 "state": info.state,
+                "worker": info.assigned_workers[0].id
             }
 
         def make_object_update(obj):
@@ -205,7 +227,7 @@ class Simulator:
             o_info.placing.append(worker)
             o_info.availability.append(worker)
             objects_updated.add(o)
-            tasks = sorted(o.consumers, key=lambda t: t.id)
+            tasks = o.consumers
             for t in tasks:
                 t_info = runtime_state.task_info(t)
                 t_info.unfinished_inputs -= 1
@@ -218,11 +240,11 @@ class Simulator:
 
             for t in tasks:
                 for w in runtime_state.task_info(t).assigned_workers:
-                    task_set = worker_updates.get(w)
-                    if task_set is None:
-                        task_set = set()
-                        worker_updates[w] = task_set
-                    task_set.add(t)
+                    updates = worker_updates.get(w)
+                    if updates is None:
+                        updates = []
+                        worker_updates[w] = updates
+                    updates.append((t, o))
 
         for w in worker_updates:
             w.update_tasks(worker_updates[w])
@@ -234,9 +256,11 @@ class Simulator:
         message = self.scheduler.start()
         if message.get("type") != "register":
             raise Exception("Invalid registeration message from scheduler")
-        logger.info("Scheduler '%s', version '%s'",
+        logger.info("Scheduler '%s', version '%s', reassigning: '%s'",
                     message.get("scheduler_name"),
-                    message.get("scheduler_version"))
+                    message.get("scheduler_version"),
+                    message.get("reassigning"))
+        self.reassign_allowed = bool(message.get("reassigning", False))
 
     def stop_scheduler(self):
         self.scheduler.stop()

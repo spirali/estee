@@ -1,6 +1,7 @@
 
 from ..simulator.runtimeinfo import TaskState
 from .tasks import SchedulerTaskGraph, SchedulerTask, SchedulerDataObject
+from collections import namedtuple
 
 import logging
 logger = logging.getLogger(__name__)
@@ -19,11 +20,12 @@ class SchedulerInterface:
 
 class SchedulerWorker:
 
-    __slots__ = ("worker_id", "cpus")
-
     def __init__(self, worker_id, cpus):
         self.worker_id = worker_id
         self.cpus = cpus
+
+
+Update = namedtuple("Update", ["new_workers"])
 
 
 class SchedulerBase(SchedulerInterface):
@@ -35,13 +37,14 @@ class SchedulerBase(SchedulerInterface):
 
     _disable_cleanup = False
 
-    def __init__(self, name, version):
+    def __init__(self, name, version, reassigning=False):
         self.workers = {}
         self.task_graph = SchedulerTaskGraph()
         self._name = name
         self._version = version
         self.network_bandwidth = None
         self.assignments = None
+        self.reassigning = reassigning
 
 
     def send_message(self, message):
@@ -57,6 +60,7 @@ class SchedulerBase(SchedulerInterface):
             "protocol_version": self.PROTOCOL_VERSION,
             "scheduler_name": self._name,
             "scheduler_version": self._version,
+            "reassigning": self.reassigning
         }
 
     def schedule(self, ready_tasks, finished_tasks, graph_changed, cluster_changed):
@@ -68,15 +72,19 @@ class SchedulerBase(SchedulerInterface):
         graph_changed = False
         ready_tasks = []
         finished_tasks = []
+        new_workers = None
 
         if message.get("new_workers"):
             cluster_changed = True
+            new_workers = []
             for w in message["new_workers"]:
                 worker_id = w["id"]
                 if worker_id in self.workers:
                     raise Exception(
                         "Registering already registered worker '{}'".format(worker_id))
-                self.workers[worker_id] = SchedulerWorker(worker_id, w["cpus"])
+                worker = SchedulerWorker(worker_id, w["cpus"])
+                new_workers.append(worker)
+                self.workers[worker_id] = worker
 
         if "network_bandwidth" in message:
             bandwidth = message["network_bandwidth"]
@@ -120,6 +128,7 @@ class SchedulerBase(SchedulerInterface):
             assert tu["state"] == TaskState.Finished
             task = task_graph.tasks[tu["id"]]
             task.state = TaskState.Finished
+            task.computed_by = workers[tu["worker"]]
             finished_tasks.append(task)
             for o in task.outputs:
                 for t in o.consumers:
@@ -137,12 +146,16 @@ class SchedulerBase(SchedulerInterface):
                 o.size = size
 
         self.assignments = {}
+
+        # Temporary hack, TODO: move to "schedule" parameters
+        self.update = Update(new_workers)
         self.schedule(ready_tasks, finished_tasks, graph_changed, cluster_changed)
+
         return list(self.assignments.values())
 
     def assign(self, worker, task, priority=None, blocking=None):
         task.state = TaskState.Assigned
-        task.worker = worker
+        task.scheduled_worker = worker
 
         for o in task.inputs:
             o.scheduled.add(worker)
@@ -151,7 +164,7 @@ class SchedulerBase(SchedulerInterface):
             o.scheduled.add(worker)
 
         result = {
-            "worker": worker.worker_id,
+            "worker": worker.worker_id if worker else None,
             "task": task.id,
         }
         if priority is not None:

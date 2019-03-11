@@ -4,7 +4,7 @@ from estee.common import TaskGraph, DataObject
 from estee.communication import InstantNetModel
 from estee.simulator import Simulator
 from estee.worker import Worker
-from estee.schedulers import StaticScheduler
+from estee.schedulers import SchedulerBase
 from estee.simulator import TaskAssignment
 
 
@@ -94,18 +94,39 @@ def task_by_name(plan, name):
     return [t for t in plan.tasks.values() if t.name == name][0]
 
 
-def fixed_scheduler(assignments):
+def fixed_scheduler(assignments, steps=False, reassigning=False):
 
-    class FixScheduler(StaticScheduler):
+    class FixScheduler(SchedulerBase):
 
         def __init__(self):
-            super().__init__("fix_scheduler", "0")
+            super().__init__("fix_scheduler", "0", reassigning=reassigning)
+            self.step = 0
 
-        def static_schedule(self):
+        def start(self):
+            self.step = 0
+            return super().start()
+
+        def schedule(self, ready_tasks, finished_tasks, graph_update, cluster_update):
             if not self.task_graph.tasks:
-                return
-            for definition in assignments:
-                worker = self.workers[definition[0]]
+                return ()
+
+            step = self.step
+            self.step += 1
+
+            if steps:
+                if len(assignments) <= step:
+                    return ()
+                a = assignments[step]
+            else:
+                a = assignments
+                if step > 0:
+                    return ()
+
+            for definition in a:
+                if definition[0] is None:
+                    worker = None
+                else:
+                    worker = self.workers[definition[0]]
                 task = self.task_graph.tasks[definition[1].id]
                 self.assign(worker, task, *definition[2:])
 

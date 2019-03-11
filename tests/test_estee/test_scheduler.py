@@ -5,7 +5,7 @@ from estee.schedulers import (AllOnOneScheduler, BlevelGtScheduler,
                                  DLSScheduler, ETFScheduler, LASTScheduler,
                                  MCPScheduler,
                                  RandomAssignScheduler, RandomGtScheduler,
-                                 RandomScheduler)
+                                 RandomScheduler, WorkStealingScheduler)
 
 from estee.schedulers.genetic import GeneticScheduler
 from estee.schedulers.utils import compute_alap, compute_b_level_duration_size, \
@@ -109,6 +109,10 @@ def test_scheduler_etf(plan1):
 
 def test_scheduler_genetic(plan1):
     assert 10 <= do_sched_test(plan1, 2, GeneticScheduler(), SimpleNetModel()) <= 20
+
+
+def test_scheduler_ws(plan1):
+    assert 13 <= do_sched_test(plan1, 2, WorkStealingScheduler(), SimpleNetModel()) <= 18
 
 
 def test_compute_indepndent_tasks(plan1):
@@ -238,4 +242,3 @@ def test_find_critical_path(plan1):
 def test_critical_path_clustering(plan1):
     assert [[3, 5, 7], [0, 2, 4], [1], [6]] == \
            [[t.id for t in p] for p in critical_path_clustering(plan1)]
-
