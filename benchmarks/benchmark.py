@@ -23,6 +23,7 @@ from estee.schedulers.genetic import GeneticScheduler
 from estee.schedulers.others import BlevelScheduler, DLSScheduler, ETFScheduler, MCPGTScheduler, \
     MCPScheduler, TlevelScheduler
 from estee.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
+from estee.schedulers import WorkStealingScheduler
 from estee.serialization.dask_json import json_deserialize, json_serialize
 from estee.simulator import Simulator
 from estee.worker import Worker
@@ -55,7 +56,8 @@ SCHEDULERS = {
     "genetic": GeneticScheduler,
     #"last": LASTScheduler,
     "camp2": lambda: Camp2Scheduler(5000),
-    "lc": LcScheduler
+    "lc": LcScheduler,
+    "ws": WorkStealingScheduler
 }
 
 NETMODELS = {

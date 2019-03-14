@@ -8,7 +8,7 @@ def json_serialize(graph):
     tasks = []
     output_to_index = {}
 
-    for task in graph.tasks:
+    for task in graph.tasks.values():
         ser = {
             "d": task.duration,
             "e_d": task.expected_duration,
@@ -20,7 +20,7 @@ def json_serialize(graph):
         for (index, output) in enumerate(task.outputs):
             output_to_index[output] = index
 
-    for (i, task) in enumerate(graph.tasks):
+    for (i, task) in enumerate(graph.tasks.values()):
         inputs = []
         for input in task.inputs:
             parent = input.parent

@@ -22,7 +22,7 @@ def process_imode_blind(graph):
 
 
 def process_imode_user(graph):
-    durations = np.array([t.duration for t in graph.tasks])
+    durations = np.array([t.duration for t in graph.tasks.values()])
     sizes = np.array([o.size for o in graph.outputs])
     duration = durations.mean() if graph.tasks else 0
     size = sizes.mean() if graph.outputs else 0
