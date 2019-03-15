@@ -10,7 +10,7 @@ class DoNothingScheduler(SchedulerBase):
     def __init__(self):
         super().__init__("do-nothing", "0")
 
-    def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
+    def schedule(self, update):
         pass
 
 
@@ -42,18 +42,18 @@ class AllOnOneScheduler(SchedulerBase):
         self.worker = None
         self.b_level = None
 
-    def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
-        if cluster_changed:
+    def schedule(self, update):
+        if update.cluster_changed:
             worker = max_cpus_worker(self.workers.values())
             self.worker = worker
         else:
             worker = self.worker
 
-        if graph_changed:
+        if update.graph_changed:
             b_level = compute_b_level_duration(self.task_graph)
             self.b_level = b_level
         else:
             b_level = self.b_level
 
-        for task in new_ready:
+        for task in update.new_ready_tasks:
             self.assign(worker, task, b_level[task])

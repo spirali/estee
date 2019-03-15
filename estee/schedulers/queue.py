@@ -23,10 +23,10 @@ class QueueScheduler(SchedulerBase):
     def choose_worker(self, workers, task):
         raise NotImplementedError()
 
-    def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
-        self.ready += new_ready
+    def schedule(self, update):
+        self.ready += update.new_ready_tasks
 
-        if cluster_changed:
+        if update.cluster_changed:
             free_cpus = {w: w.cpus for w in self.workers.values()}
             for task in self.task_graph.tasks.values():
                 if task.state != TaskState.Finished and task.worker:
@@ -35,10 +35,10 @@ class QueueScheduler(SchedulerBase):
         else:
             free_cpus = self.free_cpus
 
-        if graph_changed:
+        if update.graph_changed:
             self.queue = self.make_queue()
 
-        for task in new_finished:
+        for task in update.new_finished_tasks:
             free_cpus[task.scheduled_worker] += task.cpus
 
         aws = set(self.workers.values())

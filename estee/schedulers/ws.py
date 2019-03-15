@@ -8,38 +8,34 @@ class WorkStealingScheduler(SchedulerBase):
     def __init__(self):
         super().__init__("ws", "0", reassigning=True)
 
-    def schedule(self, ready_tasks, finished_tasks, graph_changed, cluster_changed):
-        if cluster_changed:
-            for w in self.update.new_workers:
-                w.free_cpus = w.cpus
-                w.tasks = set()
+    def schedule(self, update):
 
-        if graph_changed:
+        for w in update.new_workers:
+            w.free_cpus = w.cpus
+            w.tasks = set()
+
+        if update.graph_changed:
             self.b_level = compute_b_level_duration(self.task_graph)
 
-        for task in finished_tasks:
+        for task in update.new_finished_tasks:
             task.scheduled_worker.free_cpus += task.cpus
             task.scheduled_worker.tasks.remove(task)
 
         plan = {}
-        if ready_tasks:
+        if update.new_ready_tasks:
             workers = list(self.workers.values())
-            for task in ready_tasks:
+            for task in update.new_ready_tasks:
                 worker = self.choose_worker([w for w in workers if w.cpus >= task.cpus], task)
                 plan[task] = worker
                 worker.tasks.add(task)
                 worker.free_cpus -= task.cpus
 
-        #print(">> ", [len(w.tasks) for w in self.workers.values()], [w.free_cpus for w in self.workers.values()])
         for worker in self.workers.values():
             if worker.free_cpus > 0:
                 self.process_work_stealing(worker, plan)
 
         for task, worker in plan.items():
-            #print(task.id, "->", worker.worker_id)
-            #self.assign(worker, task)
             self.assign(worker, task, self.b_level[task])
-        #print("!! ", [len(w.tasks) for w in self.workers.values()], [w.free_cpus for w in self.workers.values()])
 
     def process_work_stealing(self, worker, plan):
         tasks = []

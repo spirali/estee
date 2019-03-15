@@ -25,7 +25,30 @@ class SchedulerWorker:
         self.cpus = cpus
 
 
-Update = namedtuple("Update", ["new_workers"])
+class Update:
+
+    def __init__(self,
+                 new_workers,
+                 network_update,
+                 new_objects,
+                 new_tasks,
+                 new_ready_tasks,
+                 new_finished_tasks):
+
+        self.new_workers = new_workers
+        self.network_update = network_update
+        self.new_objects = new_objects
+        self.new_tasks = new_tasks
+        self.new_ready_tasks = new_ready_tasks
+        self.new_finished_tasks = new_finished_tasks
+
+    @property
+    def graph_changed(self):
+        return self.new_objects or self.new_tasks
+
+    @property
+    def cluster_changed(self):
+        return self.new_workers or self.network_update
 
 
 class SchedulerBase(SchedulerInterface):
@@ -63,46 +86,52 @@ class SchedulerBase(SchedulerInterface):
             "reassigning": self.reassigning
         }
 
-    def schedule(self, ready_tasks, finished_tasks, graph_changed, cluster_changed):
+    def schedule(self, update):
         raise NotImplementedError()
 
     def _process_update(self, message):
 
-        cluster_changed = False
-        graph_changed = False
+        task_graph = self.task_graph
+        workers = self.workers
+
         ready_tasks = []
         finished_tasks = []
-        new_workers = None
 
         if message.get("new_workers"):
-            cluster_changed = True
             new_workers = []
             for w in message["new_workers"]:
                 worker_id = w["id"]
-                if worker_id in self.workers:
+                if worker_id in workers:
                     raise Exception(
                         "Registering already registered worker '{}'".format(worker_id))
                 worker = SchedulerWorker(worker_id, w["cpus"])
                 new_workers.append(worker)
-                self.workers[worker_id] = worker
+                workers[worker_id] = worker
+        else:
+            new_workers = ()
 
+        network_update = False
         if "network_bandwidth" in message:
             bandwidth = message["network_bandwidth"]
             if bandwidth != self.network_bandwidth:
-                cluster_changed = True
+                network_update = True
                 self.network_bandwidth = bandwidth
 
         if message.get("new_objects"):
-            graph_changed = True
             objects = self.task_graph.objects
+            new_objects = []
             for o in message["new_objects"]:
                 object_id = o["id"]
-                objects[object_id] = SchedulerDataObject(object_id, o["expected_size"], o.get("size"))
+                obj = SchedulerDataObject(object_id, o["expected_size"], o.get("size"))
+                new_objects.append(obj)
+                objects[object_id] = obj
+        else:
+            new_objects = ()
 
         if message.get("new_tasks"):
-            graph_changed = True
             tasks = self.task_graph.tasks
             objects = self.task_graph.objects
+            new_tasks = []
             for t in message["new_tasks"]:
                 task_id = t["id"]
                 inputs = [objects[o] for o in t["inputs"]]
@@ -113,6 +142,7 @@ class SchedulerBase(SchedulerInterface):
                     outputs,
                     t["expected_duration"],
                     t["cpus"])
+                new_tasks.append(task)
                 for o in outputs:
                     o.parent = task
                 for o in inputs:
@@ -120,9 +150,8 @@ class SchedulerBase(SchedulerInterface):
                 if task.unfinished_inputs == 0:
                     ready_tasks.append(task)
                 tasks[task_id] = task
-
-        task_graph = self.task_graph
-        workers = self.workers
+        else:
+            new_tasks = ()
 
         for tu in message.get("tasks_update", ()):
             assert tu["state"] == TaskState.Finished
@@ -147,9 +176,15 @@ class SchedulerBase(SchedulerInterface):
 
         self.assignments = {}
 
-        # Temporary hack, TODO: move to "schedule" parameters
-        self.update = Update(new_workers)
-        self.schedule(ready_tasks, finished_tasks, graph_changed, cluster_changed)
+        print(new_tasks, message.get("new_tasks"))
+
+        self.schedule(Update(
+            new_workers,
+            network_update,
+            new_objects,
+            new_tasks,
+            ready_tasks,
+            finished_tasks))
 
         return list(self.assignments.values())
 
@@ -184,8 +219,8 @@ class SchedulerBase(SchedulerInterface):
 
 class StaticScheduler(SchedulerBase):
 
-    def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
-        if graph_changed or cluster_changed:
+    def schedule(self, update):
+        if update.graph_changed or update.cluster_changed:
             return self.static_schedule()
         else:
             return ()

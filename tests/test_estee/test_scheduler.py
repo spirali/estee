@@ -112,7 +112,7 @@ def test_scheduler_genetic(plan1):
 
 
 def test_scheduler_ws(plan1):
-    assert 13 <= do_sched_test(plan1, 2, WorkStealingScheduler(), SimpleNetModel()) <= 18
+    assert 12 <= do_sched_test(plan1, 2, WorkStealingScheduler(), SimpleNetModel()) <= 18
 
 
 def test_compute_indepndent_tasks(plan1):

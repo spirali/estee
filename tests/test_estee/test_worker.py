@@ -192,12 +192,12 @@ def test_worker_freecpus():
     free_cpus = []
 
     class Scheduler(SchedulerBase):
-        def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
+        def schedule(self, update):
             if not self.task_graph.tasks:
                 return
             worker = self._simulator.workers[0]
             free_cpus.append(worker.free_cpus)
-            for t in new_ready:
+            for t in update.new_ready_tasks:
                 self.assign(self.workers[worker.id], t)
 
     scheduler = Scheduler("x", "0")
@@ -217,7 +217,7 @@ def test_worker_running_tasks():
     class Scheduler(SchedulerBase):
         scheduled = False
 
-        def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
+        def schedule(self, update):
             if not self.task_graph.tasks:
                 return
 

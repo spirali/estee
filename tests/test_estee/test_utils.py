@@ -106,7 +106,7 @@ def fixed_scheduler(assignments, steps=False, reassigning=False):
             self.step = 0
             return super().start()
 
-        def schedule(self, ready_tasks, finished_tasks, graph_update, cluster_update):
+        def schedule(self, update):
             if not self.task_graph.tasks:
                 return ()
 

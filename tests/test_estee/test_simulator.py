@@ -115,12 +115,12 @@ def test_scheduling_time():
     times = []
 
     class Scheduler(SchedulerBase):
-        def schedule(self, new_ready, new_finished, graph_changed, cluster_changed):
+        def schedule(self, update):
             if not self.task_graph.tasks:
                 return
             simulator = self._simulator
             times.append(simulator.env.now)
-            for t in new_ready:
+            for t in update.new_ready_tasks:
                 self.assign(self.workers[0], t)
 
     scheduler = Scheduler("x", "0")
