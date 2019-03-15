@@ -1,24 +1,27 @@
 # Estee
 
-Estee is a discrete event simulation environment for executing task graphs. It is designed for benchmarking and experimenting with schedulers. Estee is created as an open-ended simulator so most of its components can be extended or replaced by a custom implementation, hence it is possible to experiment with different kinds of schedulers, workers, and network models. However, it also comes battery-included and provides a standard implementation for all its components.
+Estee is a discrete event simulator for executing task graphs in distributed
+environments. It is mainly designed for benchmarking and experimenting with
+schedulers. Estee is created as an open-ended simulator; most of its
+components can be extended or replaced by a custom implementation. It is
+possible to experiment with different kinds of schedulers, workers, and network
+models. Estee comes with battery-included and provides a standard
+implementation for all its components.
 
-## Usage
+## Achitecture
 
-### Installation
+<img src="docs/arch.png">
+
+## Installation
 
 ```
 python3 setup.py install
 ```
 
-### Example
+## Hello world example
 
-Estee requires users to define:
- * Task graph
- * Scheduler
- * Workers
- * Network model
-
-The following code demostrates usage of Estee using built in implementation of scheduler and network model.
+The following example creates a simple task graph, instantiates a network model
+and the simulator and executes the task with one of build-in schedulers.
 
 ```
 from estee.common import TaskGraph
@@ -57,31 +60,19 @@ print("Task graph execution makespan = {}s".format(makespan))
 
 ## Built-in implementations
 
-We provide implementations of multiple scheduling heuristics and network models that can be used out of the box. 
+### Built-in schedulers
 
-### Schedulers
+ * Blevel (HLFET)
+ * DLS
+ * ETF
+ * LAST
+ * MCP
+ * Simple genetic algorithm based scheduler
+ * Simple work stealing scheduler
+ * Camp2
 
-Built-in schedulers can be imported as follows:
+### Build-in network models
 
-`from estee.schedulers import`:
- * `StaticScheduler`
- * `AllOnOneScheduler`
- * `DoNothingScheduler`
- * `RandomAssignScheduler`
- * `RandomScheduler`
- * `RandomGtScheduler`
- * `BlevelGtScheduler`
- * `DLSScheduler`
- * `ETFScheduler`
- * `LASTScheduler`
- * `MCPScheduler`
- * `Camp2Scheduler`
-
-### Network models
-
-Built-in network models can be imported as follows:
-
-`from estee.communication import`:
- * `InstantNetModel`
- * `SimpleNetModel`
- * `MaxMinFlowNetModel`
+  * MaxMin flow model (MaxMinFlowNetModel)
+  * All downloads runs at full speed (SimpleNetModel)
+  * Instant communication (InstantNetModel)
