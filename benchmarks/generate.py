@@ -19,14 +19,14 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("filename")
     parser.add_argument("type", choices=[
-        "elementary", "m/elementary",
-        "irw", "m/irw",
+        "elementary", "elementary2",
+        "irw", "irw2",
         "pegasus",
         "rg", "m/rg"])
     return parser.parse_args()
 
 
-def gen_graphs(graph_defs, output):
+def gen_graphs(graph_defs, output, prefix):
     result = []
     for graph_def in graph_defs:
         first = graph_def[0]
@@ -38,16 +38,18 @@ def gen_graphs(graph_defs, output):
             name = first
             fn = graph_def[1]
             args = graph_def[2:]
+        name = prefix + name
         g = fn(*args)
         g.normalize()
         g.validate()
 
-        for t in g.tasks:
+        for t in g.tasks.values():
             assert t.expected_duration is not None
-        for o in g.outputs:
-            assert o.expected_size is not None
+        for o in g.objects.values():
+            if o.expected_size is None:
+                o.expected_size = o.size
 
-        print("{} #t={} #o={}".format(name, g.task_count, len(g.outputs)))
+        print("{} #t={} #o={}".format(name, g.task_count, len(g.objects)))
         assert g.task_count < 80000  # safety check
         result.append([name, str(uuid.uuid4()), g])
     print("Saving to ...", output)
@@ -75,23 +77,23 @@ elementary_generators = [
     (fern, 200),
 ]
 
-m_elementary_generators = [
-    (plain1n, 7800),
-    (plain1e, 7800),
-    (plain1cpus, 7800),
-    (triplets, 2510, 16),
-    (merge_neighbours, 4040),
-    (merge_triplets, 6111),
-    (merge_small_big, 2600),
-    (fork1, 2700),
-    (fork2, 2700),
-    (bigmerge, 7200),
-    (duration_stairs, 3490),
-    (size_stairs, 7990),
-    (splitters, 12),
-    (conflux, 12),
-    (grid, 86),
-    (fern, 4000),
+elementary2_generators = [
+    (plain1n, 4100),
+    (plain1e, 4100),
+    (plain1cpus, 3800),
+    (triplets, 1510, 4),
+    (merge_neighbours, 2040),
+    (merge_triplets, 3111),
+    (merge_small_big, 1412),
+    (fork1, 1470),
+    (fork2, 1470),
+    (bigmerge, 4300),
+    (duration_stairs, 2190),
+    (size_stairs, 4290),
+    (splitters, 11),
+    (conflux, 11),
+    (grid, 66),
+    (fern, 2200),
 ]
 
 
@@ -104,13 +106,13 @@ irw_generators = [
     (nestedcrossv, 5),
 ]
 
-m_irw_generators = [
-    ("m/gridcat", gridcat, 90),
-    ("m/crossv", crossv, 800, 16, 16),
-    ("m/crossvx", crossvx, 26, 32, 16, 16),
-    ("m/fastcrossv", fastcrossv, 800),
-    ("m/mapreduce", mapreduce, 260),
-    ("m/netstercrossv", nestedcrossv, 200, 1.0, 16, 16),
+irw2_generators = [
+    ("gridcat", gridcat, 67),
+    ("crossv", crossv, 410, 4, 4),
+    ("crossvx", crossvx, 16, 23, 4, 4),
+    ("fastcrossv", fastcrossv, 410),
+    ("mapreduce", mapreduce, 145),
+    ("netstercrossv", nestedcrossv, 100, 1.0, 4, 4),
 ]
 
 pegasus_generators = [
@@ -134,12 +136,12 @@ def main():
 
     if args.type == "elementary":
         generators = elementary_generators
-    elif args.type == "m/elementary":
-        generators = m_elementary_generators
+    elif args.type == "elementary2":
+        generators = elementary2_generators
     elif args.type == "irw":
         generators = irw_generators
-    elif args.type == "m/irw":
-        generators = m_irw_generators
+    elif args.type == "irw2":
+        generators = irw2_generators
     elif args.type == "pegasus":
         generators = pegasus_generators
     elif args.type == "rg":
@@ -149,7 +151,7 @@ def main():
     else:
         assert 0
 
-    gen_graphs(generators, args.filename)
+    gen_graphs(generators, args.filename, "{}-".format(args.type))
 
 
 if __name__ == "__main__":
