@@ -3,10 +3,8 @@ import random
 import pytest
 
 from estee.common import TaskGraph
-from estee.communication import SimpleNetModel
 from estee.schedulers import SchedulerBase
-from estee.simulator import TaskAssignment
-from estee.worker import Worker
+from estee.simulator import TaskAssignment, SimpleNetModel, Worker
 from .test_utils import do_sched_test, fixed_scheduler
 
 

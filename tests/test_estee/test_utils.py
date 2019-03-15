@@ -1,9 +1,7 @@
 import pytest
 
 from estee.common import TaskGraph, DataObject
-from estee.communication import InstantNetModel
-from estee.simulator import Simulator
-from estee.worker import Worker
+from estee.simulator import InstantNetModel, Simulator, Worker
 from estee.schedulers import SchedulerBase
 from estee.simulator import TaskAssignment
 

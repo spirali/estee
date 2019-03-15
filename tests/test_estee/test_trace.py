@@ -1,5 +1,5 @@
 from estee.common import TaskGraph
-from estee.communication import SimpleNetModel
+from estee.simulator import SimpleNetModel
 from estee.simulator.trace import FetchEndTraceEvent, FetchStartTraceEvent, \
     TaskAssignTraceEvent, TaskEndTraceEvent, TaskStartTraceEvent
 from .test_utils import do_sched_test, fixed_scheduler

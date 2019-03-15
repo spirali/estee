@@ -3,12 +3,10 @@ import itertools
 import pytest
 
 from estee.common import TaskGraph
-from estee.communication import SimpleNetModel
+from estee.simulator import SimpleNetModel, Worker, TaskAssignment
 from estee.schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase, \
     StaticScheduler
-from estee.simulator import TaskAssignment
 from estee.simulator.utils import estimate_schedule
-from estee.worker import Worker
 from .test_utils import do_sched_test
 
 from .test_utils import fixed_scheduler

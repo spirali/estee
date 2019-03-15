@@ -5,8 +5,7 @@ from deap.gp import tools
 
 from .scheduler import FixedScheduler, StaticScheduler, TracingScheduler
 from .utils import compute_b_level_duration_size
-from ..communication import SimpleNetModel
-from ..simulator import Simulator, TaskAssignment
+from ..simulator import SimpleNetModel, Simulator, TaskAssignment
 from ..simulator.utils import estimate_schedule
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0,))

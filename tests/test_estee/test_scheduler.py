@@ -1,5 +1,4 @@
 from estee.common import TaskGraph
-from estee.communication import SimpleNetModel
 from estee.schedulers import (AllOnOneScheduler, BlevelGtScheduler,
                                  Camp2Scheduler,
                                  DLSScheduler, ETFScheduler, LASTScheduler,
@@ -11,9 +10,8 @@ from estee.schedulers.genetic import GeneticScheduler
 from estee.schedulers.utils import compute_alap, compute_b_level_duration_size, \
     compute_independent_tasks, compute_t_level_duration_size, topological_sort, \
     worker_estimate_earliest_time
-from estee.simulator import TaskAssignment
-from estee.worker import Worker
-from estee.worker.worker import RunningTask
+from estee.simulator import TaskAssignment, SimpleNetModel, Worker
+from estee.simulator.worker import RunningTask
 from estee.schedulers.clustering import find_critical_path, critical_path_clustering
 from estee.schedulers.utils import (compute_alap,
                                        compute_independent_tasks)

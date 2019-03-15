@@ -4,7 +4,7 @@ from .utils import compute_b_level_duration, compute_independent_tasks, get_dura
     get_size_estimate, max_cpus_worker
 import itertools
 from ..simulator.utils import estimate_schedule
-from ..communication import SimpleNetModel
+from ..simulator import SimpleNetModel
 
 
 def find_critical_path(graph):

@@ -1,7 +1,7 @@
 from heapq import heappop, heappush
 
 from ..schedulers.utils import worker_estimate_earliest_time
-from ..worker.worker import RunningTask
+from ..simulator.worker import RunningTask
 
 
 def estimate_schedule(schedule, graph, netmodel):
