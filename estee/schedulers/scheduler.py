@@ -7,14 +7,40 @@ import logging
 logger = logging.getLogger(__name__)
 
 class SchedulerInterface:
+    """
+        Generic interface of scheduler as expected by simulator
+    """
+
+    _simulator = None  # If running in a simulator, this variable is filled by simulator
+                       # before calling start()
+                       # Only for testing purpose, scheduler should not depends on this variable
+
 
     def send_message(self, message):
+        """ Send message to scheduler """
         raise NotImplementedError()
 
     def start(self):
+        """ Start scheduler and register it
+
+        Simulator call the method at the beginning of the computation.
+        It should return registration message as follows:
+
+        {
+            "type": "register",
+            "protocol_version": <PROTOCOL_VERSION>,
+            "scheduler_name": <SCHEDULER_NAME>,
+            "scheduler_version": <SCHEDULER_VERSION>,
+            "reassigning": <REASSIGNING_FLAG>
+        }
+
+        <REASSIGNING_FLAG> has to be True if scheduler may reassign
+        already scheduled tasks
+        """
         raise NotImplementedError()
 
     def stop(self):
+        """ Stop scheduler """
         pass
 
 
@@ -54,9 +80,6 @@ class Update:
 class SchedulerBase(SchedulerInterface):
 
     PROTOCOL_VERSION = 0
-
-    _simulator = None  # If running in simulator, this variable is filled before calling start()
-                       # Only for testing purpose, scheduler should not depends on this variable
 
     _disable_cleanup = False
 
