@@ -58,6 +58,7 @@ class Simulator:
 
         self.tasks_updated = set()
         self.objects_updated = set()
+        self.reassign_failed = set()
         self.new_workers = []
         self.new_tasks = []
         self.new_objects = []
@@ -85,7 +86,7 @@ class Simulator:
         self.add_trace_event(
             FetchEndTraceEvent(self.env.now, worker, source_worker, data_object))
 
-    def try_rectract_assigned_task(self, task, info):
+    def try_retract_assigned_task(self, task, info):
         for w in info.assigned_workers[:]:
             if not w.try_retract_task(task):
                 return False
@@ -112,7 +113,10 @@ class Simulator:
                 if not self.reassign_allowed:
                     raise Exception("Scheduler reassigns already assigned task ({})"
                                     .format(assignment.task))
-                if not self.try_rectract_assigned_task(assignment.task, info):
+                if not self.try_retract_assigned_task(assignment.task, info):
+                    self.reassign_failed.add(assignment.task)
+                    if not self.wakeup_event.triggered:
+                        self.wakeup_event.succeed()
                     continue
 
             self.add_trace_event(TaskAssignTraceEvent(
@@ -178,6 +182,14 @@ class Simulator:
         if self.new_objects:
             message["new_objects"] = [t.to_dict() for t in self.new_objects]
             self.new_objects = []
+
+        if self.reassign_failed:
+            message["reassign_failed"] = [
+                {"id": t.id,
+                 "assigned_workers": [w.id for w in runtime_state.task_info(t).assigned_workers]}
+                for t in self.reassign_failed
+            ]
+            self.reassign_failed = set()
 
         logger.debug("Sending update %s", message)
         schedule = self.scheduler.send_message(message)

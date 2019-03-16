@@ -29,6 +29,7 @@ class SchedulerInterface:
             "new_objects": [OBJECT_DEF, ...]  # Optional
             "tasks_update": [TASK_UPDATE, ...]  # Optional
             "objects_update": [OBJECT_UPDATE, ...]  # Optional
+            "reassign_failed": [REASSIGN_FAILED, ...]  # Optinal
         }
 
         TASK_UPDATE = {
@@ -41,6 +42,11 @@ class SchedulerInterface:
             "id": OBJECT_ID,
             "placing": [WORKER_ID, ...]
             "availability": [WORKER_ID, ...]
+        }
+
+        REASSIGN_FAILED = {
+            "id": TASK_ID
+            "assigned_workers": [WORKER_ID, ...]  # Ground truth from simulator
         }
         """
         raise NotImplementedError()
@@ -84,7 +90,8 @@ class Update:
                  new_objects,
                  new_tasks,
                  new_ready_tasks,
-                 new_finished_tasks):
+                 new_finished_tasks,
+                 reassign_failed):
 
         self.new_workers = new_workers
         self.network_update = network_update
@@ -92,6 +99,7 @@ class Update:
         self.new_tasks = new_tasks
         self.new_ready_tasks = new_ready_tasks
         self.new_finished_tasks = new_finished_tasks
+        self.reassign_failed = reassign_failed
 
     @property
     def graph_changed(self):
@@ -148,7 +156,7 @@ class SchedulerBase(SchedulerInterface):
         ready_tasks = []
         finished_tasks = []
 
-        if message.get("new_workers"):
+        if "new_workers" in message:
             new_workers = []
             for w in message["new_workers"]:
                 worker_id = w["id"]
@@ -168,7 +176,7 @@ class SchedulerBase(SchedulerInterface):
                 network_update = True
                 self.network_bandwidth = bandwidth
 
-        if message.get("new_objects"):
+        if "new_objects" in message:
             objects = self.task_graph.objects
             new_objects = []
             for o in message["new_objects"]:
@@ -179,7 +187,7 @@ class SchedulerBase(SchedulerInterface):
         else:
             new_objects = ()
 
-        if message.get("new_tasks"):
+        if "new_tasks" in message:
             tasks = self.task_graph.tasks
             objects = self.task_graph.objects
             new_tasks = []
@@ -225,15 +233,24 @@ class SchedulerBase(SchedulerInterface):
             if size is not None:
                 o.size = size
 
-        self.assignments = {}
+        reassign_failed = ()
+        if "reassign_failed" in message:
+            reassign_failed = []
+            for tu in message["reassign_failed"]:
+                task = self.task_graph.tasks[tu["id"]]
+                workers = [self.workers[w] for w in tu["assigned_workers"]]
+                task.scheduled_worker = workers[0]
+                reassign_failed.append(task)
 
+        self.assignments = {}
         self.schedule(Update(
             new_workers,
             network_update,
             new_objects,
             new_tasks,
             ready_tasks,
-            finished_tasks))
+            finished_tasks,
+            reassign_failed))
 
         return list(self.assignments.values())
 

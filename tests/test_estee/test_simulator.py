@@ -275,3 +275,39 @@ def test_simulator_reschedule_scheduled_download():
     assert frozenset({0, 1, 2}) in available
     assert frozenset({0, 2}) in available
     assert simulator.runtime_state.task_info(a1).assigned_workers == [simulator.workers[2]]
+
+
+def test_simulator_reassign_failed():
+    test_graph = TaskGraph()
+
+    a1 = test_graph.new_task("A1", duration=5, cpus=1)
+    a2 = test_graph.new_task("A1", duration=3, cpus=1)
+
+    test_update = []
+
+    class Scheduler(SchedulerBase):
+
+        def start(self):
+            self.step = 0
+            self.workers = {}
+            return super().start()
+
+        def schedule(self, update):
+            if not self.task_graph.tasks:
+                return
+            self.step += 1
+            if self.step == 1:
+                self.assign(self.workers[0], a1)
+                self.assign(self.workers[1], a2)
+            elif self.step == 2:
+                self.assign(self.workers[2], a1)
+            elif self.step == 3:
+                test_update.append(update)
+
+    scheduler = Scheduler("test", "0", True)
+    simulator = do_sched_test(test_graph, [1, 1, 1],
+                              scheduler,
+                              trace=True, netmodel=SimpleNetModel(1))
+
+    assert test_update[0].reassign_failed[0].id == a1.id
+    assert test_update[0].reassign_failed[0].scheduled_worker.worker_id == 0
