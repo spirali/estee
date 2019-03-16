@@ -294,7 +294,6 @@ def test_simulator_reassign_failed():
 
         def start(self):
             self.step = 0
-            self.workers = {}
             return super().start()
 
         def schedule(self, update):

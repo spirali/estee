@@ -81,6 +81,9 @@ class SchedulerWorker:
         self.worker_id = worker_id
         self.cpus = cpus
 
+    def __repr__(self):
+        return "<SW id={} cpus={}>".format(self.worker_id, self.cpus)
+
 
 class Update:
 
@@ -255,13 +258,21 @@ class SchedulerBase(SchedulerInterface):
 
         return list(self.assignments.values())
 
+
+    def _fix_implied_schedule_of_object(self, obj):
+        s = set()
+        if obj.parent.scheduled_worker:
+            s.add(obj.parent.scheduled_worker)
+        for c in obj.consumers:
+            if c.scheduled_worker:
+                s.add(c.scheduled_worker)
+        obj.scheduled = s
+
     def _fix_implied_schedule(self, task):
-        for inp in task.inputs:
-            s = {inp.parent.scheduled_worker}
-            for c in inp.consumers:
-                if c.scheduled_worker:
-                    s.add(c.scheduled_worker)
-            inp.scheduled = s
+        for obj in task.inputs:
+            self._fix_implied_schedule_of_object(obj)
+        for obj in task.outputs:
+            self._fix_implied_schedule_of_object(obj)
 
     def assign(self, worker, task, priority=None, blocking=None):
         """
@@ -289,6 +300,10 @@ class SchedulerBase(SchedulerInterface):
             result["priority"] = priority
         if blocking is not None:
             result["blocking"] = blocking
+
+        if task in self.assignments:
+            self._fix_implied_schedule(task)
+
         self.assignments[task] = result
 
     def stop(self):

@@ -4,7 +4,7 @@ from estee.schedulers import (AllOnOneScheduler, BlevelGtScheduler,
                                  DLSScheduler, ETFScheduler, LASTScheduler,
                                  MCPScheduler,
                                  RandomAssignScheduler, RandomGtScheduler,
-                                 RandomScheduler, WorkStealingScheduler)
+                                 RandomScheduler, WorkStealingScheduler, SchedulerBase)
 
 from estee.schedulers.genetic import GeneticScheduler
 from estee.schedulers.utils import compute_alap, compute_b_level_duration_size, \
@@ -241,3 +241,55 @@ def test_find_critical_path(plan1):
 def test_critical_path_clustering(plan1):
     assert [[3, 5, 7], [0, 2, 4], [1], [6]] == \
            [[t.id for t in p] for p in critical_path_clustering(plan1)]
+
+
+def test_simulator_local_reassign():
+    test_graph = TaskGraph()
+
+    a0 = test_graph.new_task("A0", duration=1, output_size=1)
+    a1 = test_graph.new_task("A1", duration=1, output_size=1)
+    a2 = test_graph.new_task("A2", duration=1, cpus=1, output_size=10)
+
+    a2.add_inputs([a1, a0])
+
+    class Scheduler(SchedulerBase):
+
+        def start(self):
+            self.done = False
+            return super().start()
+
+        def schedule(self, update):
+            if not self.task_graph.tasks or self.done:
+                return
+
+            t = self.task_graph.tasks[a2.id]
+            for o in t.inputs:
+                assert not o.scheduled
+            for o in t.outputs:
+                assert not o.scheduled
+
+            w1 = self.workers[1]
+            w2 = self.workers[2]
+            self.assign(w1, t)
+
+            for o in t.inputs:
+                assert o.scheduled == {w1}
+            for o in t.outputs:
+                assert o.scheduled == {w1}
+
+            self.assign(w2, t)
+
+            for o in t.inputs:
+                assert o.scheduled == {w2}
+            for o in t.outputs:
+                assert o.scheduled == {w2}
+
+            for t in self.task_graph.tasks.values():
+                self.assign(w1, t)
+
+            self.done = True
+
+    scheduler = Scheduler("test", "0", True)
+    simulator = do_sched_test(test_graph, [1, 1, 1],
+                              scheduler,
+                              trace=True, netmodel=SimpleNetModel(1))
