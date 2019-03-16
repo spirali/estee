@@ -239,12 +239,12 @@ class Worker:
             finished = yield env.any_of(events)
             for event in finished.keys():
                 if event == events[0]:
+                    events[0] = self.ready_store.get()
                     assignment = event.value
                     if assignment.cancelled:
                         continue
                     prepared_assignments.append(assignment)
                     prepared_assignments.sort(key=lambda a: a.priority, reverse=True)
-                    events[0] = self.ready_store.get()
                     continue
 
                 assignment = event.value

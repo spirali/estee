@@ -212,6 +212,16 @@ class SchedulerBase(SchedulerInterface):
         else:
             new_tasks = ()
 
+        reassign_failed = ()
+        if "reassign_failed" in message:
+            reassign_failed = []
+            for tu in message["reassign_failed"]:
+                task = self.task_graph.tasks[tu["id"]]
+                ws = [self.workers[w] for w in tu["assigned_workers"]]
+                task.scheduled_worker = ws[0]
+                reassign_failed.append(task)
+                self._fix_implied_schedule(task)
+
         for tu in message.get("tasks_update", ()):
             assert tu["state"] == TaskState.Finished
             task = task_graph.tasks[tu["id"]]
@@ -233,15 +243,6 @@ class SchedulerBase(SchedulerInterface):
             if size is not None:
                 o.size = size
 
-        reassign_failed = ()
-        if "reassign_failed" in message:
-            reassign_failed = []
-            for tu in message["reassign_failed"]:
-                task = self.task_graph.tasks[tu["id"]]
-                workers = [self.workers[w] for w in tu["assigned_workers"]]
-                task.scheduled_worker = workers[0]
-                reassign_failed.append(task)
-
         self.assignments = {}
         self.schedule(Update(
             new_workers,
@@ -253,6 +254,14 @@ class SchedulerBase(SchedulerInterface):
             reassign_failed))
 
         return list(self.assignments.values())
+
+    def _fix_implied_schedule(self, task):
+        for inp in task.inputs:
+            s = {inp.parent.scheduled_worker}
+            for c in inp.consumers:
+                if c.scheduled_worker:
+                    s.add(c.scheduled_worker)
+            inp.scheduled = s
 
     def assign(self, worker, task, priority=None, blocking=None):
         """
@@ -275,6 +284,7 @@ class SchedulerBase(SchedulerInterface):
             "worker": worker.worker_id if worker else None,
             "task": task.id,
         }
+
         if priority is not None:
             result["priority"] = priority
         if blocking is not None:

@@ -280,8 +280,13 @@ def test_simulator_reschedule_scheduled_download():
 def test_simulator_reassign_failed():
     test_graph = TaskGraph()
 
+    a0 = test_graph.new_task("A0", duration=1, output_size=1)
     a1 = test_graph.new_task("A1", duration=5, cpus=1)
-    a2 = test_graph.new_task("A1", duration=3, cpus=1)
+    a2 = test_graph.new_task("A2", duration=3, cpus=1, output_size=1)
+    a3 = test_graph.new_task("A3", duration=1, cpus=1)
+
+    a1.add_input(a0)
+    a3.add_input(a2)
 
     test_update = []
 
@@ -293,21 +298,27 @@ def test_simulator_reassign_failed():
             return super().start()
 
         def schedule(self, update):
+            def tg(task):
+                return self.task_graph.tasks[task.id]
             if not self.task_graph.tasks:
                 return
             self.step += 1
             if self.step == 1:
-                self.assign(self.workers[0], a1)
-                self.assign(self.workers[1], a2)
-            elif self.step == 2:
-                self.assign(self.workers[2], a1)
-            elif self.step == 3:
+                self.assign(self.workers[3], tg(a0))
+                self.assign(self.workers[0], tg(a1))
+                self.assign(self.workers[1], tg(a2), 10)
+                self.assign(self.workers[1], tg(a3), 1)
+            elif self.step == 4:
+                self.assign(self.workers[2], tg(a1))
+            elif self.step == 5:
                 test_update.append(update)
 
     scheduler = Scheduler("test", "0", True)
-    simulator = do_sched_test(test_graph, [1, 1, 1],
+    scheduler._disable_cleanup = True
+    simulator = do_sched_test(test_graph, [1, 1, 1, 1],
                               scheduler,
                               trace=True, netmodel=SimpleNetModel(1))
 
     assert test_update[0].reassign_failed[0].id == a1.id
     assert test_update[0].reassign_failed[0].scheduled_worker.worker_id == 0
+    assert {w.worker_id for w in scheduler.task_graph.objects[a0.output.id].scheduled} == {0, 3}

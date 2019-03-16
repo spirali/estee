@@ -78,6 +78,7 @@ def test_scheduler_blevel_gt(plan1):
 
         assert sizes == {1, 2}
 
+
 def test_scheduler_random_assign(plan1):
     for _ in range(50):
         assert 10 <= do_sched_test(plan1, 2, RandomAssignScheduler(), SimpleNetModel()) <= 25
