@@ -17,7 +17,32 @@ class SchedulerInterface:
 
 
     def send_message(self, message):
-        """ Send message to scheduler """
+        """ Send message to scheduler
+
+        Right now only "update" message is supported:
+
+        {
+            "type": "update",
+            "new_workers": [WORKER_ID, ...]  # Optional
+            "network_bandwidth": FLOAT  # Optional
+            "new_tasks": [TASK_DEF, ...]  # Optional
+            "new_objects": [OBJECT_DEF, ...]  # Optional
+            "tasks_update": [TASK_UPDATE, ...]  # Optional
+            "objects_update": [OBJECT_UPDATE, ...]  # Optional
+        }
+
+        TASK_UPDATE = {
+            "id": TASK_ID,
+            "state": TaskState
+            "worker": WORKER_ID
+        }
+
+        OBJECT_UPDATE = {
+            "id": OBJECT_ID,
+            "placing": [WORKER_ID, ...]
+            "availability": [WORKER_ID, ...]
+        }
+        """
         raise NotImplementedError()
 
     def start(self):
@@ -28,13 +53,13 @@ class SchedulerInterface:
 
         {
             "type": "register",
-            "protocol_version": <PROTOCOL_VERSION>,
-            "scheduler_name": <SCHEDULER_NAME>,
-            "scheduler_version": <SCHEDULER_VERSION>,
-            "reassigning": <REASSIGNING_FLAG>
+            "protocol_version": PROTOCOL_VERSION,
+            "scheduler_name": SCHEDULER_NAME,
+            "scheduler_version": SCHEDULER_VERSION,
+            "reassigning": REASSIGNING_FLAG
         }
 
-        <REASSIGNING_FLAG> has to be True if scheduler may reassign
+        REASSIGNING_FLAG has to be True if scheduler may reassign
         already scheduled tasks
         """
         raise NotImplementedError()
@@ -78,10 +103,13 @@ class Update:
 
 
 class SchedulerBase(SchedulerInterface):
+    """
+    Base class for Python implemented schedulers
+    """
 
     PROTOCOL_VERSION = 0
 
-    _disable_cleanup = False
+    _disable_cleanup = False  # Disable clean in stop(), for testing purposes
 
     def __init__(self, name, version, reassigning=False):
         self.workers = {}
@@ -199,8 +227,6 @@ class SchedulerBase(SchedulerInterface):
 
         self.assignments = {}
 
-        print(new_tasks, message.get("new_tasks"))
-
         self.schedule(Update(
             new_workers,
             network_update,
@@ -212,6 +238,13 @@ class SchedulerBase(SchedulerInterface):
         return list(self.assignments.values())
 
     def assign(self, worker, task, priority=None, blocking=None):
+        """
+            Assign a task to a worker
+
+            This method can be called from "schedule" method
+            This method can be called multiple times, the last
+            call is accepted.
+        """
         task.state = TaskState.Assigned
         task.scheduled_worker = worker
 
@@ -242,6 +275,12 @@ class SchedulerBase(SchedulerInterface):
 
 class StaticScheduler(SchedulerBase):
 
+    """ Base class for static schedulers
+
+        method `static_schedule()` is invokend when cluster or task graph
+        is changed
+    """
+
     def schedule(self, update):
         if update.graph_changed or update.cluster_changed:
             return self.static_schedule()
@@ -249,6 +288,11 @@ class StaticScheduler(SchedulerBase):
             return ()
 
     def static_schedule(self):
+        """
+        Create a static schedule
+
+        It has to assign (via .assign) a worker for each task
+        """
         raise NotImplementedError()
 
 

@@ -23,7 +23,7 @@ python3 setup.py install
 The following example creates a simple task graph, instantiates a network model
 and the simulator and executes the task with one of build-in schedulers.
 
-```
+```python
 from estee.common import TaskGraph
 from estee.schedulers import BlevelGtScheduler
 from estee.simulator import Simulator, Worker, MaxMinFlowNetModel

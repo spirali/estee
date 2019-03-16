@@ -9,6 +9,15 @@ from ..simulator import TaskAssignment
 
 
 class QueueScheduler(SchedulerBase):
+    """
+    Base class for Queue schedulers
+
+    This type of schedulers works with a queue of tasks, that represents an
+    priority ordering on tasks. System picks a highies priority task that is
+    ready and assigns a worker for it. Worker is by calling ``choose_worker``.
+
+    User needs to implement methods ``make_queue`` and ``choose_worker``
+    """
 
     def __init__(self, name, version):
         super().__init__(name, version)
