@@ -17,6 +17,15 @@ class WorkStealingScheduler(SchedulerBase):
         if update.graph_changed:
             self.b_level = compute_b_level_duration(self.task_graph)
 
+        for task in update.reassign_failed:
+            for worker in self.workers.values():
+                if task in worker.tasks:
+                    worker.tasks.remove(task)
+                    worker.free_cpus += task.cpus
+            worker = task.scheduled_worker
+            worker.tasks.add(task)
+            worker.free_cpus -= task.cpus
+
         for task in update.new_finished_tasks:
             task.scheduled_worker.free_cpus += task.cpus
             task.scheduled_worker.tasks.remove(task)
