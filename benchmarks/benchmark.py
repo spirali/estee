@@ -15,7 +15,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from estee.common import imode
-from estee.communication import MaxMinFlowNetModel, SimpleNetModel
+from estee.simulator import MaxMinFlowNetModel, SimpleNetModel
 from estee.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from estee.schedulers.camp import Camp2Scheduler
 from estee.schedulers.clustering import LcScheduler
@@ -25,8 +25,8 @@ from estee.schedulers.others import BlevelScheduler, DLSScheduler, ETFScheduler,
 from estee.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
 from estee.schedulers import WorkStealingScheduler
 from estee.serialization.dask_json import json_deserialize, json_serialize
-from estee.simulator import Simulator
-from estee.worker import Worker
+from estee.simulator import Simulator, Worker
+from estee.simulator.trace import FetchEndTraceEvent
 
 
 def generate_seed():
@@ -120,10 +120,15 @@ def run_single_instance(instance):
     workers = [create_worker(wargs) for wargs in CLUSTERS[instance.cluster_name]]
     netmodel = NETMODELS[instance.netmodel](instance.bandwidth)
     scheduler = SCHEDULERS[instance.scheduler_name]()
-    simulator = Simulator(instance.graph, workers, scheduler, netmodel)
-
+    simulator = Simulator(instance.graph, workers, scheduler, netmodel, trace=True)
     try:
-        return simulator.run(), time.monotonic() - begin_time
+        sim_time = simulator.run()
+        runtime = time.monotonic() - begin_time
+        transfer = 0
+        for e in simulator.trace_events:
+            if isinstance(e, FetchEndTraceEvent):
+                transfer += e.output.size
+        return sim_time, runtime, transfer
     except Exception as e:
         traceback.print_exc()
         print("ERROR INSTANCE: {}".format(instance), file=sys.stderr)
@@ -342,7 +347,8 @@ def compute(graphset, resultfile, scheduler, cluster, bandwidth,
                "min_sched_interval",
                "sched_time",
                "time",
-               "execution_time"]
+               "execution_time",
+               "total_transfer"]
 
     appending = False
     if os.path.isfile(resultfile):
@@ -407,7 +413,7 @@ def compute(graphset, resultfile, scheduler, cluster, bandwidth,
         try:
             for instance, result in tqdm(zip(instances, iterator), total=len(instances)):
                 counter += 1
-                for r_time, r_runtime in result:
+                for r_time, r_runtime, r_transfer in result:
                     if r_time is not None:
                         rows.append((
                             instance.graph_set,
@@ -422,6 +428,7 @@ def compute(graphset, resultfile, scheduler, cluster, bandwidth,
                             instance.sched_time,
                             r_time,
                             r_runtime,
+                            r_transfer
                         ))
 
         except KeyboardInterrupt:
