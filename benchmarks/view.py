@@ -154,6 +154,10 @@ def process(filename, args):
             style_col="scheduler_name", sharey=False)
         savefig(name + "-schedulers-time")
 
+        splot(dataset, "cluster_name", "graph_name", x="bandwidth", y="total_transfer",
+            style_col="scheduler_name", sharey=False)
+        savefig(name + "-schedulers-transfer")
+
     # ----- Netmodel -----
     if args.all or args.netmodels:
         print("Netmodels ...")
