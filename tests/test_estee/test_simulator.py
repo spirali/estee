@@ -3,7 +3,7 @@ import itertools
 import pytest
 
 from estee.common import TaskGraph
-from estee.simulator import SimpleNetModel, Worker, TaskAssignment
+from estee.simulator import SimpleNetModel, Worker, TaskAssignment, TaskState
 from estee.schedulers import AllOnOneScheduler, DoNothingScheduler, SchedulerBase, \
     StaticScheduler
 from estee.simulator.utils import estimate_schedule
@@ -321,3 +321,54 @@ def test_simulator_reassign_failed():
     assert test_update[0].reassign_failed[0].id == a1.id
     assert test_update[0].reassign_failed[0].scheduled_worker.worker_id == 0
     assert {w.worker_id for w in scheduler.task_graph.objects[a0.output.id].scheduled} == {0, 3}
+
+
+def test_simulator_task_start_notify():
+    test_graph = TaskGraph()
+
+    a0 = test_graph.new_task("A0", duration=1, output_size=1)
+    a1 = test_graph.new_task("A1", duration=10, cpus=1, output_size=1)
+    a2 = test_graph.new_task("A2", duration=10, cpus=1, output_size=1)
+    a3 = test_graph.new_task("A3", duration=3, cpus=1)
+
+
+    a1.add_input(a0)
+    a2.add_input(a1)
+
+    triggered = [False, False]
+
+    class Scheduler(SchedulerBase):
+
+        def start(self):
+            self.step = 0
+            return super().start()
+
+        def schedule(self, update):
+            def tg(task):
+                return self.task_graph.tasks[task.id]
+            if not self.task_graph.tasks:
+                return
+            self.step += 1
+            if self.step == 1:
+                self.assign(self.workers[0], tg(a0))
+                self.assign(self.workers[0], tg(a1))
+                self.assign(self.workers[0], tg(a2))
+                self.assign(self.workers[1], tg(a3))
+            elif tg(a3) in update.new_started_tasks:
+                assert not triggered[0] and not triggered[1]
+                triggered[0] = True
+                assert tg(a3).running
+            elif tg(a3).state == TaskState.Finished and tg(a3) in update.new_finished_tasks:
+                assert triggered[0]
+                assert not triggered[1]
+                triggered[1] = True
+                assert not tg(a0).running
+                assert tg(a1).running
+                assert not tg(a2).running
+                assert not tg(a3).running
+
+    scheduler = Scheduler("test", "0", task_start_notification=True)
+    do_sched_test(test_graph, [1, 1, 1],
+                  scheduler,
+                  trace=True, netmodel=SimpleNetModel(1))
+    assert triggered[1] and triggered[0]

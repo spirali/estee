@@ -272,6 +272,7 @@ class Worker:
                     self.running_tasks[task] = RunningTask(task, self.env.now)
                     simulator.add_trace_event(TaskStartTraceEvent(self.env.now, self, task))
                     events.append(env.timeout(task.duration, assignment))
+                    self.simulator.on_task_start(self, assignment.task)
                 else:
                     block = max(block, assignment.block)
 

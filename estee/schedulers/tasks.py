@@ -16,6 +16,7 @@ class SchedulerTask(TaskBase):
         self.expected_duration = expected_duration
         self.scheduled_worker = None
         self.computed_by = None
+        self.running = False
 
     @property
     def is_waiting(self):

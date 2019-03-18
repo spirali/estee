@@ -94,7 +94,8 @@ class Update:
                  new_tasks,
                  new_ready_tasks,
                  new_finished_tasks,
-                 reassign_failed):
+                 reassign_failed,
+                 new_started_tasks):
 
         self.new_workers = new_workers
         self.network_update = network_update
@@ -103,6 +104,7 @@ class Update:
         self.new_ready_tasks = new_ready_tasks
         self.new_finished_tasks = new_finished_tasks
         self.reassign_failed = reassign_failed
+        self.new_started_tasks = new_started_tasks
 
     @property
     def graph_changed(self):
@@ -122,7 +124,7 @@ class SchedulerBase(SchedulerInterface):
 
     _disable_cleanup = False  # Disable clean in stop(), for testing purposes
 
-    def __init__(self, name, version, reassigning=False):
+    def __init__(self, name, version, reassigning=False, task_start_notification=False):
         self.workers = {}
         self.task_graph = SchedulerTaskGraph()
         self._name = name
@@ -130,6 +132,7 @@ class SchedulerBase(SchedulerInterface):
         self.network_bandwidth = None
         self.assignments = None
         self.reassigning = reassigning
+        self.task_start_notification = task_start_notification
 
 
     def send_message(self, message):
@@ -145,7 +148,8 @@ class SchedulerBase(SchedulerInterface):
             "protocol_version": self.PROTOCOL_VERSION,
             "scheduler_name": self._name,
             "scheduler_version": self._version,
-            "reassigning": self.reassigning
+            "reassigning": self.reassigning,
+            "task_start_notification": self.task_start_notification,
         }
 
     def schedule(self, update):
@@ -158,6 +162,7 @@ class SchedulerBase(SchedulerInterface):
 
         ready_tasks = []
         finished_tasks = []
+        started_tasks = []
 
         if "new_workers" in message:
             new_workers = []
@@ -226,17 +231,23 @@ class SchedulerBase(SchedulerInterface):
                 self._fix_implied_schedule(task)
 
         for tu in message.get("tasks_update", ()):
-            assert tu["state"] == TaskState.Finished
+            state = tu["state"]
+            assert state == TaskState.Finished or state == TaskState.Assigned
             task = task_graph.tasks[tu["id"]]
             task.state = TaskState.Finished
             task.computed_by = workers[tu["worker"]]
-            finished_tasks.append(task)
-            for o in task.outputs:
-                for t in o.consumers:
-                    t.unfinished_inputs -= 1
-                    if t.unfinished_inputs <= 0:
-                        assert t.unfinished_inputs == 0
-                        ready_tasks.append(t)
+            task.running = bool(tu["running"])
+            if state == TaskState.Finished:
+                finished_tasks.append(task)
+                for o in task.outputs:
+                    for t in o.consumers:
+                        t.unfinished_inputs -= 1
+                        if t.unfinished_inputs <= 0:
+                            assert t.unfinished_inputs == 0
+                            ready_tasks.append(t)
+            else:
+                assert task.running
+                started_tasks.append(task)
 
         for ou in message.get("objects_update", ()):
             o = task_graph.objects[ou["id"]]
@@ -254,7 +265,8 @@ class SchedulerBase(SchedulerInterface):
             new_tasks,
             ready_tasks,
             finished_tasks,
-            reassign_failed))
+            reassign_failed,
+            started_tasks))
 
         return list(self.assignments.values())
 

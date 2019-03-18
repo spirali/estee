@@ -45,6 +45,7 @@ class Simulator:
         self.min_scheduling_interval = min_scheduling_interval
         self.scheduling_time = scheduling_time
         self.reassign_allowed = False
+        self.task_start_notification = False
 
         if trace:
             self.trace_events = []
@@ -140,10 +141,14 @@ class Simulator:
 
         def make_task_update(task):
             info = runtime_state.task_info(task)
+            assert len(info.assigned_workers) == 1
+            # The following code has to be updated
+            # when we allow duplication of tasks
             return {
                 "id": task.id,
                 "state": info.state,
-                "worker": info.assigned_workers[0].id
+                "worker": info.assigned_workers[0].id,
+                "running": bool(info.running_at_workers)
             }
 
         def make_object_update(obj):
@@ -232,12 +237,21 @@ class Simulator:
             if schedule:
                 self.apply_schedule(schedule)
 
+    def on_task_start(self, worker, task):
+        logger.debug("Task %s started on %s", task, worker)
+        self.runtime_state.task_info(task).running_at_workers.append(worker)
+        if self.task_start_notification:
+            self.tasks_updated.add(task)
+            if not self.wakeup_event.triggered:
+                self.wakeup_event.succeed()
+
     def on_task_finished(self, worker, task):
         logger.debug("Task %s finished on %s", task, worker)
         runtime_state = self.runtime_state
         info = runtime_state.task_info(task)
         assert info.state == TaskState.Assigned
         assert worker in info.assigned_workers
+        info.running_at_workers.remove(worker)
         info.state = TaskState.Finished
         info.end_time = self.env.now
         self.new_finished.append(task)
@@ -282,11 +296,13 @@ class Simulator:
         message = self.scheduler.start()
         if message.get("type") != "register":
             raise Exception("Invalid registeration message from scheduler")
-        logger.info("Scheduler '%s', version '%s', reassigning: '%s'",
+        logger.info("Scheduler '%s', version '%s', reassigning: '%s', task_start_notification: '%s'",
                     message.get("scheduler_name"),
                     message.get("scheduler_version"),
-                    message.get("reassigning"))
+                    message.get("reassigning"),
+                    message.get("task_start_notification"))
         self.reassign_allowed = bool(message.get("reassigning", False))
+        self.task_start_notification = bool(message.get("task_start_notification", False))
 
     def stop_scheduler(self):
         self.scheduler.stop()

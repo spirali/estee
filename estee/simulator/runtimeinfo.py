@@ -14,6 +14,7 @@ class TaskRuntimeInfo:
                  "assign_time",
                  "end_time",
                  "assigned_workers",
+                 "running_at_workers",
                  "unfinished_inputs")
 
     def __init__(self, task):
@@ -21,6 +22,7 @@ class TaskRuntimeInfo:
         self.assign_time = None
         self.end_time = None
         self.assigned_workers = []
+        self.running_at_workers = []
         self.unfinished_inputs = len(task.inputs)
 
     @property
