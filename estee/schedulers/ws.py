@@ -44,7 +44,8 @@ class WorkStealingScheduler(SchedulerBase):
                 self.process_work_stealing(worker, plan)
 
         for task, worker in plan.items():
-            self.assign(worker, task, self.b_level[task])
+            level = self.b_level[task]
+            self.assign(worker, task, level, level - task.expected_duration)
 
     def process_work_stealing(self, worker, plan):
         tasks = []
