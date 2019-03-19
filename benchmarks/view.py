@@ -161,11 +161,15 @@ def process(filename, args):
     # ----- Netmodel -----
     if args.all or args.netmodels:
         print("Netmodels ...")
-        dataset = data.prepare(cluster_name="16x4", netmodel=None, exclude_single=True)
+        dataset = data.prepare(cluster_name=args.cluster, netmodel=None, exclude_single=True)
 
         splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="time",
             style_col="netmodel", sharey=False)
-        savefig(name + "-16x4-netmodel-time")
+        savefig(name + "-{}-netmodel-time".format(args.cluster))
+
+        splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="total_transfer",
+            style_col="netmodel", sharey=False)
+        savefig(name + "-{}-netmodel-transfer".format(args.cluster))
 
         groups = dataset.groupby(
             ["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name"])
@@ -178,7 +182,7 @@ def process(filename, args):
         dataset["norms"] = groups.apply(normalize)["time"]
         splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="norms",
             sharey=False, style_col="netmodel")
-        savefig(name + "-16x4-netmodel-score")
+        savefig(name + "-{}-netmodel-score".format(args.cluster))
 
     # ----- MinSchedTime
     if args.all or args.msd:
@@ -235,6 +239,7 @@ if __name__ == "__main__":
     parser.add_argument("--msd", action="store_true")
     parser.add_argument("--imodes", action="store_true")
     parser.add_argument("--netmodels", action="store_true")
+    parser.add_argument("--cluster", default="16x4")
     args = parser.parse_args()
 
     process(args.resultset, args)
