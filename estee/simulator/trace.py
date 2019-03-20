@@ -409,6 +409,9 @@ def normalize_events(trace_events):
                   key=lambda e: (e.time, 0 if isinstance(e, TaskEndTraceEvent) else 1))
 
 
+def to_chrome_time(time):
+    return time * 1000_000
+
 def export_to_chrome_events(trace_events):
     task_start = {}
     for e in trace_events:
@@ -428,8 +431,8 @@ def export_to_chrome_events(trace_events):
             "name": "t{} ({})".format(e1.task.id, e1.task.cpus),
             "cat": "task",
             "ph": "X",
-            "ts": e1.time,
-            "dur": e2.time - e1.time,
+            "ts": to_chrome_time(e1.time),
+            "dur": to_chrome_time(e2.time - e1.time),
             "pid": e1.worker.id,
         })
 
@@ -444,7 +447,7 @@ def export_to_chrome_events(trace_events):
                 "name": "t {}".format(e1.task.id),
                 "cat": "task",
                 "ph": "s",
-                "ts": e2.time,
+                "ts": to_chrome_time(e2.time),
                 "pid": e1.worker.id,
                 "id": flow_id,
             })
@@ -453,7 +456,7 @@ def export_to_chrome_events(trace_events):
                 "name": "flow",
                 "cat": "task",
                 "ph": "f",
-                "ts": event.time,
+                "ts": to_chrome_time(event.time),
                 "pid": event.worker.id,
                 "id": flow_id,
             })
@@ -473,7 +476,7 @@ def export_to_chrome_events(trace_events):
                 "name": "load_running",
                 "cat": "load",
                 "ph": "C",
-                "ts": event.time,
+                "ts": to_chrome_time(event.time),
                 "pid": event.worker.id,
                 "args": {
                     "cpus": cpus[event.worker]
@@ -489,7 +492,7 @@ def export_to_chrome_events(trace_events):
                 "name": "load_assign",
                 "cat": "load",
                 "ph": "C",
-                "ts": event.time,
+                "ts": to_chrome_time(event.time),
                 "pid": event.worker.id,
                 "args": {
                     "cpus": assigns[event.worker]
@@ -513,7 +516,7 @@ def export_to_chrome_events(trace_events):
                 "name": "net_send",
                 "cat": "net",
                 "ph": "C",
-                "ts": event.time,
+                "ts": to_chrome_time(event.time),
                 "pid": event.source_worker.id,
                 "args": {
                     "send": update(event.source_worker, event.target_worker, send_bw, event.value)
@@ -523,7 +526,7 @@ def export_to_chrome_events(trace_events):
                 "name": "net_recv",
                 "cat": "net",
                 "ph": "C",
-                "ts": event.time,
+                "ts": to_chrome_time(event.time),
                 "pid": event.target_worker.id,
                 "args": {
                     "recv": update(event.target_worker, event.source_worker, recv_bw, event.value)
