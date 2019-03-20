@@ -2,7 +2,7 @@
 from simpy import Environment, Event
 
 from .runtimeinfo import RuntimeState, TaskState
-from .trace import TaskAssignTraceEvent
+from .trace import TaskAssignTraceEvent, TaskRetractTraceEvent
 
 import logging
 
@@ -91,6 +91,8 @@ class Simulator:
         for w in info.assigned_workers[:]:
             if not w.try_retract_task(task):
                 return False
+            self.add_trace_event(TaskRetractTraceEvent(
+                self.env.now, w, task))
             info.assigned_workers.remove(w)
         info.state = TaskState.Waiting
         return True

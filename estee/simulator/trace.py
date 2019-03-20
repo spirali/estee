@@ -3,6 +3,7 @@ import math
 import json
 
 TaskAssignTraceEvent = collections.namedtuple("TaskAssign", ["time", "worker", "task"])
+TaskRetractTraceEvent = collections.namedtuple("TaskRetract", ["time", "worker", "task"])
 TaskStartTraceEvent = collections.namedtuple("TaskStart", ["time", "worker", "task"])
 TaskEndTraceEvent = collections.namedtuple("TaskEnd", ["time", "worker", "task"])
 
@@ -457,13 +458,78 @@ def export_to_chrome_events(trace_events):
                 "id": flow_id,
             })
 
-    """
-    ep = merge_trace_events(
-            trace_events,
-            lambda t: isinstance(t, FetchStartTraceEvent),
-            lambda t: isinstance(t, FetchEndTraceEvent),
-            lambda e: (e.output, e.target_worker, e.source_worker),
-        )
-    for e1, e2 in ep:
-    """
+
+    cpus = {}
+    assigns = {}
+
+    for event in trace_events:
+        if isinstance(event, TaskStartTraceEvent) or isinstance(event, TaskEndTraceEvent):
+            if isinstance(event, TaskStartTraceEvent):
+                cpus.setdefault(event.worker, 0)
+                cpus[event.worker] += event.task.cpus
+            else:
+                cpus[event.worker] -= event.task.cpus
+            result.append({
+                "name": "load_running",
+                "cat": "load",
+                "ph": "C",
+                "ts": event.time,
+                "pid": event.worker.id,
+                "args": {
+                    "cpus": cpus[event.worker]
+                }
+            })
+        if isinstance(event, TaskAssignTraceEvent) or isinstance(event, TaskEndTraceEvent) or isinstance(event, TaskRetractTraceEvent):
+            if isinstance(event, TaskAssignTraceEvent):
+                assigns.setdefault(event.worker, 0)
+                assigns[event.worker] += event.task.cpus
+            else:
+                assigns[event.worker] -= event.task.cpus
+            result.append({
+                "name": "load_assign",
+                "cat": "load",
+                "ph": "C",
+                "ts": event.time,
+                "pid": event.worker.id,
+                "args": {
+                    "cpus": assigns[event.worker]
+                }
+            })
+
+    send_bw = {}
+    recv_bw = {}
+
+    def update(w1, w2, data, value):
+        d = data.get(w1)
+        if d is None:
+            d = {}
+            data[w1] = d
+        d[w2] = value
+        return sum(d.values())
+
+    for event in trace_events:
+        if isinstance(event, NetModelFlowEvent):
+            result.append({
+                "name": "net_send",
+                "cat": "net",
+                "ph": "C",
+                "ts": event.time,
+                "pid": event.source_worker.id,
+                "args": {
+                    "send": update(event.source_worker, event.target_worker, send_bw, event.value)
+                },
+            })
+            result.append({
+                "name": "net_recv",
+                "cat": "net",
+                "ph": "C",
+                "ts": event.time,
+                "pid": event.target_worker.id,
+                "args": {
+                    "recv": update(event.target_worker, event.source_worker, recv_bw, event.value)
+                }
+            })
+
+
+
     return json.dumps(result)
