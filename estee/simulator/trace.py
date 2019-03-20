@@ -1,5 +1,6 @@
 import collections
 import math
+import json
 
 TaskAssignTraceEvent = collections.namedtuple("TaskAssign", ["time", "worker", "task"])
 TaskStartTraceEvent = collections.namedtuple("TaskStart", ["time", "worker", "task"])
@@ -22,20 +23,21 @@ def merge_trace_events(trace_events, start_pred, end_pred, key_fn, start_map=Non
     """
     open_events = {}
 
-    if not start_map:
-        def start_map(e): return e
-    if not end_map:
-        def end_map(e): return e
-
     for event in trace_events:
         if start_pred(event):
             key = key_fn(event)
             assert key not in open_events
-            open_events[key] = start_map(event)
+            if start_map:
+                open_events[key] = start_map(event)
+            else:
+                open_events[key] = event
         elif end_pred(event):
             key = key_fn(event)
             start_event = open_events[key]
-            yield end_map(start_event, event)
+            if end_map:
+                yield end_map(start_event, event)
+            else:
+                yield start_event, event
 
 
 def build_task_locations(trace_events, worker):
@@ -404,3 +406,64 @@ def render_rectangles(plot, locations, fill_color="blue", line_color="black"):
 def normalize_events(trace_events):
     return sorted(trace_events,
                   key=lambda e: (e.time, 0 if isinstance(e, TaskEndTraceEvent) else 1))
+
+
+def export_to_chrome_events(trace_events):
+    task_start = {}
+    for e in trace_events:
+        if isinstance(e, TaskStartTraceEvent):
+            task_start[e.task] = e
+
+    ep = merge_trace_events(
+        trace_events,
+        lambda t: isinstance(t, TaskStartTraceEvent),
+        lambda t: isinstance(t, TaskEndTraceEvent),
+        lambda e: e.task,
+    )
+    result = []
+    id_counter = 1
+    for e1, e2 in ep:
+        result.append({
+            "name": "t{} ({})".format(e1.task.id, e1.task.cpus),
+            "cat": "task",
+            "ph": "X",
+            "ts": e1.time,
+            "dur": e2.time - e1.time,
+            "pid": e1.worker.id,
+        })
+
+        consumers = set()
+        for o in e1.task.outputs:
+            consumers.update(o.consumers)
+
+        for c in consumers:
+            flow_id = id_counter
+            id_counter += 1
+            result.append({
+                "name": "t {}".format(e1.task.id),
+                "cat": "task",
+                "ph": "s",
+                "ts": e2.time,
+                "pid": e1.worker.id,
+                "id": flow_id,
+            })
+            event = task_start[c]
+            result.append({
+                "name": "flow",
+                "cat": "task",
+                "ph": "f",
+                "ts": event.time,
+                "pid": event.worker.id,
+                "id": flow_id,
+            })
+
+    """
+    ep = merge_trace_events(
+            trace_events,
+            lambda t: isinstance(t, FetchStartTraceEvent),
+            lambda t: isinstance(t, FetchEndTraceEvent),
+            lambda e: (e.output, e.target_worker, e.source_worker),
+        )
+    for e1, e2 in ep:
+    """
+    return json.dumps(result)
