@@ -1,7 +1,8 @@
-from .scheduler import SchedulerBase, TaskState
-from .utils import compute_b_level_duration, compute_t_level_duration
-from ..simulator import TaskAssignment
 import numpy as np
+
+from .scheduler import SchedulerBase
+from .utils import compute_b_level_duration
+
 
 class WorkStealingScheduler(SchedulerBase):
 
@@ -66,7 +67,7 @@ class WorkStealingScheduler(SchedulerBase):
             w = plan.get(task, task.scheduled_worker)
             if w.free_cpus - cpus >= worker.free_cpus or w.free_cpus + cpus > 0:
                 continue
-            #print("STEALING {} : {}->{}".format(task.id, w.worker_id, worker.worker_id))
+            # print("STEALING {} : {}->{}".format(task.id, w.worker_id, worker.worker_id))
 
             w.free_cpus += cpus
             w.tasks.remove(task)

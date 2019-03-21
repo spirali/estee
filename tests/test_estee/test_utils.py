@@ -1,9 +1,8 @@
 import pytest
 
 from estee.common import TaskGraph, DataObject
-from estee.simulator import InstantNetModel, Simulator, Worker
 from estee.schedulers import SchedulerBase
-from estee.simulator import TaskAssignment
+from estee.simulator import InstantNetModel, Simulator, Worker
 
 
 @pytest.fixture
@@ -20,22 +19,28 @@ def plan1():
          \--- a8/1
     """  # noqa
     task_graph = TaskGraph()
+    tasks = []
+    oid = 0
 
-    a1, a2, a3, a4, a5, a6, a7, a8 = [
-        task_graph.new_task("a{}".format(i + 1),
-                            duration=duration, expected_duration=duration,
-                            outputs=[DataObject(size, size) for size in outputs])
-        for i, (duration, outputs) in enumerate([
-            (2, [1]),  # a1
-            (3, [3]),  # a2
-            (2, [1, 1]),  # a3
-            (1, [6]),  # a4
-            (1, [1]),  # a5
-            (6, [1]),  # a6
-            (1, [2]),  # a7
-            (1, [])   # a8
-        ])
-    ]
+    for i, (duration, outputs) in enumerate([
+        (2, [1]),       # a1
+        (3, [3]),       # a2
+        (2, [1, 1]),    # a3
+        (1, [6]),       # a4
+        (1, [1]),       # a5
+        (6, [1]),       # a6
+        (1, [2]),       # a7
+        (1, [])         # a8
+    ]):
+        objects = []
+        for size in outputs:
+            objects.append(DataObject(oid, size, size))
+            oid += 1
+        tasks.append(task_graph.new_task("a{}".format(i + 1),
+                                         duration=duration,
+                                         expected_duration=duration,
+                                         outputs=objects))
+    a1, a2, a3, a4, a5, a6, a7, a8 = tasks
 
     a3.add_input(a1)
     a5.add_inputs([a3.outputs[0], a2, a4])

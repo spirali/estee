@@ -93,7 +93,8 @@ def nestedcrossv(parameter_count, factor=1.0, train_cpus=4, eval_cpus=4):
         merges = []
         for i in range(INNER_FOLD_COUNT):
             merge = g.new_task("merge{}".format(i), duration=normal(1.1, 0.02),
-                               expected_duration=1.1, output_size=FOLD_SIZE * (INNER_FOLD_COUNT - 1))
+                               expected_duration=1.1,
+                               output_size=FOLD_SIZE * (INNER_FOLD_COUNT - 1))
             merge.add_inputs([c for j, c in enumerate(inner_folds) if i != j])
             merges.append(merge)
 

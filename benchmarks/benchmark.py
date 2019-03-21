@@ -15,7 +15,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from estee.common import imode
-from estee.simulator import MaxMinFlowNetModel, SimpleNetModel
+from estee.schedulers import WorkStealingScheduler
 from estee.schedulers.basic import AllOnOneScheduler, RandomAssignScheduler
 from estee.schedulers.camp import Camp2Scheduler
 from estee.schedulers.clustering import LcScheduler
@@ -23,8 +23,8 @@ from estee.schedulers.genetic import GeneticScheduler
 from estee.schedulers.others import BlevelScheduler, DLSScheduler, ETFScheduler, MCPGTScheduler, \
     MCPScheduler, TlevelScheduler
 from estee.schedulers.queue import BlevelGtScheduler, RandomGtScheduler, TlevelGtScheduler
-from estee.schedulers import WorkStealingScheduler
 from estee.serialization.dask_json import json_deserialize, json_serialize
+from estee.simulator import MaxMinFlowNetModel, SimpleNetModel
 from estee.simulator import Simulator, Worker
 from estee.simulator.trace import FetchEndTraceEvent
 
@@ -54,7 +54,6 @@ SCHEDULERS = {
     "mcp": MCPScheduler,
     "mcp-gt": MCPGTScheduler,
     "genetic": GeneticScheduler,
-    #"last": LASTScheduler,
     "camp2": lambda: Camp2Scheduler(5000),
     "lc": LcScheduler,
     "ws": WorkStealingScheduler

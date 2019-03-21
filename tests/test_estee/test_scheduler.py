@@ -1,22 +1,21 @@
+import itertools
+
 from estee.common import TaskGraph
 from estee.schedulers import (AllOnOneScheduler, BlevelGtScheduler,
-                                 Camp2Scheduler,
-                                 DLSScheduler, ETFScheduler, LASTScheduler,
-                                 MCPScheduler,
-                                 RandomAssignScheduler, RandomGtScheduler,
-                                 RandomScheduler, WorkStealingScheduler, SchedulerBase)
-
+                              Camp2Scheduler,
+                              DLSScheduler, ETFScheduler, MCPScheduler,
+                              RandomAssignScheduler, RandomGtScheduler,
+                              RandomScheduler, WorkStealingScheduler, SchedulerBase)
+from estee.schedulers.clustering import find_critical_path, critical_path_clustering, LcScheduler
 from estee.schedulers.genetic import GeneticScheduler
-from estee.schedulers.utils import compute_alap, compute_b_level_duration_size, \
-    compute_independent_tasks, compute_t_level_duration_size, topological_sort, \
-    worker_estimate_earliest_time
-from estee.simulator import TaskAssignment, SimpleNetModel, Worker
-from estee.simulator.worker import RunningTask
-from estee.schedulers.clustering import find_critical_path, critical_path_clustering
-from estee.schedulers.utils import (compute_alap,
-                                       compute_independent_tasks)
+from estee.schedulers.scheduler import SchedulerWorker
+from estee.schedulers.utils import compute_alap, compute_independent_tasks, estimate_schedule, \
+    create_scheduler_graph
 from estee.schedulers.utils import compute_b_level_duration_size, \
     compute_t_level_duration_size
+from estee.schedulers.utils import topological_sort, \
+    worker_estimate_earliest_time, get_size_estimate
+from estee.simulator import SimpleNetModel, TaskAssignment
 from .test_utils import do_sched_test, task_by_name
 
 
@@ -91,11 +90,7 @@ def test_scheduler_camp(plan1):
 
 
 def test_scheduler_dls(plan1):
-    assert 14 <= do_sched_test(plan1, 2, DLSScheduler(), SimpleNetModel()) <= 15
-
-
-def test_scheduler_last(plan1):
-    assert do_sched_test(plan1, 2, LASTScheduler(), SimpleNetModel()) == 17
+    assert do_sched_test(plan1, 2, DLSScheduler(), SimpleNetModel()) == 15
 
 
 def test_scheduler_mcp(plan1):
@@ -103,20 +98,24 @@ def test_scheduler_mcp(plan1):
 
 
 def test_scheduler_etf(plan1):
-    assert do_sched_test(plan1, 2, ETFScheduler(), SimpleNetModel()) == 15
+    assert do_sched_test(plan1, 2, ETFScheduler(), SimpleNetModel()) == 17
 
 
 def test_scheduler_genetic(plan1):
     assert 10 <= do_sched_test(plan1, 2, GeneticScheduler(), SimpleNetModel()) <= 20
 
 
+def test_scheduler_lc(plan1):
+    assert 11 <= do_sched_test(plan1, 2, LcScheduler(), SimpleNetModel()) <= 18
+
+
 def test_scheduler_ws(plan1):
     assert 12 <= do_sched_test(plan1, 2, WorkStealingScheduler(), SimpleNetModel()) <= 18
 
 
-def test_compute_indepndent_tasks(plan1):
+def test_compute_independent_tasks(plan1):
     it = compute_independent_tasks(plan1)
-    a1, a2, a3, a4, a5, a6, a7, a8 = plan1.tasks
+    a1, a2, a3, a4, a5, a6, a7, a8 = plan1.tasks.values()
     assert it[a1] == frozenset((a2, a4, a6, a7))
     assert it[a2] == frozenset((a1, a3, a4, a6, a7))
     assert it[a3] == frozenset((a2, a4, a6, a7))
@@ -126,7 +125,7 @@ def test_compute_indepndent_tasks(plan1):
 
 
 def test_compute_t_level(plan1):
-    t = compute_t_level_duration_size(None, plan1)
+    t = compute_t_level_duration_size(plan1, get_size_estimate, 1)
 
     assert t[task_by_name(plan1, "a1")] == 0
     assert t[task_by_name(plan1, "a2")] == 0
@@ -139,7 +138,7 @@ def test_compute_t_level(plan1):
 
 
 def test_compute_b_level_plan1(plan1):
-    b = compute_b_level_duration_size(None, plan1)
+    b = compute_b_level_duration_size(plan1, get_size_estimate, 1)
 
     assert b[task_by_name(plan1, "a1")] == 9
     assert b[task_by_name(plan1, "a2")] == 9
@@ -162,7 +161,7 @@ def test_compute_b_level_multiple_outputs():
     c.add_input(a.outputs[1])
     d.add_inputs((b, c))
 
-    blevel = compute_b_level_duration_size(None, tg)
+    blevel = compute_b_level_duration_size(tg, get_size_estimate)
 
     assert blevel[a] == 7
     assert blevel[b] == 5
@@ -171,7 +170,7 @@ def test_compute_b_level_multiple_outputs():
 
 
 def test_compute_alap(plan1):
-    alap = compute_alap(None, plan1, 1)
+    alap = compute_alap(plan1, get_size_estimate, 1)
 
     assert alap[task_by_name(plan1, "a1")] == 6
     assert alap[task_by_name(plan1, "a2")] == 9
@@ -184,48 +183,62 @@ def test_compute_alap(plan1):
 
 
 def test_worker_estimate_earliest_time():
+    now = 0
+
     tg = TaskGraph()
     t0 = tg.new_task(expected_duration=3, cpus=2)
     t1 = tg.new_task(expected_duration=5, cpus=1)
     t2 = tg.new_task(expected_duration=4, cpus=3)
+    t3 = tg.new_task(expected_duration=4, cpus=2)
     t4 = tg.new_task(expected_duration=4, cpus=2)
-    t5 = tg.new_task(expected_duration=4, cpus=2)
 
-    worker = Worker(cpus=4)
-    worker.assignments = [TaskAssignment(worker, t0), TaskAssignment(worker, t1),
-                          TaskAssignment(worker, t2), TaskAssignment(worker, t4)]
-    worker.running_tasks[t0] = RunningTask(t0, 0)
-    worker.running_tasks[t1] = RunningTask(t1, 0)
+    tg = create_scheduler_graph(tg)
+    tg.tasks[t0.id].start_time = now
+    tg.tasks[t1.id].start_time = now
 
-    assert worker_estimate_earliest_time(worker, t5, 0) == 7
+    worker = SchedulerWorker(0, cpus=4)
+    worker.scheduled_tasks = [tg.tasks[t2.id], tg.tasks[t3.id]]
+    worker.running_tasks.update((tg.tasks[t0.id], tg.tasks[t1.id]))
+
+    assert worker_estimate_earliest_time(worker, tg.tasks[t4.id], now) == 7
 
 
 def test_worker_estimate_earliest_time_multiple_at_once():
+    now = 0
+
     tg = TaskGraph()
     t0 = tg.new_task(expected_duration=3, cpus=1)
     t1 = tg.new_task(expected_duration=3, cpus=1)
     t2 = tg.new_task(expected_duration=3, cpus=1)
 
-    worker = Worker(cpus=2)
-    worker.assignments = [TaskAssignment(worker, t0), TaskAssignment(worker, t1)]
-    worker.running_tasks[t0] = RunningTask(t0, 0)
-    worker.running_tasks[t1] = RunningTask(t1, 0)
+    tg = create_scheduler_graph(tg)
+    tg.tasks[t0.id].start_time = now
+    tg.tasks[t1.id].start_time = now
 
-    assert worker_estimate_earliest_time(worker, t2, 0) == 3
+    worker = SchedulerWorker(0, cpus=2)
+    worker.scheduled_tasks = []
+    worker.running_tasks.update((tg.tasks[t0.id], tg.tasks[t1.id]))
+
+    assert worker_estimate_earliest_time(worker, tg.tasks[t2.id], now) == 3
 
 
 def test_worker_estimate_earliest_time_offset_now():
+    now = 0
+
     tg = TaskGraph()
     t0 = tg.new_task(expected_duration=3, cpus=1)
     t1 = tg.new_task(expected_duration=5, cpus=1)
     t2 = tg.new_task(expected_duration=3, cpus=2)
 
-    worker = Worker(cpus=2)
-    worker.assignments = [TaskAssignment(worker, t0), TaskAssignment(worker, t1)]
-    worker.running_tasks[t0] = RunningTask(t0, 0)
-    worker.running_tasks[t1] = RunningTask(t1, 0)
+    tg = create_scheduler_graph(tg)
+    tg.tasks[t0.id].start_time = now
+    tg.tasks[t1.id].start_time = now
 
-    assert worker_estimate_earliest_time(worker, t2, 2) == 3
+    worker = SchedulerWorker(0, cpus=2)
+    worker.scheduled_tasks = []
+    worker.running_tasks.update((tg.tasks[t0.id], tg.tasks[t1.id]))
+
+    assert worker_estimate_earliest_time(worker, tg.tasks[t2.id], now + 2) == 3
 
 
 def test_topological_sort(plan1):
@@ -290,6 +303,32 @@ def test_simulator_local_reassign():
             self.done = True
 
     scheduler = Scheduler("test", "0", True)
-    simulator = do_sched_test(test_graph, [1, 1, 1],
-                              scheduler,
-                              trace=True, netmodel=SimpleNetModel(1))
+    do_sched_test(test_graph, [1, 1, 1],
+                  scheduler,
+                  trace=True,
+                  netmodel=SimpleNetModel(1))
+
+
+def test_estimate_schedule(plan1):
+    netmodel = SimpleNetModel(1)
+    workers = [SchedulerWorker(i, cpus=4) for i in range(4)]
+
+    tg = create_scheduler_graph(plan1)
+    tasks = tg.tasks.values()
+    schedule = [TaskAssignment(w, t) for (w, t) in zip(itertools.cycle(workers), tasks)]
+
+    assert estimate_schedule(schedule, netmodel) == 16
+
+
+def test_estimate_schedule_zero_expected_time(plan1):
+    netmodel = SimpleNetModel(1)
+    workers = [SchedulerWorker(i, cpus=4) for i in range(4)]
+
+    tg = create_scheduler_graph(plan1)
+    tg.tasks[1].expected_duration = 0
+    tg.tasks[5].expected_duration = 0
+
+    tasks = tg.tasks.values()
+    schedule = [TaskAssignment(w, t) for (w, t) in zip(itertools.cycle(workers), tasks)]
+
+    assert estimate_schedule(schedule, netmodel) == 15

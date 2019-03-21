@@ -1,11 +1,10 @@
+import collections
 import random
 
 import numpy as np
-import collections
 
 from .scheduler import SchedulerBase, TaskState
 from .utils import compute_b_level_duration, compute_t_level_duration
-from ..simulator import TaskAssignment
 
 
 class QueueScheduler(SchedulerBase):

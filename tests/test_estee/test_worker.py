@@ -4,7 +4,7 @@ import pytest
 
 from estee.common import TaskGraph
 from estee.schedulers import SchedulerBase
-from estee.simulator import TaskAssignment, SimpleNetModel, Worker
+from estee.simulator import SimpleNetModel, Worker
 from .test_utils import do_sched_test, fixed_scheduler
 
 
@@ -223,7 +223,7 @@ def test_worker_running_tasks():
             remaining_times.append([[t.remaining_time(simulator.env.now)
                                      for t
                                      in w.running_tasks.values()]
-                                     for w in simulator.workers])
+                                    for w in simulator.workers])
 
             if not self.scheduled:
                 tasks = self.task_graph.tasks

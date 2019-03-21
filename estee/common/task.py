@@ -5,7 +5,7 @@ from .taskbase import TaskBase, DataObjectBase
 class Task(TaskBase):
 
     def __init__(self,
-                 task_id,
+                 task_id: int,
                  name=None,
                  outputs=(),
                  duration=1,
@@ -22,7 +22,7 @@ class Task(TaskBase):
             outputs = (DataObject(None, output_size, output_size),)
         else:
             outputs = tuple(DataObject(None, s, s) if (isinstance(s, float) or isinstance(s, int))
-                                 else s for s in outputs)
+                            else s for s in outputs)
 
         for output in outputs:
             assert output.parent is None
@@ -45,7 +45,9 @@ class Task(TaskBase):
         }
 
     def simple_copy(self):
-        t = Task(self.id, self.name, duration=self.duration, expected_duration=self.expected_duration,
+        t = Task(self.id, self.name,
+                 duration=self.duration,
+                 expected_duration=self.expected_duration,
                  cpus=self.cpus)
         t.outputs = [DataObject(o.id, o.size, o.expected_size) for o in self.outputs]
         for o in t.outputs:

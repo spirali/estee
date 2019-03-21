@@ -1,14 +1,11 @@
+import logging
 
 from simpy import Environment, Event
 
 from .runtimeinfo import RuntimeState, TaskState
-from .trace import TaskAssignTraceEvent, TaskRetractTraceEvent
-
-import logging
+from .trace import TaskAssignTraceEvent, TaskRetractTraceEvent, FetchEndTraceEvent
 
 logger = logging.getLogger(__name__)
-
-from ..simulator.trace import FetchEndTraceEvent
 
 
 class TaskAssignment:
@@ -111,7 +108,8 @@ class Simulator:
                                 .format(assignment.task))
             if info.state == TaskState.Assigned:
                 if assignment.worker in info.assigned_workers:
-                    logging.info("Reassigning without effect (%s, %s)", assignment.task, assignment.worker)
+                    logging.info("Reassigning without effect (%s, %s)",
+                                 assignment.task, assignment.worker)
                     continue
                 if not self.reassign_allowed:
                     raise Exception("Scheduler reassigns already assigned task ({})"
@@ -225,7 +223,6 @@ class Simulator:
         if schedule:
             self.apply_schedule(schedule)
 
-
         while self.unprocessed_tasks > 0:
             self.wakeup_event = Event(env)
             if min_scheduling_interval:
@@ -298,7 +295,8 @@ class Simulator:
         message = self.scheduler.start()
         if message.get("type") != "register":
             raise Exception("Invalid registeration message from scheduler")
-        logger.info("Scheduler '%s', version '%s', reassigning: '%s', task_start_notification: '%s'",
+        logger.info("Scheduler '%s', version '%s', reassigning: '%s', "
+                    "task_start_notification: '%s'",
                     message.get("scheduler_name"),
                     message.get("scheduler_version"),
                     message.get("reassigning"),

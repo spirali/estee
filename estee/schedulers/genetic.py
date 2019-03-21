@@ -1,12 +1,12 @@
 import random
+from typing import Tuple
 
 from deap import algorithms, base, creator
 from deap.gp import tools
 
-from .scheduler import FixedScheduler, StaticScheduler, TracingScheduler
-from .utils import compute_b_level_duration_size
-from ..simulator import SimpleNetModel, Simulator, TaskAssignment
-from ..simulator.utils import estimate_schedule
+from .scheduler import StaticScheduler
+from .utils import compute_b_level_duration_size, get_size_estimate, estimate_schedule
+from ..simulator import TaskAssignment
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
 creator.create("Individual", list, fitness=creator.FitnessMin)
@@ -16,29 +16,21 @@ class GeneticScheduler(StaticScheduler):
     """
     Scheduler using a genetic algorithm with operators described in
     Genetic algorithms for task scheduling problem (2010).
-
-    :param bootstrap_scheduler Scheduler to be used as a baseline schedule for genetic individuals
-    :param simulate_fitness_eval True if a full simulation should be used to evaluate fitness of
-    individuals. Otherwise an estimate will be produced.
     """
-    def __init__(self, bootstrap_scheduler=None, simulate_fitness_eval=False):
-        self.bootstrap_scheduler = bootstrap_scheduler
-        self.simulate_fitness_eval = simulate_fitness_eval
+    def __init__(self):
+        super().__init__("genetic", 0)
+        self.best_individual = ()
 
-    def init(self, simulator):
-        super().init(simulator)
-
+    def init(self):
         toolbox = base.Toolbox()
 
-        graph = simulator.task_graph
-        workers = simulator.workers
+        graph = self.task_graph
+        workers = self.workers
 
-        if self.bootstrap_scheduler:
-            generator = self.generator_individual_bootstrap(graph, workers,
-                                                            self.simulator.netmodel,
-                                                            self.bootstrap_scheduler)
-        else:
-            generator = self.generator_individual_alap(graph, workers, self.simulator.netmodel)
+        if not graph.tasks or not workers:
+            return
+
+        generator = self.generator_individual_alap(graph, workers, self._simulator.netmodel)
 
         toolbox.register("individual", tools.initIterate, creator.Individual, generator)
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -90,59 +82,32 @@ class GeneticScheduler(StaticScheduler):
         best = [item for item in hof.items if self.is_schedule_valid(item, graph, workers)]
         if not best:
             def get_worker(task):
-                return random.choice([w for w in workers if w.cpus >= task.cpus])
+                return random.choice([w for w in workers.values() if w.cpus >= task.cpus])
             self.best_individual = [TaskAssignment(get_worker(t), t) for t in graph.tasks]
         else:
             self.best_individual = self.create_schedule(best[0], graph.tasks, workers)
         assert self.is_schedule_valid(self.best_individual, graph, workers)
 
-    def generator_individual_bootstrap(self, graph, workers, netmodel, bootstrap):
-        netmodel = SimpleNetModel(netmodel.bandwidth)
-        new_graph = graph.copy()
-        new_workers = [w.copy() for w in workers]
-
-        tracer = TracingScheduler(bootstrap)
-        Simulator(new_graph, new_workers, tracer, netmodel).run()
-
-        def gen():
-            tasks = [assignment.task.id for assignment in tracer.schedules]
-            mapping = [0] * graph.task_count
-            for assignment in tracer.schedules:
-                mapping[assignment.task.id] = assignment.worker.id
-
-            yield from mapping
-            yield from tasks
-        return gen
-
     def generator_individual_alap(self, graph, workers, netmodel):
-        alap = compute_b_level_duration_size(None, graph, netmodel.bandwidth)
+        alap = compute_b_level_duration_size(graph, get_size_estimate, netmodel.bandwidth)
 
         def gen():
             yield from [random.randint(0, len(workers) - 1) for _ in range(graph.task_count)]
-            yield from [t.id for t in sorted(graph.tasks[:], key=lambda t: alap[t])]
+            yield from [t.id for t in sorted(graph.tasks.values(), key=lambda t: alap[t])]
         return gen
 
-    def evaluate(self, individual):
-        graph = self.simulator.task_graph
-        workers = self.simulator.workers
-        netmodel = self.simulator.netmodel
+    def evaluate(self, individual) -> Tuple[float]:
+        graph = self.task_graph
+        workers = self.workers
+        netmodel = self._simulator.netmodel
 
         if not self.is_schedule_valid(individual, graph, workers):
             return 10e10,
 
-        if self.simulate_fitness_eval:
-            return self.simulate_individual(individual, graph, workers, netmodel),
-        return estimate_schedule(self.create_schedule(individual, graph.tasks, workers),
-                                 graph, netmodel),
+        tasks = {id: task.simple_copy() for (id, task) in self.task_graph.tasks.items()}
+        workers = {id: worker.simple_copy() for (id, worker) in self.workers.items()}
 
-    def simulate_individual(self, individual, graph, workers, netmodel):
-        netmodel = SimpleNetModel(netmodel.bandwidth)
-        new_graph = graph.copy()
-        new_workers = [w.copy() for w in workers]
-
-        schedule = self.create_schedule(individual, new_graph.tasks, new_workers)
-
-        return Simulator(new_graph, new_workers, FixedScheduler(schedule), netmodel).run()
+        return estimate_schedule(self.create_schedule(individual, tasks, workers), netmodel),
 
     def is_schedule_valid(self, schedule, graph, workers):
         (mapping, tasks) = self.split_individual(schedule, graph.task_count)
@@ -166,4 +131,6 @@ class GeneticScheduler(StaticScheduler):
         return schedule
 
     def static_schedule(self):
-        return self.best_individual
+        self.init()
+        for assignment in self.best_individual:
+            self.assign(assignment.worker, assignment.task)

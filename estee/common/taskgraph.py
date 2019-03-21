@@ -1,7 +1,6 @@
 
 from .task import Task, DataObject
 from .taskbase import TaskGraphBase
-from .utils import flat_list
 
 
 class TaskGraph(TaskGraphBase):

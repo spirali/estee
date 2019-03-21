@@ -1,8 +1,8 @@
 
+import numpy as np
+
 from .scheduler import SchedulerBase, StaticScheduler, TaskState
 from .utils import max_cpus_worker, compute_b_level_duration
-from ..simulator import TaskAssignment
-import numpy as np
 
 
 class DoNothingScheduler(SchedulerBase):
@@ -50,10 +50,7 @@ class AllOnOneScheduler(SchedulerBase):
             worker = self.worker
 
         if update.graph_changed:
-            b_level = compute_b_level_duration(self.task_graph)
-            self.b_level = b_level
-        else:
-            b_level = self.b_level
+            self.b_level = compute_b_level_duration(self.task_graph)
 
         for task in update.new_ready_tasks:
-            self.assign(worker, task, b_level[task])
+            self.assign(worker, task, self.b_level[task])

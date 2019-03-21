@@ -3,10 +3,9 @@ import random
 
 import numpy as np
 
-from . import SchedulerBase, StaticScheduler
+from . import StaticScheduler
 from .utils import compute_b_level_duration, compute_independent_tasks, get_duration_estimate, \
     max_cpus_worker
-from ..simulator import TaskAssignment
 
 
 class CampCore:

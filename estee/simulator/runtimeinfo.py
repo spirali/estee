@@ -1,8 +1,7 @@
+from enum import IntEnum
 
-from enum import Enum
 
-
-class TaskState(Enum):
+class TaskState(IntEnum):
     Waiting = 1
     Assigned = 2
     Finished = 3

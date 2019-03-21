@@ -1,20 +1,23 @@
 
-from ..simulator.runtimeinfo import TaskState
-from .tasks import SchedulerTaskGraph, SchedulerTask, SchedulerDataObject
-from collections import namedtuple
-
 import logging
+import time
+
+from estee.simulator import Simulator
+from .tasks import SchedulerTaskGraph, SchedulerTask, SchedulerDataObject, TaskState
+
 logger = logging.getLogger(__name__)
+
 
 class SchedulerInterface:
     """
         Generic interface of scheduler as expected by simulator
     """
 
-    _simulator = None  # If running in a simulator, this variable is filled by simulator
-                       # before calling start()
-                       # Only for testing purpose, scheduler should not depends on this variable
-
+    """
+    If running in a simulator, this variable is filled by simulator before calling start().
+    Only for testing purposes, scheduler should not depend on this variable.
+    """
+    _simulator: Simulator = None
 
     def send_message(self, message):
         """ Send message to scheduler
@@ -81,6 +84,13 @@ class SchedulerWorker:
         self.worker_id = worker_id
         self.cpus = cpus
 
+        # metadata, may not be used
+        self.running_tasks = set()
+        self.scheduled_tasks = []
+
+    def simple_copy(self):
+        return SchedulerWorker(self.worker_id, self.cpus)
+
     def __repr__(self):
         return "<SW id={} cpus={}>".format(self.worker_id, self.cpus)
 
@@ -108,11 +118,11 @@ class Update:
 
     @property
     def graph_changed(self):
-        return self.new_objects or self.new_tasks
+        return bool(self.new_objects or self.new_tasks)
 
     @property
     def cluster_changed(self):
-        return self.new_workers or self.network_update
+        return bool(self.new_workers or self.network_update)
 
 
 class SchedulerBase(SchedulerInterface):
@@ -134,7 +144,6 @@ class SchedulerBase(SchedulerInterface):
         self.reassigning = reassigning
         self.task_start_notification = task_start_notification
 
-
     def send_message(self, message):
         message_type = message["type"]
         if message_type == "update":
@@ -152,7 +161,7 @@ class SchedulerBase(SchedulerInterface):
             "task_start_notification": self.task_start_notification,
         }
 
-    def schedule(self, update):
+    def schedule(self, update: Update):
         raise NotImplementedError()
 
     def _process_update(self, message):
@@ -234,9 +243,10 @@ class SchedulerBase(SchedulerInterface):
             state = tu["state"]
             assert state == TaskState.Finished or state == TaskState.Assigned
             task = task_graph.tasks[tu["id"]]
-            task.state = TaskState.Finished
+            task.state = state
             task.computed_by = workers[tu["worker"]]
-            task.running = bool(tu["running"])
+            running = bool(tu["running"])
+            start = True
             if state == TaskState.Finished:
                 finished_tasks.append(task)
                 for o in task.outputs:
@@ -245,8 +255,15 @@ class SchedulerBase(SchedulerInterface):
                         if t.unfinished_inputs <= 0:
                             assert t.unfinished_inputs == 0
                             ready_tasks.append(t)
-            else:
-                assert task.running
+
+                if task.running:
+                    start = False
+
+            if start:
+                assert not task.running
+                task.running = running
+                now = self._simulator.env.now if self._simulator else time.time()
+                task.start_time = now
                 started_tasks.append(task)
 
         for ou in message.get("objects_update", ()):
@@ -270,7 +287,6 @@ class SchedulerBase(SchedulerInterface):
 
         return list(self.assignments.values())
 
-
     def _fix_implied_schedule_of_object(self, obj):
         s = set()
         if obj.parent.scheduled_worker:
@@ -286,7 +302,7 @@ class SchedulerBase(SchedulerInterface):
         for obj in task.outputs:
             self._fix_implied_schedule_of_object(obj)
 
-    def assign(self, worker, task, priority=None, blocking=None):
+    def assign(self, worker: SchedulerWorker, task: SchedulerTask, priority=None, blocking=None):
         """
             Assign a task to a worker
 
@@ -314,7 +330,13 @@ class SchedulerBase(SchedulerInterface):
             result["blocking"] = blocking
 
         if task in self.assignments:
+            existing_worker = self.assignments[task]["worker"]
+            if existing_worker is not None and existing_worker != worker.worker_id:
+                self.workers[existing_worker].scheduled_tasks.remove(task)
             self._fix_implied_schedule(task)
+
+        if worker:
+            worker.scheduled_tasks.append(task)
 
         self.assignments[task] = result
 
@@ -331,15 +353,13 @@ class StaticScheduler(SchedulerBase):
 
     """ Base class for static schedulers
 
-        method `static_schedule()` is invokend when cluster or task graph
+        method `static_schedule()` is invoked when cluster or task graph
         is changed
     """
 
     def schedule(self, update):
         if update.graph_changed or update.cluster_changed:
             return self.static_schedule()
-        else:
-            return ()
 
     def static_schedule(self):
         """
@@ -348,26 +368,3 @@ class StaticScheduler(SchedulerBase):
         It has to assign (via .assign) a worker for each task
         """
         raise NotImplementedError()
-
-
-class FixedScheduler(StaticScheduler):
-    def __init__(self, schedules):
-        super().__init__()
-        self.schedules = schedules
-
-    def static_schedule(self):
-        return self.schedules
-
-
-class TracingScheduler(SchedulerBase):
-    def __init__(self, scheduler):
-        self.scheduler = scheduler
-
-    def init(self, simulator):
-        self.schedules = []
-        self.scheduler.init(simulator)
-
-    def schedule(self, new_ready, new_finished):
-        results = self.scheduler.schedule(new_ready, new_finished)
-        self.schedules += results
-        return results

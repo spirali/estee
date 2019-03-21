@@ -2,12 +2,12 @@
 # This scripts generates graphs for
 # outputs of benchmarks
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import os
-import itertools
 import argparse
+import itertools
+import os
+
+import matplotlib.pyplot as plt
+import pandas as pd
 from matplotlib.lines import Line2D
 
 LINE_STYLES = ["-", ":", "-.", "--"]

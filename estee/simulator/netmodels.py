@@ -4,8 +4,8 @@ import logging
 import numpy as np
 from simpy import Event
 
-from ..simulator.trace import NetModelFlowEvent
 from ..common.utils import LruCache
+from ..simulator.trace import NetModelFlowEvent
 
 logger = logging.getLogger(__name__)
 

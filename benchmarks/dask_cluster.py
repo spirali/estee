@@ -2,11 +2,10 @@ import argparse
 import os
 import socket
 import subprocess
-import time
 import tempfile
+import time
 
 from distributed import Client
-
 
 TMP_DIR = tempfile.gettempdir()
 HOSTNAME = socket.gethostname()

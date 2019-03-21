@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import shutil
 import socket
 import subprocess
 import sys

@@ -1,10 +1,9 @@
-
-from enum import Enum
+from typing import List, Set, Dict
 
 
 class TaskBase:
 
-    def __init__(self, id, inputs, outputs):
+    def __init__(self, id: int, inputs: List["DataObjectBase"], outputs: List["DataObjectBase"]):
         self.id = id
         self.inputs = inputs
         self.outputs = outputs
@@ -50,13 +49,14 @@ class DataObjectBase:
 
     def __init__(self, id):
         self.id = id
-        self.parent = None
-        self.consumers = set()
+        self.parent: TaskBase = None
+        self.consumers: Set[TaskBase] = set()
 
 
 class TaskGraphBase:
 
-    def __init__(self, tasks=None, objects=None):
+    def __init__(self, tasks: Dict[int, TaskBase] = None,
+                 objects: Dict[int, DataObjectBase] = None):
         self.tasks = tasks or {}
         self.objects = objects or {}
 

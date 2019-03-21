@@ -81,7 +81,8 @@ class Worker:
 
     def try_retract_task(self, task):
         if task in self.running_tasks:
-            logging.debug("Retracting task %s from worker %s cancelled because task is running", task, self)
+            logging.debug("Retracting task %s from worker %s cancelled because task is running",
+                          task, self)
             return False
 
         logging.debug("Retracting task %s from worker %s", task, self)
@@ -123,7 +124,8 @@ class Worker:
                 if inp in self.data:
                     continue
                 if runtime_state.object_info(inp).placing:
-                    self._schedule_download(assignment, inp, runtime_state.task_info(assignment.task).is_ready)
+                    self._schedule_download(assignment, inp,
+                                            runtime_state.task_info(assignment.task).is_ready)
                 need_inputs += 1
             assignment.remaining_inputs_count = need_inputs
             if need_inputs == 0:
