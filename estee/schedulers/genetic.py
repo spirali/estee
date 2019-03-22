@@ -18,7 +18,7 @@ class GeneticScheduler(StaticScheduler):
     Genetic algorithms for task scheduling problem (2010).
     """
     def __init__(self):
-        super().__init__("genetic", 0)
+        super().__init__("genetic", 0, only_in_simulator=True)
         self.best_individual = ()
 
     def init(self):
