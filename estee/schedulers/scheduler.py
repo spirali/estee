@@ -245,8 +245,10 @@ class SchedulerBase(SchedulerInterface):
             task = task_graph.tasks[tu["id"]]
             task.state = state
             task.computed_by = workers[tu["worker"]]
+            was_running = task.running
             running = bool(tu["running"])
-            start = True
+            task.running = running
+
             if state == TaskState.Finished:
                 finished_tasks.append(task)
                 for o in task.outputs:
@@ -256,12 +258,7 @@ class SchedulerBase(SchedulerInterface):
                             assert t.unfinished_inputs == 0
                             ready_tasks.append(t)
 
-                if task.running:
-                    start = False
-
-            if start:
-                assert not task.running
-                task.running = running
+            if not was_running and running:
                 now = self._simulator.env.now if self._simulator else time.time()
                 task.start_time = now
                 started_tasks.append(task)
