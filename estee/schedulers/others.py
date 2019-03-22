@@ -24,7 +24,7 @@ class DLSScheduler(SchedulerBase):
     for all task-worker pairs (t, w) and selects the maximum.
     """
     def __init__(self):
-        super().__init__("DLS", "0", task_start_notification=True)
+        super().__init__("DLS", "0", task_start_notification=True, only_in_simulator=True)
         self.b_level = {}
 
     def schedule(self, update: Update):
@@ -64,7 +64,7 @@ class MCPScheduler(SchedulerBase):
     (ALAP).
     """
     def __init__(self):
-        super().__init__("MCP", "0", task_start_notification=True)
+        super().__init__("MCP", "0", task_start_notification=True, only_in_simulator=True)
         self.alap = {}
 
     def schedule(self, update):
@@ -115,7 +115,7 @@ class ETFScheduler(SchedulerBase):
     start time. Ties are broken with static B-level.
     """
     def __init__(self):
-        super().__init__("ETF", "0")
+        super().__init__("ETF", "0", only_in_simulator=True)
         self.b_level = {}
 
     def schedule(self, update):

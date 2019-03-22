@@ -134,7 +134,11 @@ class SchedulerBase(SchedulerInterface):
 
     _disable_cleanup = False  # Disable clean in stop(), for testing purposes
 
-    def __init__(self, name, version, reassigning=False, task_start_notification=False):
+    def __init__(self, name, version,
+                 reassigning=False,
+                 task_start_notification=False,
+                 only_in_simulator=False):
+
         self.workers = {}
         self.task_graph = SchedulerTaskGraph()
         self._name = name
@@ -143,6 +147,7 @@ class SchedulerBase(SchedulerInterface):
         self.assignments = None
         self.reassigning = reassigning
         self.task_start_notification = task_start_notification
+        self.only_in_simulator = only_in_simulator
 
     def send_message(self, message):
         message_type = message["type"]
@@ -152,6 +157,9 @@ class SchedulerBase(SchedulerInterface):
             raise Exception("Unkown message type: '{}'".format(message_type))
 
     def start(self):
+        if self.only_in_simulator and self._simulator is None:
+            raise Exception("Scheduler '{}' can be run only in simulator".format(self._name))
+
         return {
             "type": "register",
             "protocol_version": self.PROTOCOL_VERSION,
