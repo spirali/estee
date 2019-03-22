@@ -4,6 +4,7 @@ from simpy import Environment, Event
 
 from .runtimeinfo import RuntimeState, TaskState
 from .trace import TaskAssignTraceEvent, TaskRetractTraceEvent, FetchEndTraceEvent
+from .trace import export_to_chrome_events
 
 logger = logging.getLogger(__name__)
 
@@ -308,6 +309,13 @@ class Simulator:
         self.scheduler.stop()
         self.scheduler._simulator = None
         logger.info("Scheduler stopped")
+
+    def write_chrome_trace(self, filename):
+        if self.trace_events is None:
+            raise Exception("Tracing is not enabled in simulator, use Simulator(..., trace=True)")
+        data = export_to_chrome_events(self.trace_events)
+        with open(filename, "w") as f:
+            f.write(data)
 
     def run(self):
         assert not self.trace_events
