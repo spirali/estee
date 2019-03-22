@@ -24,7 +24,7 @@ class DLSScheduler(SchedulerBase):
     for all task-worker pairs (t, w) and selects the maximum.
     """
     def __init__(self):
-        super().__init__("DLS", "0", task_start_notification=True, only_in_simulator=True)
+        super().__init__("DLS", "0", task_start_notification=True)
         self.b_level = {}
 
     def schedule(self, update: Update):
@@ -49,7 +49,7 @@ class DLSScheduler(SchedulerBase):
                              self.network_bandwidth)
 
         earliest_computation = worker_estimate_earliest_time(worker, task,
-                                                             self._simulator.env.now,
+                                                             self.now(),
                                                              worker_assignments)
 
         return self.b_level[task] - max(earliest_transfer, earliest_computation)
@@ -64,7 +64,7 @@ class MCPScheduler(SchedulerBase):
     (ALAP).
     """
     def __init__(self):
-        super().__init__("MCP", "0", task_start_notification=True, only_in_simulator=True)
+        super().__init__("MCP", "0", task_start_notification=True)
         self.alap = {}
 
     def schedule(self, update):
@@ -84,7 +84,7 @@ class MCPScheduler(SchedulerBase):
             if t.cpus > w.cpus:
                 return 10e10
             transfer = transfer_cost_parallel(self.task_graph, w, t) / bandwidth
-            computation = worker_estimate_earliest_time(w, task, self._simulator.env.now,
+            computation = worker_estimate_earliest_time(w, task, self.now(),
                                                         worker_assignments.get(w, []))
             return max(transfer, computation)
 
@@ -115,7 +115,7 @@ class ETFScheduler(SchedulerBase):
     start time. Ties are broken with static B-level.
     """
     def __init__(self):
-        super().__init__("ETF", "0", only_in_simulator=True)
+        super().__init__("ETF", "0")
         self.b_level = {}
 
     def schedule(self, update):
@@ -139,8 +139,7 @@ class ETFScheduler(SchedulerBase):
 
         bandwidth = self.network_bandwidth
         transfer = transfer_cost_parallel(self.task_graph, worker, task) / bandwidth
-        computation = worker_estimate_earliest_time(worker, task, self._simulator.env.now,
-                                                    worker_assignments)
+        computation = worker_estimate_earliest_time(worker, task, self.now(), worker_assignments)
         return max(computation, transfer)
 
 
@@ -152,7 +151,7 @@ class StaticSortScheduler(SchedulerBase):
         if update.graph_changed:
             self.recalculate()
 
-        for assignment in schedule_all(self.workers, update.new_ready_tasks,
+        for assignment in schedule_all(self.workers.values(), update.new_ready_tasks,
                                        lambda w, t, a: self.find_assignment(w, t, a)):
             self.assign(assignment.worker, assignment.task)
 
@@ -171,7 +170,7 @@ class StaticSortScheduler(SchedulerBase):
                              self.network_bandwidth)
 
         earliest_computation = worker_estimate_earliest_time(
-            worker, task, self._simulator.env.now, worker_assignments)
+            worker, task, self.now(), worker_assignments)
 
         return max(earliest_transfer, earliest_computation)
 

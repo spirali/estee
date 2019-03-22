@@ -149,6 +149,9 @@ class SchedulerBase(SchedulerInterface):
         self.task_start_notification = task_start_notification
         self.only_in_simulator = only_in_simulator
 
+    def now(self):
+        return self._simulator.env.now if self._simulator else time.time()
+
     def send_message(self, message):
         message_type = message["type"]
         if message_type == "update":
@@ -267,8 +270,7 @@ class SchedulerBase(SchedulerInterface):
                             ready_tasks.append(t)
 
             if not was_running and running:
-                now = self._simulator.env.now if self._simulator else time.time()
-                task.start_time = now
+                task.start_time = self.now()
                 started_tasks.append(task)
 
         for ou in message.get("objects_update", ()):

@@ -4,6 +4,7 @@ from typing import Tuple
 from deap import algorithms, base, creator
 from deap.gp import tools
 
+from estee.simulator import SimpleNetModel
 from .scheduler import StaticScheduler
 from .utils import compute_b_level_duration_size, get_size_estimate, estimate_schedule
 from ..simulator import TaskAssignment
@@ -18,7 +19,7 @@ class GeneticScheduler(StaticScheduler):
     Genetic algorithms for task scheduling problem (2010).
     """
     def __init__(self):
-        super().__init__("genetic", 0, only_in_simulator=True)
+        super().__init__("genetic", 0)
         self.best_individual = ()
 
     def init(self):
@@ -30,7 +31,7 @@ class GeneticScheduler(StaticScheduler):
         if not graph.tasks or not workers:
             return
 
-        generator = self.generator_individual_alap(graph, workers, self._simulator.netmodel)
+        generator = self.generator_individual_alap(graph, workers, self.create_netmodel())
 
         toolbox.register("individual", tools.initIterate, creator.Individual, generator)
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -99,7 +100,7 @@ class GeneticScheduler(StaticScheduler):
     def evaluate(self, individual) -> Tuple[float]:
         graph = self.task_graph
         workers = self.workers
-        netmodel = self._simulator.netmodel
+        netmodel = self.create_netmodel()
 
         if not self.is_schedule_valid(individual, graph, workers):
             return 10e10,
@@ -108,6 +109,9 @@ class GeneticScheduler(StaticScheduler):
         workers = {id: worker.simple_copy() for (id, worker) in self.workers.items()}
 
         return estimate_schedule(self.create_schedule(individual, tasks, workers), netmodel),
+
+    def create_netmodel(self):
+        return SimpleNetModel(self.network_bandwidth)
 
     def is_schedule_valid(self, schedule, graph, workers):
         (mapping, tasks) = self.split_individual(schedule, graph.task_count)
