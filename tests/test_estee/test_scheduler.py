@@ -8,6 +8,8 @@ from estee.schedulers import (AllOnOneScheduler, BlevelGtScheduler,
                               RandomScheduler, WorkStealingScheduler, SchedulerBase)
 from estee.schedulers.clustering import find_critical_path, critical_path_clustering, LcScheduler
 from estee.schedulers.genetic import GeneticScheduler
+from estee.schedulers.others import TlevelScheduler, BlevelScheduler
+from estee.schedulers.queue import TlevelGtScheduler
 from estee.schedulers.scheduler import SchedulerWorker
 from estee.schedulers.utils import compute_alap, compute_independent_tasks, estimate_schedule, \
     create_scheduler_graph
@@ -63,7 +65,6 @@ def test_scheduler_random_gt(plan1):
 
 
 def test_scheduler_blevel_gt(plan1):
-
     # 2w, simple
     for _ in range(50):
         scheduler = BlevelGtScheduler()
@@ -76,6 +77,12 @@ def test_scheduler_blevel_gt(plan1):
             sizes.add(len(obj.availability))
 
         assert sizes == {1, 2}
+
+
+def test_scheduler_tlevel_gt(plan1):
+    for _ in range(50):
+        scheduler = TlevelGtScheduler()
+        assert 14 <= do_sched_test(plan1, 2, scheduler, SimpleNetModel()) <= 17
 
 
 def test_scheduler_random_assign(plan1):
@@ -99,6 +106,14 @@ def test_scheduler_mcp(plan1):
 
 def test_scheduler_etf(plan1):
     assert do_sched_test(plan1, 2, ETFScheduler(), SimpleNetModel()) == 17
+
+
+def test_scheduler_blevel(plan1):
+    assert do_sched_test(plan1, 2, BlevelScheduler(), SimpleNetModel()) == 17
+
+
+def test_scheduler_tlevel(plan1):
+    assert do_sched_test(plan1, 2, TlevelScheduler(), SimpleNetModel()) == 17
 
 
 def test_scheduler_genetic(plan1):
