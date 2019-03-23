@@ -412,6 +412,7 @@ def normalize_events(trace_events):
 def to_chrome_time(time):
     return time * 1000_000
 
+
 def export_to_chrome_events(trace_events):
     task_start = {}
     for e in trace_events:
@@ -461,7 +462,6 @@ def export_to_chrome_events(trace_events):
                 "id": flow_id,
             })
 
-
     cpus = {}
     assigns = {}
 
@@ -482,7 +482,10 @@ def export_to_chrome_events(trace_events):
                     "cpus": cpus[event.worker]
                 }
             })
-        if isinstance(event, TaskAssignTraceEvent) or isinstance(event, TaskEndTraceEvent) or isinstance(event, TaskRetractTraceEvent):
+
+        if (isinstance(event, TaskAssignTraceEvent)
+                or isinstance(event, TaskEndTraceEvent)
+                or isinstance(event, TaskRetractTraceEvent)):
             if isinstance(event, TaskAssignTraceEvent):
                 assigns.setdefault(event.worker, 0)
                 assigns[event.worker] += event.task.cpus
@@ -532,7 +535,5 @@ def export_to_chrome_events(trace_events):
                     "recv": update(event.target_worker, event.source_worker, recv_bw, event.value)
                 }
             })
-
-
 
     return json.dumps(result)

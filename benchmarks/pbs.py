@@ -4,12 +4,15 @@ import os
 import socket
 import subprocess
 import sys
+import time
 
 import pandas as pd
 
+BENCHMARK_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 def dirpath(path):
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), path))
+    return os.path.join(BENCHMARK_DIR, path)
 
 
 def filename(path):
@@ -17,7 +20,7 @@ def filename(path):
 
 
 def get_workdir(jobid, input_file, output):
-    return dirpath("runs/{}-{}-{}".format(jobid, filename(input_file), filename(output)))
+    return os.path.abspath("runs/{}-{}-{}".format(jobid, filename(input_file), filename(output)))
 
 
 DASK_PORT = 8786
@@ -40,7 +43,7 @@ def run_computation(index, input_file, options):
 
     dask_cluster = None
     if options.get("dask"):
-        start_cluster(port=DASK_PORT, path=os.getcwd())
+        start_cluster(port=DASK_PORT, path=BENCHMARK_DIR)
         dask_cluster = "{}:{}".format(socket.gethostname(), DASK_PORT)
 
     with open(os.path.join(workdir, "output"), "w") as out:
@@ -64,18 +67,12 @@ def run_computation(index, input_file, options):
 def run_pbs(input_file, options):
     from benchmark import load_instances, skip_completed_instances
 
-    args = ["qsub", "-q", "qexp", "-l"]
-    nodes = "select={}:ncpus=24"
+    nodes = 1
     if options.get("dask"):
-        nodes = nodes.format(8)
-    else:
-        nodes = nodes.format(1)
-    args.append(nodes)
+        nodes = 8
 
     print("Starting jobs from file {}".format(input_file))
     for i, input in enumerate(options["inputs"]):
-        arguments = args[:]
-
         input = options["inputs"][i]
         output = options["outputs"][i]
 
@@ -95,15 +92,37 @@ def run_pbs(input_file, options):
                 print("All instances were completed for {}".format(input))
                 continue
 
-        arguments += ["-N", "estee-{}-{}".format(filename(input_file), filename(output))]
-        arguments += ["-v", "ESTEE_INPUT={},ESTEE_INDEX={}".format(
-            os.path.abspath(input_file), i)]
-        arguments += ["-k", "n"]  # do not keep output
+        name = "estee-{}-{}".format(filename(input_file), filename(output))
+        qsub_args = {
+            "benchmark_dir": BENCHMARK_DIR,
+            "name": name,
+            "input": os.path.abspath(input_file),
+            "index": i,
+            "nodes": nodes
+        }
+        qsub_input = """
+#!/bin/bash
+#PBS -q qexp
+#PBS -N {name}
+#PBS -lselect={nodes}:ncpus=24
 
-        arguments.append(dirpath("qsub.sh"))
+source ~/.bashrc
+workon estee
+python {benchmark_dir}/pbs.py compute {input} --graph-index {index}
+""".format(**qsub_args)
 
-        print("Starting job {}-{}".format(filename(input_file), filename(output)))
-        subprocess.run(arguments)
+        pbs_script = "/tmp/{}-pbs-{}.sh".format(name, int(time.time()))
+        with open(pbs_script, "w") as f:
+            f.write(qsub_input)
+
+        print("Starting job {}-{} ({})".format(filename(input_file), filename(output), pbs_script))
+        result = subprocess.run(["qsub", pbs_script],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            raise Exception("Error during PBS submit: {}\n{}".format(result.stdout.decode(),
+                                                                     result.stderr.decode()))
+        print("Job id: {}".format(result.stdout.decode().strip()))
 
 
 def parse_args():

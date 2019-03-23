@@ -95,6 +95,9 @@ class MCPScheduler(SchedulerBase):
 
 
 class MCPGTScheduler(GreedyTransferQueueScheduler):
+    def __init__(self):
+        super().__init__("MCP GT", 0)
+
     def make_queue(self):
         bandwidth = self.network_bandwidth
         alap = compute_alap(self.task_graph, get_size_estimate, bandwidth)
@@ -115,7 +118,7 @@ class ETFScheduler(SchedulerBase):
     start time. Ties are broken with static B-level.
     """
     def __init__(self):
-        super().__init__("ETF", "0")
+        super().__init__("ETF", "0", task_start_notification=True)
         self.b_level = {}
 
     def schedule(self, update):

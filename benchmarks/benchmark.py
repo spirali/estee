@@ -43,11 +43,11 @@ generate_seed()
 
 SCHEDULERS = {
     "single": AllOnOneScheduler,
-    "blevel": BlevelGtScheduler,
-    "blevel-simple": BlevelScheduler,
-    "tlevel": TlevelGtScheduler,
-    "tlevel-simple": TlevelScheduler,
-    "random-s": RandomAssignScheduler,
+    "blevel": BlevelScheduler,
+    "blevel-gt": BlevelGtScheduler,
+    "tlevel": TlevelScheduler,
+    "tlevel-gt": TlevelGtScheduler,
+    "random": RandomAssignScheduler,
     "random-gt": RandomGtScheduler,
     "dls": DLSScheduler,
     "etf": ETFScheduler,
@@ -67,7 +67,11 @@ NETMODELS = {
 CLUSTERS = {
     "2x8": [{"cpus": 8}] * 2,
     "4x4": [{"cpus": 4}] * 4,
+    "8x4": [{"cpus": 4}] * 8,
     "16x4": [{"cpus": 4}] * 16,
+    "32x4": [{"cpus": 4}] * 32,
+    "8x8": [{"cpus": 8}] * 8,
+    "16x8": [{"cpus": 8}] * 16,
     "stairs16": [{"cpus": i} for i in range(1, 6)] + [{"cpus": 1}],
     "32x16": [{"cpus": 16}] * 32,
     "64x16": [{"cpus": 16}] * 64,
@@ -128,10 +132,10 @@ def run_single_instance(instance):
             if isinstance(e, FetchEndTraceEvent):
                 transfer += e.output.size
         return sim_time, runtime, transfer
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         print("ERROR INSTANCE: {}".format(instance), file=sys.stderr)
-        return None, None
+        return None, None, None
 
 
 def benchmark_scheduler(instance):
@@ -233,7 +237,7 @@ def parse_args():
 def parse_timeout(timeout):
     if not timeout:
         return 0
-    match = re.match("^(\d{2}):(\d{2}):(\d{2})$", timeout)
+    match = re.match(r"^(\d{2}):(\d{2}):(\d{2})$", timeout)
     if not match:
         print("Wrong timeout format. Enter timeout as hh:mm:ss.")
         exit(1)

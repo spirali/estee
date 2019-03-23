@@ -269,7 +269,7 @@ class SchedulerBase(SchedulerInterface):
                             assert t.unfinished_inputs == 0
                             ready_tasks.append(t)
 
-            if not was_running and running:
+            if not was_running and (running or state == TaskState.Finished):
                 task.start_time = self.now()
                 started_tasks.append(task)
 
