@@ -57,7 +57,10 @@ class WorkStealingScheduler(SchedulerBase):
 
         # TODO: Try random sort for benchmark
         def sort_key(task):
-            return self.task_worker_cost(worker, task) / task.expected_duration
+            expected_duration = task.expected_duration
+            if expected_duration < 0.001:
+                expected_duration = 0.001
+            return self.task_worker_cost(worker, task) / expected_duration
         tasks.sort(key=sort_key, reverse=False)
 
         for task in tasks:
