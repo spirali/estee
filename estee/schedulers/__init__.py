@@ -6,3 +6,4 @@ from .others import DLSScheduler, ETFScheduler, MCPScheduler  # noqa
 from .camp import Camp2Scheduler  # noqa
 from .ws import WorkStealingScheduler  # noqa
 from .genetic import GeneticScheduler  # noqa
+from .clustering import LcScheduler  # noqa
