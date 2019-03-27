@@ -1,4 +1,3 @@
-import argparse
 import json
 import os
 import socket
@@ -6,9 +5,14 @@ import subprocess
 import sys
 import time
 
+import click
 import pandas as pd
 
+from benchmark import BenchmarkConfig, load_graphs, SCHEDULERS, CLUSTERS, NETMODELS, BANDWIDTHS, \
+    IMODES, SCHED_TIMINGS, create_instances, run_benchmark, parse_timeout, load_resultfile
+
 BENCHMARK_DIR = os.path.dirname(os.path.abspath(__file__))
+DASK_PORT = 8786
 
 
 def dirpath(path):
@@ -23,71 +27,112 @@ def get_workdir(jobid, input_file, output):
     return os.path.abspath("runs/{}-{}-{}".format(jobid, filename(input_file), filename(output)))
 
 
-DASK_PORT = 8786
+def parse_configs(definition, graph_frame):
+    groups = definition["groups"]
+    experiments = groups["experiments"]
+    group_cache = {}
+    configs = []
+    keys = {
+        "scheduler": SCHEDULERS,
+        "cluster": CLUSTERS,
+        "netmodel": NETMODELS,
+        "bandwidth": BANDWIDTHS,
+        "imode": IMODES,
+        "sched-timing": SCHED_TIMINGS
+    }
+
+    def get_group(name):
+        data = groups[name]
+        if isinstance(data, dict):
+            result = {}
+            key = data["type"]
+            value = data["values"]
+            if value == "all":
+                value = set(keys[key].keys())
+            else:
+                value = set(value.split(","))
+            result[key] = value
+            return result
+        elif isinstance(data, list):
+            result = {}
+            for group in data:
+                group_data = get_group(group)
+                for key in group_data:
+                    if key in result:
+                        result[key].update(group_data[key])
+                    else:
+                        result[key] = group_data[key]
+            return result
+        assert False
+
+    def get_value(data, key):
+        if key not in data:
+            if key == "repeat":
+                return 1
+            return list(keys[key].keys())
+        return list(data[key])
+
+    for experiment in experiments:
+        data = group_cache.setdefault(experiment, get_group(experiment))
+        configs.append(BenchmarkConfig(
+            graph_frame,
+            get_value(data, "scheduler"),
+            get_value(data, "cluster"),
+            get_value(data, "netmodel"),
+            get_value(data, "bandwidth"),
+            get_value(data, "imode"),
+            get_value(data, "sched-timing"),
+            get_value(data, "repeat")
+        ))
+    return configs
 
 
-def run_computation(index, input_file, options):
-    from benchmark import compute
+def run_computation(index, input_file, definition):
     from dask_cluster import start_cluster
 
-    input = options["inputs"][int(index)]
-    output = options["outputs"][int(index)]
+    input = definition["inputs"][int(index)]
+    output = definition["outputs"][int(index)]
 
     workdir = get_workdir(os.environ["PBS_JOBID"], input_file, output)
 
     if not os.path.exists(workdir):
         os.makedirs(workdir)
     with open(os.path.join(workdir, os.path.basename(input_file)), "w") as dst:
-        options["index"] = index
-        json.dump(options, dst, indent=4)
+        definition["index"] = index
+        json.dump(definition, dst, indent=4)
 
     dask_cluster = None
-    if options.get("dask"):
+    if definition.get("dask"):
         start_cluster(port=DASK_PORT, path=BENCHMARK_DIR)
         dask_cluster = "{}:{}".format(socket.gethostname(), DASK_PORT)
+
+    graph_frame = load_graphs([input])
 
     with open(os.path.join(workdir, "output"), "w") as out:
         with open(os.path.join(workdir, "error"), "w") as err:
             sys.stdout = out
             sys.stderr = err
-            compute(graphset=input,
-                    resultfile=output,
-                    scheduler=options.get("scheduler", "all"),
-                    cluster=options.get("cluster", "all"),
-                    bandwidth=options.get("bandwidth", "all"),
-                    netmodel=options.get("netmodel", "all"),
-                    imode=options.get("imode", "all"),
-                    sched_timing=options.get("sched-timing", "all"),
-                    repeat=int(options.get("repeat", 1)),
-                    timeout=options.get("timeout"),
-                    dask_cluster=dask_cluster,
-                    skip_completed=True)
+            frame = load_resultfile(output, True)
+            run_benchmark(parse_configs(definition, graph_frame), frame, output, True,
+                          parse_timeout(definition.get("timeout")), dask_cluster)
 
 
-def run_pbs(input_file, options):
-    from benchmark import load_instances, skip_completed_instances
-
+def run_pbs(input_file, definition):
     nodes = 1
-    if options.get("dask"):
+    if definition.get("dask"):
         nodes = 8
 
     print("Starting jobs from file {}".format(input_file))
-    for i, input in enumerate(options["inputs"]):
-        input = options["inputs"][i]
-        output = options["outputs"][i]
+    for i, input in enumerate(definition["inputs"]):
+        input = definition["inputs"][i]
+        output = definition["outputs"][i]
 
-        repeat = int(options.get("repeat"))
-        instances = load_instances(input, None,
-                                   scheduler=options.get("scheduler", "all"),
-                                   bandwidth=options.get("bandwidth", "all"),
-                                   cluster=options.get("cluster", "all"),
-                                   netmodel=options.get("netmodel", "all"),
-                                   imode=options.get("imode", "all"),
-                                   sched_timing=options.get("sched-timing", "all"),
-                                   repeat=repeat)[0]
+        graph_frame = load_graphs([input])
+        configs = parse_configs(definition, graph_frame)
+
         if os.path.isfile(output):
             oldframe = pd.read_pickle(output)
-            instances = skip_completed_instances(instances, oldframe, repeat)
+            instances = create_instances(configs, oldframe, True, 5)
             if not instances:
                 print("All instances were completed for {}".format(input))
                 continue
@@ -98,7 +143,8 @@ def run_pbs(input_file, options):
             "name": name,
             "input": os.path.abspath(input_file),
             "index": i,
-            "nodes": nodes
+            "nodes": nodes,
+            "working_directory": os.getcwd()
         }
         qsub_input = """
 #!/bin/bash
@@ -108,6 +154,7 @@ def run_pbs(input_file, options):
 
 source ~/.bashrc
 workon estee
+cd {working_directory}
 python {benchmark_dir}/pbs.py compute {input} --graph-index {index}
 """.format(**qsub_args)
 
@@ -125,25 +172,30 @@ python {benchmark_dir}/pbs.py compute {input} --graph-index {index}
         print("Job id: {}".format(result.stdout.decode().strip()))
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["submit", "compute"])
-    parser.add_argument("input_files", nargs="+")
-    parser.add_argument("--graph-index", default=0)
-    return parser.parse_args()
+@click.command()
+@click.argument("input_file")
+@click.argument("index")
+def compute(input_file, index):
+    with open(input_file) as f:
+        definition = json.load(f)
+    run_computation(index, input_file, definition)
+
+
+@click.command()
+@click.argument("input_files", nargs=-1)
+def submit(input_files):
+    for input_file in input_files:
+        with open(input_file) as f:
+            definition = json.load(f)
+        run_pbs(input_file, definition)
+
+
+@click.group()
+def cli():
+    pass
 
 
 if __name__ == "__main__":
-    args = parse_args()
-
-    if args.command == "compute":
-        assert len(args.input_files) == 1
-        file = args.input_files[0]
-        with open(file) as f:
-            options = json.load(f)
-        run_computation(args.graph_index, file, options)
-    else:
-        for input_file in args.input_files:
-            with open(input_file) as f:
-                options = json.load(f)
-            run_pbs(input_file, options)
+    cli.add_command(submit)
+    cli.add_command(compute)
+    cli()
