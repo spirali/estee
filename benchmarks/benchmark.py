@@ -4,7 +4,6 @@ import multiprocessing
 import os
 import random
 import re
-import sys
 import threading
 import time
 import traceback
@@ -142,7 +141,7 @@ class BenchmarkConfig:
         def calculate_imodes(graph, graph_id):
             if graph_id not in BenchmarkConfig.graph_cache:
                 BenchmarkConfig.graph_cache[graph_id] = {}
-                for mode in self.imodes:
+                for mode in IMODES:
                     g = json_deserialize(graph)
                     IMODES[mode](g)
                     BenchmarkConfig.graph_cache[graph_id][mode] = json_serialize(g)
@@ -291,8 +290,7 @@ def compute(instances, timeout=0, dask_cluster=None):
                             r_runtime,
                             r_transfer
                         ))
-
-        except KeyboardInterrupt:
+        except:
             print("Benchmark interrupted, iterated {} instances. Writing intermediate results"
                   .format(counter))
 
@@ -335,23 +333,32 @@ def run_benchmark(configs, oldframe, resultfile, skip_completed, timeout=0, dask
     print("{} entries in new '{}'".format(newframe["time"].count(), resultfile))
 
 
-def skip_completed_instances(instances, frame, repeat, columns):
-    skipped = 0
+def skip_completed_instances(instances, frame, repeat, columns, batch):
+    skipped_output = 0
+    skipped_batch = 0
     counts = frame.groupby(columns).size()
 
     result = []
     for instance in instances:
         hashed = tuple(getattr(instance, col) for col in columns)
+        existing_count = 0
         if hashed in counts:
             count = counts.loc[hashed]
-            if count < repeat:
-                result.append(instance._replace(count=repeat - count))
-            skipped += count
-        else:
+            skipped_output += count
+            existing_count += count
+        if hashed in batch:
+            count = batch[hashed]
+            skipped_batch += count
+            existing_count += count
+        if existing_count == 0:
             result.append(instance)
+        elif existing_count < repeat:
+            result.append(instance._replace(count=repeat - existing_count))
 
-    if skipped:
-        print("Skipping {} instances, {} left".format(skipped, len(result)))
+    if skipped_output or skipped_batch:
+        print("Skipping {} instances from output, {} from batch, {} left".format(skipped_output,
+                                                                                 skipped_batch,
+                                                                                 len(result)))
     return result
 
 
@@ -380,12 +387,16 @@ def create_instances(configs, frame, skip_completed, max_count):
                "imode",
                "min_sched_interval",
                "sched_time"]
+    batch = {}
 
     for config in configs:
         instances = list(config.generate_instances())
         if skip_completed:
-            instances = skip_completed_instances(instances, frame, config.count, columns)
+            instances = skip_completed_instances(instances, frame, config.count, columns, batch)
         instances = limit_max_count(instances, max_count)
+        for instance in instances:
+            hashed = tuple(getattr(instance, col) for col in columns)
+            batch[hashed] = instance.count + batch.get(hashed, 0)
         total_instances += instances
 
     return total_instances

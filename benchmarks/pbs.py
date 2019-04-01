@@ -29,7 +29,7 @@ def get_workdir(jobid, input_file, output):
 
 def parse_configs(definition, graph_frame):
     groups = definition["groups"]
-    experiments = groups["experiments"]
+    experiments = definition["experiments"]
     group_cache = {}
     configs = []
     keys = {
@@ -40,37 +40,48 @@ def parse_configs(definition, graph_frame):
         "imode": IMODES,
         "sched-timing": SCHED_TIMINGS
     }
+    in_progress = set()
 
     def get_group(name):
+        if name in in_progress:
+            print("Recursive definition of {}".format(name))
+            exit(1)
+        in_progress.add(name)
+
         data = groups[name]
+        result = {}
         if isinstance(data, dict):
-            result = {}
             key = data["type"]
             value = data["values"]
-            if value == "all":
-                value = set(keys[key].keys())
-            else:
-                value = set(value.split(","))
+            if key != "repeat":
+                if value == "all":
+                    value = set(keys[key].keys())
+                else:
+                    value = set(value.split(","))
             result[key] = value
-            return result
         elif isinstance(data, list):
             result = {}
             for group in data:
                 group_data = get_group(group)
                 for key in group_data:
                     if key in result:
-                        result[key].update(group_data[key])
+                        if key == "repeat":
+                            result[key] = max(group_data[key], result[key])
+                        else:
+                            result[key].update(group_data[key])
                     else:
                         result[key] = group_data[key]
-            return result
-        assert False
+        else:
+            assert False
+
+        in_progress.remove(name)
+        return result
 
     def get_value(data, key):
-        if key not in data:
-            if key == "repeat":
-                return 1
-            return list(keys[key].keys())
-        return list(data[key])
+        if key == "repeat":
+            return data.get(key, 1)
+
+        return list(data.get(key, keys[key].keys()))
 
     for experiment in experiments:
         data = group_cache.setdefault(experiment, get_group(experiment))
@@ -93,7 +104,7 @@ def run_computation(index, input_file, definition):
     input = definition["inputs"][int(index)]
     output = definition["outputs"][int(index)]
 
-    workdir = get_workdir(os.environ["PBS_JOBID"], input_file, output)
+    workdir = get_workdir(os.environ.get("PBS_JOBID", "local-{}".format(index)), input_file, output)
 
     if not os.path.exists(workdir):
         os.makedirs(workdir)
@@ -155,7 +166,7 @@ def run_pbs(input_file, definition):
 source ~/.bashrc
 workon estee
 cd {working_directory}
-python {benchmark_dir}/pbs.py compute {input} --graph-index {index}
+python {benchmark_dir}/pbs.py compute {input} --index {index}
 """.format(**qsub_args)
 
         pbs_script = "/tmp/{}-pbs-{}.sh".format(name, int(time.time()))
@@ -174,11 +185,16 @@ python {benchmark_dir}/pbs.py compute {input} --graph-index {index}
 
 @click.command()
 @click.argument("input_file")
-@click.argument("index")
+@click.option("--index")
 def compute(input_file, index):
     with open(input_file) as f:
         definition = json.load(f)
-    run_computation(index, input_file, definition)
+
+    if index is not None:
+        run_computation(index, input_file, definition)
+    else:
+        for index in range(len(definition["inputs"])):
+            run_computation(index, input_file, definition)
 
 
 @click.command()
