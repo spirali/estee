@@ -142,7 +142,7 @@ def run_pbs(input_file, definition):
         configs = parse_configs(definition, graph_frame)
 
         if os.path.isfile(output):
-            oldframe = pd.read_pickle(output)
+            oldframe = pd.read_csv(output)
             instances = create_instances(configs, oldframe, True, 5)
             if not instances:
                 print("All instances were completed for {}".format(input))

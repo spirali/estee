@@ -17,7 +17,7 @@ def get_nodes():
 
 
 def is_local(hostname):
-    return hostname.split(".")[0] == HOSTNAME
+    return hostname.split(".")[0] == HOSTNAME or hostname == HOSTNAME or hostname == "localhost"
 
 
 def run_cmd(host, cmds, path=""):
@@ -34,6 +34,7 @@ def run_cmd(host, cmds, path=""):
 
 
 def spawn_workers(host, count, scheduler, path):
+    print("Spawning {} workers on {}".format(count, host))
     cookie = time.time()
     return run_cmd(host, ["dask-worker", "--nthreads", "1", "--nprocs", str(count),
                           "--local-directory", os.path.join(TMP_DIR,
@@ -84,7 +85,7 @@ def stop_cluster():
     kill_workers(HOSTNAME)
 
 
-def get_info(por):
+def get_info(port):
     scheduler = "{}:{}".format(HOSTNAME, port)
     client = Client(scheduler, timeout=5)
     workers = client.scheduler_info()['workers']

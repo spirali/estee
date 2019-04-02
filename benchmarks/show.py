@@ -80,7 +80,7 @@ def draw_frame(frame, args, title=None):
 
 def main():
     args = parse_args()
-    data = pd.read_pickle(args.dataset)
+    data = pd.read_csv(args.dataset)
 
     if args.graph:
         data = data[data["graph_name"].isin(args.graph)].reset_index(drop=True)

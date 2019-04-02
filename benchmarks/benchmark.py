@@ -4,6 +4,7 @@ import multiprocessing
 import os
 import random
 import re
+import sys
 import threading
 import time
 import traceback
@@ -326,10 +327,10 @@ def run_benchmark(configs, oldframe, resultfile, skip_completed, timeout=0, dask
         base, ext = os.path.splitext(resultfile)
         path = "{}.backup{}".format(base, ext)
         print("Creating backup of old results to '{}'".format(path))
-        oldframe.to_pickle(path)
+        oldframe.to_csv(path, compression='zip')
 
     newframe = pd.concat([oldframe, frame], ignore_index=True)
-    newframe.to_pickle(resultfile)
+    newframe.to_csv(resultfile, compression='zip')
     print("{} entries in new '{}'".format(newframe["time"].count(), resultfile))
 
 
@@ -412,7 +413,7 @@ def load_resultfile(resultfile, append):
 
         print("Appending to result file '{}'".format(resultfile))
 
-        oldframe = pd.read_pickle(resultfile)
+        oldframe = pd.read_csv(resultfile)
         assert list(oldframe.columns) == COLUMNS
     else:
         print("Creating result file '{}'".format(resultfile))
