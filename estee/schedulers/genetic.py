@@ -77,7 +77,7 @@ class GeneticScheduler(StaticScheduler):
         algorithms.eaSimple(pop, toolbox,
                             cxpb=0.8,
                             mutpb=0.05,
-                            ngen=100,
+                            ngen=50,
                             halloffame=hof,
                             verbose=False)
         best = [item for item in hof.items if self.is_schedule_valid(item, graph, workers)]
@@ -105,8 +105,7 @@ class GeneticScheduler(StaticScheduler):
         if not self.is_schedule_valid(individual, graph, workers):
             return 10e10,
 
-        tasks = {id: task.simple_copy() for (id, task) in self.task_graph.tasks.items()}
-        workers = {id: worker.simple_copy() for (id, worker) in self.workers.items()}
+        tasks = self.task_graph.tasks
 
         return estimate_schedule(self.create_schedule(individual, tasks, workers), netmodel),
 

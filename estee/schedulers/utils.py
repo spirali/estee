@@ -286,16 +286,19 @@ def topological_sort(graph):
 
 def estimate_schedule(schedule: List[TaskAssignment], netmodel):
     def transfer_cost_parallel_finished(task_to_worker, worker, task):
-        return max((i.size for i in task.inputs
+        return max((object_sizes[i.id] for i in task.inputs
                     if worker != task_to_worker[i.parent]),
                    default=0)
 
     task_to_worker = {assignment.task: assignment.worker for assignment in schedule}
     tasks = []
+    scheduled_tasks = {}
+    running_tasks = {}
+    object_sizes = {}
 
     for assignment in schedule:
         tasks.append(assignment.task)
-        assignment.worker.scheduled_tasks.append(assignment.task)
+        scheduled_tasks.setdefault(assignment.worker, []).append(assignment.task)
 
     def task_push(time, task, type):
         nonlocal index
@@ -310,12 +313,14 @@ def estimate_schedule(schedule: List[TaskAssignment], netmodel):
         nonlocal index
         dta = (transfer_cost_parallel_finished(task_to_worker, worker, task) /
                netmodel.bandwidth)
-        rt = worker_estimate_earliest_time(worker, task, time)
+        rt = worker_estimate_earliest_time(worker, task, time,
+                                           scheduled_tasks.setdefault(worker, []))
         start = time + max(rt, dta)
         finish = start + task.expected_duration
-        worker.scheduled_tasks.remove(task)
+
+        scheduled_tasks[worker].remove(task)
         task.start_time = start
-        worker.running_tasks.add(task)
+        running_tasks.setdefault(worker, set()).add(task)
         task_push(finish, task, "end")
 
     def task_end(time, task):
@@ -323,7 +328,7 @@ def estimate_schedule(schedule: List[TaskAssignment], netmodel):
 
         finished[task.id] = True
         for output in task.outputs:
-            output.size = output.expected_size
+            object_sizes[output.id] = output.expected_size
         for consumer in task.consumers():
             remaining_inputs[consumer] -= 1
             if remaining_inputs[consumer] == 0:
@@ -345,7 +350,7 @@ def estimate_schedule(schedule: List[TaskAssignment], netmodel):
         if type == "start":
             task_start(time, task, worker)
         elif type == "end":
-            worker.running_tasks.remove(task)
+            running_tasks[worker].remove(task)
             task_end(time, task)
 
     return end
