@@ -327,10 +327,10 @@ def run_benchmark(configs, oldframe, resultfile, skip_completed, timeout=0, dask
         base, ext = os.path.splitext(resultfile)
         path = "{}.backup{}".format(base, ext)
         print("Creating backup of old results to '{}'".format(path))
-        oldframe.to_csv(path, compression='zip')
+        write_resultfile(oldframe, path)
 
     newframe = pd.concat([oldframe, frame], ignore_index=True)
-    newframe.to_csv(resultfile, compression='zip')
+    write_resultfile(newframe, resultfile)
     print("{} entries in new '{}'".format(newframe["time"].count(), resultfile))
 
 
@@ -419,6 +419,10 @@ def load_resultfile(resultfile, append):
         print("Creating result file '{}'".format(resultfile))
         oldframe = pd.DataFrame([], columns=COLUMNS)
     return oldframe
+
+
+def write_resultfile(frame, resultfile):
+    frame.to_csv(resultfile, compression='zip', index=False)
 
 
 def load_graphs(graphsets, graph_names=None):
