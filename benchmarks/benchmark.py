@@ -4,6 +4,7 @@ import multiprocessing
 import os
 import random
 import re
+import signal
 import sys
 import threading
 import time
@@ -254,6 +255,10 @@ def run_dask(instances, cluster):
     return client.gather(results)
 
 
+def init_worker():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
 def compute(instances, timeout=0, dask_cluster=None):
     rows = []
 
@@ -263,7 +268,7 @@ def compute(instances, timeout=0, dask_cluster=None):
     if dask_cluster:
         iterator = run_dask(instances, dask_cluster)
     else:
-        pool = multiprocessing.Pool()
+        pool = multiprocessing.Pool(initializer=init_worker)
         iterator = run_multiprocessing(pool, instances)
 
     if timeout:

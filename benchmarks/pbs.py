@@ -104,6 +104,8 @@ def run_computation(index, input_file, definition):
     input = definition["inputs"][int(index)]
     output = definition["outputs"][int(index)]
 
+    is_pbs = "PBS_JOBID" in os.environ
+
     workdir = get_workdir(os.environ.get("PBS_JOBID", "local-{}".format(index)), input_file, output)
 
     if not os.path.exists(workdir):
@@ -118,14 +120,18 @@ def run_computation(index, input_file, definition):
         dask_cluster = "{}:{}".format(socket.gethostname(), DASK_PORT)
 
     graph_frame = load_graphs([input])
+    frame = load_resultfile(output, True)
 
-    with open(os.path.join(workdir, "output"), "w") as out:
-        with open(os.path.join(workdir, "error"), "w") as err:
-            sys.stdout = out
-            sys.stderr = err
-            frame = load_resultfile(output, True)
-            run_benchmark(parse_configs(definition, graph_frame), frame, output, True,
-                          parse_timeout(definition.get("timeout")), dask_cluster)
+    if is_pbs:
+        with open(os.path.join(workdir, "output"), "w") as out:
+            with open(os.path.join(workdir, "error"), "w") as err:
+                sys.stdout = out
+                sys.stderr = err
+                run_benchmark(parse_configs(definition, graph_frame), frame, output, True,
+                              parse_timeout(definition.get("timeout")), dask_cluster)
+    else:
+        run_benchmark(parse_configs(definition, graph_frame), frame, output, True,
+                      parse_timeout(definition.get("timeout")), dask_cluster)
 
 
 def run_pbs(input_file, definition):
