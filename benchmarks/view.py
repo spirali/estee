@@ -8,6 +8,7 @@ import os
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 from matplotlib.lines import Line2D
 
 LINE_STYLES = ["-", ":", "-.", "--"]
@@ -31,7 +32,7 @@ def style_gen():
 class Data:
 
     def __init__(self, filename):
-        self.raw_data = pd.read_pickle(filename)
+        self.raw_data = pd.read_csv(filename)
 
         self.raw_data.drop("graph_set", axis=1, inplace=True)
         exclude = ["tlevel-simple", "blevel-simple"]
@@ -102,7 +103,11 @@ def splot(data, col, row, x, y,
                              ncols=len(cols),
                              figsize=(len(cols) * 4 + 1, len(rows) * 4))
 
-    if len(cols) == 1:
+    if len(cols) == 1 and len(rows) == 1:
+        axes = np.array([[axes]])
+    elif len(rows) == 1:
+        axes = axes.reshape((1, -1))
+    elif len(cols) == 1:
         axes = axes.reshape((-1, 1))
 
     for ax, col in zip(axes[0], cols):
