@@ -137,6 +137,7 @@ def splot(data, col, row, x, y,
 
 
 def savefig(name):
+    print("Saving ...", name)
     plt.savefig("outputs/" + name + ".pdf", bbox_inches='tight')
 
 
@@ -147,7 +148,10 @@ def process(filename, args):
     if "." in name:
         name = name[:name.rfind(".")]
 
+    print("processing " + name)
+
     data = Data(filename)
+    cluster_name = args.cluster
 
     # ----- Schedulers -----
     if args.all or args.schedulers:
@@ -170,16 +174,17 @@ def process(filename, args):
     # ----- Netmodel -----
     if args.all or args.netmodels:
         print("Netmodels ...")
-        dataset = data.prepare(cluster_name=args.cluster, netmodel=None, exclude_single=True)
+        dataset = data.prepare(cluster_name=cluster_name, netmodel=None, exclude_single=True)
 
         if len(dataset) > 0:
             splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="time",
                 style_col="netmodel", sharey=False)
-            savefig(name + "-{}-netmodel-time".format(args.cluster))
+            savefig("{}-{}-netmodel-time".format(name, cluster_name))
 
             splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="total_transfer",
                 style_col="netmodel", sharey=False)
-            savefig(name + "-{}-netmodel-transfer".format(args.cluster))
+            savefig("{}-{}-netmodel-transfer".format(name, cluster_name))
+
 
             groups = dataset.groupby(
                 ["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name"])
@@ -192,18 +197,17 @@ def process(filename, args):
             dataset["norms"] = groups.apply(normalize)["time"]
             splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="norms",
                 sharey=False, style_col="netmodel")
-            savefig(name + "-{}-netmodel-score".format(args.cluster))
+            savefig("{}-{}-netmodel-score".format(name, cluster_name))
+
 
     # ----- MinSchedTime
     if args.all or args.msd:
         print("MSD ...")
-        dataset = data.prepare(cluster_name="16x4", min_sched_interval=None, exclude_single=True)
-
+        dataset = data.prepare(cluster_name=cluster_name, min_sched_interval=None, exclude_single=True)
         if len(dataset) > 0:
             splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="time",
                 style_col="min_sched_interval", sharey=False)
-            savefig(name + "-16x4-schedtime-time")
-
+            savefig("{}-{}-schedtime-time".format(name, cluster_name))
             groups = dataset.groupby(
                 ["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name"])
 
@@ -215,17 +219,16 @@ def process(filename, args):
             dataset["norms"] = groups.apply(normalize)["time"]
             splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="norms",
                 sharey=False, style_col="min_sched_interval")
-            savefig(name + "-16x4-schedtime-score")
+            savefig("{}-{}-schedtime-score".format(name, cluster_name))
 
     # ----- Imodes
     if args.all or args.imodes:
         print("Imodes ...")
-        dataset = data.prepare(cluster_name="16x4", exclude_single=True, imode=None)
-
+        dataset = data.prepare(cluster_name=cluster_name, exclude_single=True, imode=None)
         if len(dataset) > 0:
             splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="time",
                 style_col="imode", sharey=False)
-            savefig(name + "-16x4-imode-time")
+            savefig("{}-{}-imode-time".format(name, cluster_name))
 
             groups = dataset.groupby(
                 ["graph_name", "graph_id", "cluster_name", "bandwidth", "scheduler_name"])
@@ -238,7 +241,7 @@ def process(filename, args):
             dataset["norms_imode"] = groups.apply(normalize_imode)["time"]
             splot(dataset, "graph_name", "scheduler_name", x="bandwidth", y="norms_imode",
                 sharey=False, style_col="imode")
-            savefig(name + "-16x4-imode-score")
+            savefig("{}-{}-imode-score".format(name, cluster_name))
     return name
 
 
@@ -247,13 +250,14 @@ if __name__ == "__main__":
         os.mkdir("outputs")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("resultset")
+    parser.add_argument("resultset", nargs="+")
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--schedulers", action="store_true")
     parser.add_argument("--msd", action="store_true")
     parser.add_argument("--imodes", action="store_true")
     parser.add_argument("--netmodels", action="store_true")
-    parser.add_argument("--cluster", default="16x4")
+    parser.add_argument("--cluster", default="32x4")
     args = parser.parse_args()
 
-    process(args.resultset, args)
+    for resultset in args.resultset:
+        process(resultset, args)
