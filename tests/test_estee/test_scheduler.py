@@ -105,7 +105,7 @@ def test_scheduler_mcp(plan1):
 
 
 def test_scheduler_etf(plan1):
-    assert do_sched_test(plan1, 2, ETFScheduler(), SimpleNetModel()) == 17
+    assert do_sched_test(plan1, 2, ETFScheduler(), SimpleNetModel()) == 15
 
 
 def test_scheduler_blevel(plan1):
