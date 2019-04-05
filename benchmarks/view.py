@@ -139,6 +139,7 @@ def splot(data, col, row, x, y,
 def savefig(name):
     print("Saving ...", name)
     plt.savefig("outputs/" + name + ".pdf", bbox_inches='tight')
+    plt.close()
 
 
 def process(filename, args):
