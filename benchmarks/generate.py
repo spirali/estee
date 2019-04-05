@@ -55,7 +55,7 @@ def gen_graphs(graph_defs, output, prefix):
     print("Saving to ...", output)
     f = pandas.DataFrame(result, columns=["graph_name", "graph_id", "graph"])
     f["graph"] = f["graph"].apply(lambda g: json_serialize(g))
-    f.to_json(output)
+    f.to_json(output, compression="zip")
 
 
 elementary_generators = [

@@ -1,0 +1,76 @@
+{
+  "dask": false,
+  "groups": {
+    "sched-repeat": {
+      "type": "scheduler",
+      "values": "blevel,blevel-gt,tlevel,tlevel-gt,random,dls,etf,mcp,mcp-gt,ws,genetic"
+    },
+    "sched-single": {
+      "type": "scheduler",
+      "values": "single"
+    },
+    "clusters": {
+      "type": "cluster",
+      "values": "8x4,16x4,32x4,16x8,32x16"
+    },
+    "netmodels": {
+      "type": "netmodel",
+      "values": "simple,maxmin"
+    },
+    "netmodel-default": {
+      "type": "netmodel",
+      "values": "maxmin"
+    },
+    "imodes": {
+      "type": "imode",
+      "values": "exact,user,mean"
+    },
+    "imode-default": {
+      "type": "imode",
+      "values": "exact"
+    },
+    "sched-timings": {
+      "type": "sched-timing",
+      "values": "0/0,0.1/0.05,0.4/0.05,1.6/0.05,6.4/0.05"
+    },
+    "sched-timing-default": {
+      "type": "sched-timing",
+      "values": "0.1/0.05"
+    },
+    "repeat-multiple": {
+      "type": "repeat",
+      "values": 20
+    },
+    "repeat-single": {
+      "type": "repeat",
+      "values": 1
+    },
+    "@netmodel": ["clusters", "netmodels", "imode-default", "sched-timing-default"],
+    "@netmodel-repeat": ["@netmodel", "sched-repeat", "repeat-multiple"],
+    "@netmodel-single": ["@netmodel", "sched-single", "repeat-single"],
+    "@imodes": ["clusters", "netmodel-default", "imodes", "sched-timing-default"],
+    "@imodes-repeat": ["@imodes", "sched-repeat", "repeat-multiple"],
+    "@imodes-single": ["@imodes", "sched-single", "repeat-single"],
+    "@sched-timings": ["clusters", "netmodel-default", "imode-default", "sched-timings"],
+    "@sched-timings-repeat": ["@sched-timings", "sched-repeat", "repeat-multiple"],
+    "@sched-timings-single": ["@sched-timings", "sched-single", "repeat-single"]
+  },
+  "experiments": [
+    "@netmodel-repeat",
+    "@netmodel-single",
+    "@imodes-repeat",
+    "@imodes-single",
+    "@sched-timings-repeat",
+    "@sched-timings-single"
+  ],
+  "inputs": [
+      "irw.zip",
+      "elementary.zip",
+      "pegasus.zip"
+  ],
+  "outputs": [
+      "irw-result.zip",
+      "elementary-result.zip",
+      "pegasus-result.zip"
+  ]
+}

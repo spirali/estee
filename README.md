@@ -72,6 +72,7 @@ simulator.write_chrome_trace("trace.json")
 ### Built-in schedulers
 
  * Blevel (HLFET)
+ * Tlevel
  * DLS
  * ETF
  * LAST
@@ -80,7 +81,7 @@ simulator.write_chrome_trace("trace.json")
  * Simple work stealing scheduler
  * Camp2
 
-### Build-in network models
+### Built-in network models
 
   * MaxMin flow model (MaxMinFlowNetModel)
   * All downloads runs at full speed (SimpleNetModel)

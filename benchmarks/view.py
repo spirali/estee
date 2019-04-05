@@ -257,5 +257,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     process(args.resultset, args)
-    #process("elementary")
-    #process("irw")
